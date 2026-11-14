@@ -1,4 +1,4 @@
-import { GAME_EMOTES } from '@mars/shared';
+import { GAME_EMOTES, WORLD_AUTOSAVE_MS } from '@mars/shared';
 import {
   Camera,
   Car,
@@ -114,6 +114,10 @@ function ReadyGame() {
   const [gridVisible, setGridVisible] = useState(true);
   const [stormActive, setStormActive] = useState(false);
   const [driving, setDriving] = useState(false);
+  const [persist, setPersist] = useState({ linked: false, canSave: false });
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const startMission = useMission((m) => m.start);
   const sol = useMission((m) => m.state.sol);
   const blackout = useMission((m) => m.state.resources.energy.value <= 0);
@@ -236,6 +240,28 @@ function ReadyGame() {
       onVehicleChange: (d) => {
         if (alive) setDriving(d);
       },
+      onWorldInfo: (info) => {
+        if (!alive) return;
+        setPersist({ linked: info.linked, canSave: info.canSave });
+        // missão gravada pelo último jogador que salvou este mundo
+        const m = info.mission as { sol?: unknown; resources?: unknown; log?: unknown } | undefined;
+        if (
+          m &&
+          typeof m === 'object' &&
+          typeof m.sol === 'number' &&
+          m.resources &&
+          Array.isArray(m.log)
+        ) {
+          useMission.setState({
+            state: info.mission as ReturnType<typeof useMission.getState>['state'],
+          });
+          toast('💾 Mundo retomado de onde você parou.', 'ok');
+        }
+      },
+      onRoomRejected: () => {
+        // apelido em uso / sala cheia: volta ao início para escolher outro
+        window.setTimeout(() => nav('/'), 1800);
+      },
       onRoomError: (msg) => {
         toast(msg, 'error');
       },
@@ -308,7 +334,47 @@ function ReadyGame() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Salvamento automático a cada 5 minutos, depois que o mundo foi salvo/vinculado a este jogador
+  // biome-ignore lint/correctness/useExhaustiveDependencies: o intervalo só depende do vínculo
+  useEffect(() => {
+    if (!persist.linked || !persist.canSave) return;
+    const id = window.setInterval(() => void saveWorld(true), WORLD_AUTOSAVE_MS);
+    return () => window.clearInterval(id);
+  }, [persist.linked, persist.canSave]);
+
   if (!name) return <Navigate to="/" replace />;
+
+  /** Mission sem o histórico longo: cabe no limite do salvamento. */
+  function missionSnapshot() {
+    const m = useMission.getState().state;
+    return { ...m, log: m.log.slice(-30) };
+  }
+
+  async function saveWorld(silent = false) {
+    const v = viewer.current;
+    if (!v) return false;
+    if (!silent) {
+      setSaving(true);
+      setSaveError('');
+    }
+    const r = await v.saveWorld(missionSnapshot());
+    if (r.ok) setPersist((p) => ({ ...p, linked: true }));
+    if (!silent) {
+      setSaving(false);
+      if (!r.ok) setSaveError(r.error);
+    }
+    return r.ok;
+  }
+
+  /** Sair: pergunta se quer salvar (o último jogador a salvar deixa o estado do mundo). */
+  function requestLeave() {
+    setSaveError('');
+    setLeaveOpen(true);
+  }
+
+  async function saveAndLeave() {
+    if (await saveWorld()) nav('/');
+  }
 
   function rollBase() {
     if (missionStarted && !window.confirm('Sortear outra base reinicia a missão atual. Continuar?'))
@@ -372,7 +438,15 @@ function ReadyGame() {
       {/* Cabeçalho HUD Superior */}
       <header className="game__header">
         <div className="game__header-brands">
-          <Link to="/" className="game__brand" aria-label="Mars Outpost — Início">
+          <Link
+            to="/"
+            className="game__brand"
+            aria-label="Mars Outpost — Início"
+            onClick={(e) => {
+              e.preventDefault();
+              requestLeave();
+            }}
+          >
             <img
               className="game__brand-logo"
               src="/assets/branding/mars-outpost-logo.svg"
@@ -610,6 +684,48 @@ function ReadyGame() {
         </div>
       )}
 
+      {/* Sair: salvar o mundo? */}
+      {leaveOpen && (
+        <div className="game__leave-backdrop" role="presentation">
+          <div
+            className="game__leave"
+            role="alertdialog"
+            aria-labelledby="leave-title"
+            aria-modal="true"
+          >
+            <h2 id="leave-title">Salvar o mundo antes de sair?</h2>
+            <p>
+              {persist.canSave
+                ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O salvamento que vale é o do último jogador a salvar.'
+                : 'Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.'}
+            </p>
+            {saveError && (
+              <p className="game__leave-error" role="alert">
+                {saveError}
+              </p>
+            )}
+            <div className="game__leave-actions">
+              <button type="button" onClick={() => setLeaveOpen(false)} disabled={saving}>
+                Continuar jogando
+              </button>
+              <button type="button" onClick={() => nav('/')} disabled={saving}>
+                Sair sem salvar
+              </button>
+              {persist.canSave && (
+                <button
+                  type="button"
+                  className="game__leave-save"
+                  onClick={() => void saveAndLeave()}
+                  disabled={saving}
+                >
+                  {saving ? 'Salvando…' : 'Salvar e sair'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sair do rover */}
       {driving && (
         <button
@@ -694,7 +810,7 @@ function ReadyGame() {
         inGame={true}
         roomCode={roomCode}
         onCopyRoomCode={handleCopyInvite}
-        onLeaveRoom={() => nav('/')}
+        onLeaveRoom={() => requestLeave()}
       />
     </main>
   );

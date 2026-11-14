@@ -11,6 +11,7 @@ import {
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { SuitModal } from '../components/astronaut/SuitModal';
+import { CookieConsent } from '../components/CookieConsent';
 import { JoinWorldModal } from '../components/JoinWorldModal';
 import {
   type AudioSettings,
@@ -450,6 +451,8 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           </button>
         </div>
       )}
+
+      <CookieConsent />
 
       {/* Modal para Entrar em um Mundo com Código da Sala */}
       <JoinWorldModal

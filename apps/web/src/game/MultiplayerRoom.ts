@@ -71,6 +71,11 @@ export class MultiplayerRoom {
   private disposed = false;
   /** diferença entre o relógio do servidor e o local (ms) */
   private clockOffset = 0;
+  /** salvamento: há vínculo com o mundo / há como salvar / missão gravada pelo último a salvar */
+  persistence: { linked: boolean; canSave: boolean; mission?: unknown } = {
+    linked: false,
+    canSave: false,
+  };
   private lastJoin: RoomJoinOptions | null = null;
 
   private constructor() {}
@@ -82,7 +87,7 @@ export class MultiplayerRoom {
     try {
       await room.joinOnline(opts);
     } catch (err) {
-      if (err instanceof RoomFullError) throw err;
+      if (err instanceof RoomRejectedError) throw err;
       room.teardownSocket();
       await room.joinLocal(opts);
     }
@@ -119,11 +124,16 @@ export class MultiplayerRoom {
           (r) => {
             if (!r.ok) {
               window.clearTimeout(timer);
-              return fail(/cheia/i.test(r.error) ? new RoomFullError(r.error) : new Error(r.error));
+              return fail(
+                /cheia|apelido|inválido/i.test(r.error)
+                  ? new RoomRejectedError(r.error)
+                  : new Error(r.error),
+              );
             }
             this.self = r.self;
             this.world = r.world;
             this.clockOffset = r.serverNow - Date.now();
+            this.persistence = r.persistence;
             this.applyRoster(r.players);
             this.onStatus?.('connected');
             if (!settled) {
@@ -331,6 +341,27 @@ export class MultiplayerRoom {
     else this.post({ t: 'storm', from: this.self.id, v });
   }
 
+  /** Grava o mundo no banco (só online) e vincula este jogador a ele. */
+  save(mission?: unknown): Promise<{ ok: true; savedAt: number } | { ok: false; error: string }> {
+    const socket = this.socket;
+    if (this.mode !== 'online' || !socket) {
+      return Promise.resolve({ ok: false, error: 'Salvar exige a sala online.' });
+    }
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(
+        () => resolve({ ok: false, error: 'O servidor demorou a responder.' }),
+        8000,
+      );
+      socket.emit('world:save', { mission }, (r) => {
+        window.clearTimeout(timer);
+        if (r.ok) {
+          this.persistence = { ...this.persistence, linked: true };
+          resolve({ ok: true, savedAt: r.savedAt });
+        } else resolve({ ok: false, error: r.error });
+      });
+    });
+  }
+
   sendEmote(emote: number) {
     if (this.disposed) return;
     if (this.mode === 'online') this.socket?.emit('player:emote', emote);
@@ -377,7 +408,9 @@ export class MultiplayerRoom {
   static readonly START_HOUR = GAME_START_HOUR;
 }
 
-export class RoomFullError extends Error {}
+/** A sala recusou a entrada (cheia, apelido em uso, código inválido): não cai para o modo local. */
+export class RoomRejectedError extends Error {}
+export class RoomFullError extends RoomRejectedError {}
 
 type LocalMessage =
   | { t: 'hello'; from: string }

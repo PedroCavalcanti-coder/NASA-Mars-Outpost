@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, pgSchema, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  index,
+  integer,
+  jsonb,
+  pgSchema,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 /**
  * Tudo vive no schema `outpost`, separado do `public` onde ficam as tabelas do protótipo
@@ -111,7 +121,48 @@ export const directMessages = outpost.table(
   ],
 );
 
-export const schema = { users, sessions, passwordResets, friendships, directMessages };
+/**
+ * Mundos salvos (um por código de sala). `state` é o JSON do jogo (relógio, painéis, canteiros,
+ * rover e missão) do ÚLTIMO jogador que salvou.
+ */
+export const worlds = outpost.table('worlds', {
+  code: text('code').primaryKey(),
+  baseId: text('base_id').notNull(),
+  state: jsonb('state').notNull(),
+  createdAt: createdAt(),
+  savedAt: timestamp('saved_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Vínculo jogador <-> mundo. `owner` é `u:<id da conta>` ou `k:<HMAC da chave do cookie>`
+ * (a chave em si nunca é guardada). O vínculo vence se o jogador não voltar em 30 dias; um mundo
+ * sem nenhum vínculo é apagado.
+ */
+export const worldLinks = outpost.table(
+  'world_links',
+  {
+    owner: text('owner').notNull(),
+    worldCode: text('world_code')
+      .notNull()
+      .references(() => worlds.code, { onDelete: 'cascade' }),
+    nickname: text('nickname').notNull().default(''),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.owner, t.worldCode] }),
+    index('world_links_seen_idx').on(t.lastSeenAt),
+  ],
+);
+
+export const schema = {
+  users,
+  sessions,
+  passwordResets,
+  friendships,
+  directMessages,
+  worlds,
+  worldLinks,
+};
 
 /** Chave estável de um par de usuários, independente de quem é quem. */
 export const pairKey = (a: string, b: string) => (a < b ? `${a}:${b}` : `${b}:${a}`);

@@ -15,6 +15,7 @@ import { db } from './db/client';
 import { friendRoutes } from './friends/routes';
 import { installErrorHandler } from './http';
 import { messageRoutes } from './messages/routes';
+import { worldRoutes } from './worlds/routes';
 
 export async function buildApp() {
   const app = Fastify({
@@ -54,6 +55,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(friendRoutes);
   await app.register(messageRoutes);
+  await app.register(worldRoutes);
 
   app.get('/api/health', async (): Promise<HealthResponse> => {
     let dbOk = true;

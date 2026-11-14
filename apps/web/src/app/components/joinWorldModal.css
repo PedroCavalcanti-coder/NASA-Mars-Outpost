@@ -189,3 +189,101 @@
   transform: translateY(-1px);
   box-shadow: 0 6px 22px rgba(255, 202, 40, 0.55);
 }
+
+/* ---------- Abas e mundos recentes ---------- */
+.join-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0;
+}
+
+.join-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border: 1.5px solid rgba(120, 172, 225, 0.35);
+  border-radius: 999px;
+  background: transparent;
+  color: #9fb8dc;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.join-tab--on {
+  border-color: #ffb511;
+  background: rgba(255, 181, 17, 0.14);
+  color: #fff;
+}
+
+.join-recent-empty {
+  margin: 8px 0;
+  color: #9fb8dc;
+  font-size: 14px;
+}
+
+.join-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.join-recent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid rgba(120, 172, 225, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.join-recent-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  color: #fff;
+}
+
+.join-recent-info span {
+  overflow: hidden;
+  color: #9fb8dc;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.join-recent-go {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffb511;
+  color: #172c43;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.join-recent-go:disabled {
+  opacity: 0.6;
+}
+
+.join-recent-del {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  background: transparent;
+  color: #ff9b9b;
+  cursor: pointer;
+}

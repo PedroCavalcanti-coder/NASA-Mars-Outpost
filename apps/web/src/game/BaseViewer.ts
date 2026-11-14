@@ -24,8 +24,8 @@ import { InteriorFader } from './InteriorFader';
 import {
   MultiplayerRoom,
   type RemotePlayer,
-  RoomFullError,
   type RoomMode,
+  RoomRejectedError,
 } from './MultiplayerRoom';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
@@ -89,6 +89,10 @@ export interface BaseViewerOptions {
   onMessage?: (msg: string, kind: 'ok' | 'error' | 'info') => void;
   /** um emoji foi enviado (por mim ou por outro jogador): alimenta o chat */
   onEmote?: (info: { name: string; emoji: string; local: boolean }) => void;
+  /** a sala recusou a entrada (apelido em uso, sala cheia): a interface deve voltar ao início */
+  onRoomRejected?: () => void;
+  /** estado de salvamento do mundo ao entrar */
+  onWorldInfo?: (info: { linked: boolean; canSave: boolean; mission?: unknown }) => void;
   /** o jogador entrou/saiu do rover */
   onVehicleChange?: (driving: boolean) => void;
 }
@@ -744,12 +748,15 @@ export class BaseViewer {
       });
     } catch (err) {
       this.options?.onRoomError?.(
-        err instanceof RoomFullError ? err.message : 'Não foi possível entrar na sala.',
+        err instanceof RoomRejectedError ? err.message : 'Não foi possível entrar na sala.',
       );
       this.room = null;
+      if (err instanceof RoomRejectedError) this.options?.onRoomRejected?.();
     }
     const room = this.room;
     if (!room || this.disposed) return;
+
+    this.options?.onWorldInfo?.(room.persistence);
 
     // estado compartilhado já existente na sala
     this.stormTarget = room.world.storm;
@@ -1227,6 +1234,13 @@ export class BaseViewer {
     this.room?.sendVehicle({ x: rover.position.x, z: rover.position.z, h: rover.heading });
     this.options?.onVehicleChange?.(false);
     this.lastSent = null;
+  }
+
+  /** Salva o mundo no banco (com o estado da missão deste jogador). */
+  saveWorld(mission?: unknown) {
+    return this.room
+      ? this.room.save(mission)
+      : Promise.resolve({ ok: false as const, error: 'Sem sala online.' });
   }
 
   /** Mostra um emoji do painel sobre o jogador local (balão com fade) e avisa a sala. */

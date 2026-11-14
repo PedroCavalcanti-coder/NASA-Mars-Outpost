@@ -67,6 +67,44 @@ export interface GameWorldState {
   vehicle?: GameVehicleState;
 }
 
+/** Dias sem entrar no mundo até o vínculo com o jogador expirar (sem vínculos o mundo é apagado). */
+export const WORLD_LINK_DAYS = 30;
+/** Intervalo do salvamento automático (ms). */
+export const WORLD_AUTOSAVE_MS = 5 * 60_000;
+/** Tamanho máximo do JSON de missão aceito num salvamento (bytes). */
+export const WORLD_MISSION_MAX_BYTES = 12_000;
+/** Apelido: tamanho e comparação (sem acento/caixa) usados no servidor e no cliente. */
+export const NICKNAME_MIN = 2;
+export const NICKNAME_MAX = 24;
+export const normalizeNickname = (name: string) =>
+  name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/** O que fica gravado no banco (JSON) para retomar um mundo. */
+export interface WorldSave {
+  v: 1;
+  /** tempo de jogo decorrido: o relógio retoma de onde parou */
+  elapsedMs: number;
+  solar: number[];
+  crops: number[];
+  vehicle?: GameVehicleState;
+  /** estado da missão do ÚLTIMO jogador que salvou */
+  mission?: unknown;
+}
+
+/** Um mundo na lista "recentes" do jogador. */
+export interface RecentWorld {
+  code: string;
+  baseId: string;
+  savedAt: string;
+  lastSeenAt: string;
+  nickname: string;
+}
+
 export type GameAck<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export interface GameJoinRequest {
@@ -81,6 +119,14 @@ export interface GameJoinResult {
   players: GamePlayerState[];
   world: GameWorldState;
   serverNow: number;
+  persistence: {
+    /** este jogador tem vínculo com o mundo (o salvamento automático fica ligado) */
+    linked: boolean;
+    /** há como salvar (cookie de chave aceito ou conta) */
+    canSave: boolean;
+    /** missão gravada pelo último jogador que salvou, se houver */
+    mission?: unknown;
+  };
 }
 
 export interface GameServerToClient {
@@ -102,4 +148,9 @@ export interface GameClientToServer {
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
   'player:emote': (emote: number) => void;
+  /** Grava o mundo no banco e vincula o jogador a ele. */
+  'world:save': (
+    payload: { mission?: unknown },
+    ack: (r: GameAck<{ savedAt: number }>) => void,
+  ) => void;
 }
