@@ -29,8 +29,8 @@ export const baseModelUrl = (id: BaseId) => `/assets/bases/base_${id}.glb`;
 export const baseThumbUrl = (id: BaseId) => `/assets/bases/thumb_${id}.jpg`;
 
 /** Nome, descrição e dimensões da base (arquivo JSON gerado junto do modelo). */
-export async function loadBaseInfo(id: BaseId): Promise<BaseInfo> {
-  const res = await fetch(`/assets/bases/base_${id}.json`);
+export async function loadBaseInfo(id: BaseId, signal?: AbortSignal): Promise<BaseInfo> {
+  const res = await fetch(`/assets/bases/base_${id}.json`, { signal });
   if (!res.ok) throw new Error(`Base ${id} não encontrada`);
   const j = (await res.json()) as Omit<BaseInfo, 'id'>;
   return { id, name: j.name, description: j.description, bounds: j.bounds };

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { type BaseId, type BaseInfo, baseModelUrl } from '../lib/bases';
+import { type AssetPool, yieldFrame } from './runtime/assets';
+import type { GameRuntime } from './runtime/expedition';
+import { instanceStatic } from './runtime/instancing';
 
 /** Paleta de Marte: céu e neblina de poeira ocre, sol baixo e quente. */
 const SKY = 0x1c0d08; // fundo escuro do tema: a borda do terreno lê como mesa de maquete
@@ -21,29 +22,20 @@ const GROWN_CROPS = [
   'PLANTA_Tomate_5_Colheita',
 ];
 
-const loader = new GLTFLoader();
-loader.setMeshoptDecoder(MeshoptDecoder); // os GLB vêm comprimidos com meshopt
-
-function shade(root: THREE.Object3D, cast = true) {
+async function shade(root: THREE.Object3D, cast = true, signal?: AbortSignal) {
+  const nodes: THREE.Mesh[] = [];
   root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (m.isMesh) {
-      m.castShadow = cast;
-      m.receiveShadow = true;
-    }
+    if (o instanceof THREE.Mesh) nodes.push(o);
   });
-}
-
-function disposeTree(root: THREE.Object3D) {
-  root.traverse((o) => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    m.geometry.dispose();
-    for (const mat of Array.isArray(m.material) ? m.material : [m.material]) {
-      for (const v of Object.values(mat)) if (v instanceof THREE.Texture) v.dispose();
-      mat.dispose();
+  let deadline = performance.now() + 2;
+  for (const mesh of nodes) {
+    mesh.castShadow = cast;
+    mesh.receiveShadow = true;
+    if (performance.now() >= deadline) {
+      await yieldFrame(signal);
+      deadline = performance.now() + 2;
     }
-  });
+  }
 }
 
 /**
@@ -67,26 +59,13 @@ export class BaseViewer {
   readonly ready: Promise<void>;
 
   constructor(
-    private readonly container: HTMLElement,
+    private container: HTMLElement,
     private readonly info: BaseInfo,
+    private readonly runtime: GameRuntime,
+    private readonly assets: AssetPool,
   ) {
     const coarse = matchMedia('(pointer: coarse)').matches;
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: !coarse,
-      powerPreference: 'high-performance',
-    });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.5 : 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
-    this.renderer.domElement.setAttribute(
-      'aria-label',
-      `Base marciana ${info.name} em 3D. Arraste para girar, use a roda ou a pinça para aproximar.`,
-    );
-    this.renderer.domElement.style.touchAction = 'none';
-    container.appendChild(this.renderer.domElement);
-
+    this.renderer = runtime.renderer;
     this.scene.background = new THREE.Color(SKY);
     // distância da câmera ao centro ≈ 300; a neblina só encobre o horizonte, não a base
     this.scene.fog = new THREE.Fog(SKY, 330, 560);
@@ -116,6 +95,7 @@ export class BaseViewer {
     const d = 170;
     this.camera.position.set(d, d * 0.82, d);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls.enabled = false;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.09;
     this.controls.minZoom = 0.6;
@@ -128,26 +108,34 @@ export class BaseViewer {
     this.controls.update();
 
     this.resizeObserver = new ResizeObserver(() => this.resize());
-    this.resizeObserver.observe(container);
-    this.resize();
 
     this.ready = this.load();
-    this.frame = requestAnimationFrame(this.tick);
   }
 
   private async load() {
     const { id, bounds: b } = this.info;
-    const [base, land, plants] = await Promise.all([
-      loader.loadAsync(baseModelUrl(id as BaseId)),
-      loader.loadAsync('/assets/bases/terreno.glb').catch(() => null),
-      loader.loadAsync('/assets/bases/plantas.glb').catch(() => null),
-    ]);
+    this.urls = [
+      baseModelUrl(id as BaseId),
+      '/assets/bases/terreno.glb',
+      '/assets/bases/plantas.glb',
+    ];
+    const results = await Promise.allSettled(this.urls.map((url) => this.assets.load(url)));
+    if (this.disposed) return;
+    const failure = results.find((r) => r.status === 'rejected');
+    if (failure?.status === 'rejected') throw failure.reason;
+    const [base, land, plants] = results.map((r) => {
+      if (r.status !== 'fulfilled') throw new Error('Missing world asset');
+      return { ...r.value, scene: r.value.scene.clone(true) };
+    });
+    if (!base) throw new Error('Missing base');
+    const assemblyStart = performance.now();
+    await yieldFrame(this.assets.signal);
     if (this.disposed) return;
 
     if (land) {
       // o terreno novo já foi modelado no tamanho final (255 m), sem escala
 
-      shade(land.scene, false);
+      await shade(land.scene, false, this.assets.signal);
       this.scene.add(land.scene);
     }
 
@@ -157,7 +145,7 @@ export class BaseViewer {
     const model = base.scene;
     model.position.set(-cx * TILE, 0.01, cy * TILE);
     model.scale.setScalar(SCALE);
-    shade(model);
+    await shade(model, true, this.assets.signal);
     this.scene.add(model);
 
     // Canteiros: troca pelo modelo da planta já crescida.
@@ -166,17 +154,17 @@ export class BaseViewer {
       model.traverse((o) => {
         if (/_Batata_\d_[A-Za-z]+_\d+$/.test(o.name)) slots.push(o);
       });
-      slots.forEach((slot, i) => {
+      for (const [i, slot] of slots.entries()) {
         const src = plants.scene.getObjectByName(GROWN_CROPS[i % GROWN_CROPS.length] ?? '');
-        if (!src || !slot.parent) return;
+        if (!src || !slot.parent) continue;
         const plant = src.clone(true);
         plant.position.copy(slot.position);
         plant.quaternion.copy(slot.quaternion);
         plant.scale.copy(slot.scale);
-        shade(plant);
+        await shade(plant, true, this.assets.signal);
         slot.parent.add(plant);
         slot.visible = false;
-      });
+      }
     }
 
     model.traverse((o) => {
@@ -192,7 +180,11 @@ export class BaseViewer {
       this.mixer = new THREE.AnimationMixer(model);
       for (const clip of loops) this.mixer.clipAction(clip).play();
     }
-    land?.scene.updateMatrixWorld(true);
+    this.assets.signal.throwIfAborted();
+    instanceStatic(model, base.animations);
+    this.resize();
+    performance.measure('world-assembly', { start: assemblyStart, end: performance.now() });
+    await this.runtime.warm(this.scene, this.camera);
   }
 
   /** Mostra ou esconde os telhados (esconder deixa ver dentro dos cômodos). */
@@ -200,10 +192,38 @@ export class BaseViewer {
     for (const r of this.roofs) r.visible = visible;
   }
 
+  private urls: string[] = [];
+  prepareGraphics() {
+    return this.runtime.warm(this.scene, this.camera);
+  }
+  get diagnostics() {
+    return {
+      drawCalls: this.renderer.info.render.calls,
+      ...this.renderer.info.memory,
+      programs: this.renderer.info.programs?.length ?? 0,
+    };
+  }
+  activate(container: HTMLElement) {
+    this.runtime.stop();
+    this.container = container;
+    container.append(this.renderer.domElement);
+    this.renderer.domElement.removeAttribute('aria-hidden');
+    this.renderer.domElement.setAttribute('aria-label', `Base marciana ${this.info.name} em 3D`);
+    this.renderer.domElement.style.touchAction = 'none';
+    this.controls.enabled = true;
+    this.resizeObserver.observe(container);
+    this.resize();
+    this.clock.start();
+    this.renderer.render(this.scene, this.camera);
+    performance.mark('world-first-frame');
+    if (performance.getEntriesByName('world-entry-request').length)
+      performance.measure('world-entry', 'world-entry-request', 'world-first-frame');
+    this.frame = this.runtime.request(this.tick);
+  }
   private resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
-    this.renderer.setSize(w, h, false);
+    if (this.controls.enabled) this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
     const aspect = w / h;
@@ -216,19 +236,23 @@ export class BaseViewer {
 
   private tick = () => {
     if (this.disposed) return;
-    this.frame = requestAnimationFrame(this.tick);
-    this.mixer?.update(this.clock.getDelta());
+    this.frame = this.runtime.request(this.tick);
+    this.mixer?.update(Math.min(this.clock.getDelta(), 0.05));
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   };
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frame);
     this.resizeObserver.disconnect();
     this.controls.dispose();
-    disposeTree(this.scene);
-    this.renderer.dispose();
-    this.renderer.domElement.remove();
+    this.scene.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh) o.dispose();
+      if (o instanceof THREE.DirectionalLight) o.dispose();
+    });
+    for (const url of this.urls) this.assets.release(url);
+    this.scene.clear();
   }
 }

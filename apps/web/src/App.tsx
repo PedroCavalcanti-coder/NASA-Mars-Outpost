@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
+import Game from './app/pages/Game';
 import Home from './app/pages/Home';
 import { GuestOnly, RequireAuth } from './auth/guards';
 import { AppLayout } from './layouts/AppLayout';
@@ -18,7 +19,7 @@ const Dashboard = lazy(() => import('./app/pages/Dashboard'));
 const Friends = lazy(() => import('./app/pages/Friends'));
 const Messages = lazy(() => import('./app/pages/Messages'));
 const Profile = lazy(() => import('./app/pages/Profile'));
-const Game = lazy(() => import('./app/pages/Game'));
+
 const Center = lazy(() => import('./app/pages/Center'));
 const Support = lazy(() => import('./app/pages/Support'));
 const About = lazy(() => import('./app/pages/About'));

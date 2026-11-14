@@ -1,41 +1,44 @@
 import { ArrowRight, LogIn, LogOut, Settings } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
+import {
+  expeditionSnapshot,
+  peekExpedition,
+  retainExpedition,
+  subscribeExpedition,
+} from '../../game/runtime/expedition';
+import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
-import { LoadingScreen } from '../components/LoadingScreen';
+import { SuitModal } from '../components/astronaut/SuitModal';
 import {
   type AudioSettings,
   type GameplaySettings,
   SettingsModal,
   type VideoSettings,
 } from '../components/SettingsModal';
-import { SuitModal } from '../components/astronaut/SuitModal';
 import './home.css';
 
-export default function Home() {
+export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean }) {
+  useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
+  const session = peekExpedition();
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
   const nav = useNavigate();
   const canvas = useRef<HTMLDivElement>(null);
   const target = useRef<HTMLButtonElement>(null);
+  const copy = useRef<HTMLElement>(null);
+  const launchAudio = useRef<HTMLAudioElement>(null);
+  const spaceAudio = useRef<HTMLAudioElement>(null);
+  const parachuteAudio = useRef<HTMLAudioElement>(null);
   const scene = useRef<LaunchScene | null>(null);
   const started = useRef(false);
 
   const [phase, setPhase] = useState<'ready' | 'ignition' | 'flight' | 'complete'>('ready');
   const [fallback, setFallback] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
 
-  // Efeito de tela branca ao se aproximar do fim do lançamento
-  const [whiteout, setWhiteout] = useState(false);
-
-  // Popup de apelido e personalização do astronauta
   const [suitModalOpen, setSuitModalOpen] = useState(false);
-  const [astronautName, setAstronautName] = useState('');
-
-  // Tela de Loading antes de entrar no jogo
-  const [showLoading, setShowLoading] = useState(false);
-
   // Menu de Configurações com sub-painéis
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -69,38 +72,79 @@ export default function Home() {
 
   useEffect(() => {
     if (!canvas.current || !target.current) return;
+    let emittedFlightPhase: string | null = null;
+    let releaseSession: (() => void) | undefined;
     try {
+      const lease = retainExpedition();
+      releaseSession = lease.release;
+      if (!arrivalOnly && lease.session.entered) lease.session.restart();
       scene.current = new LaunchScene(
+        lease.session.runtime,
         canvas.current,
         target.current,
         (p) => {
-          setProgress(p);
-          setPhase(p > 0.14 ? 'flight' : 'ignition');
-
-          // Quando chegar perto de terminar a animação (aprox 78%), a tela fica toda branca
-          if (p >= 0.78) {
-            setWhiteout(true);
+          canvas.current?.parentElement?.style.setProperty('--flight-p', String(p));
+          const next = p > 0.14 ? 'flight' : 'ignition';
+          if (next !== emittedFlightPhase) {
+            emittedFlightPhase = next;
+            setPhase(next);
           }
         },
         () => {
+          launchAudio.current?.pause();
+          spaceAudio.current?.pause();
+          parachuteAudio.current?.pause();
           setPhase('complete');
-          // Ao completar a decolagem, abre o popup de apelido e personalização
-          setSuitModalOpen(true);
-          // Dissipa suavemente o flash branco revelando a personalização
-          setTimeout(() => {
-            setWhiteout(false);
-          }, 350);
+        },
+        copy.current,
+        (active) => {
+          if (active) {
+            launchAudio.current?.pause();
+            void spaceAudio.current?.play().catch(() => {});
+          } else {
+            spaceAudio.current?.pause();
+            void parachuteAudio.current?.play().catch(() => {});
+          }
         },
       );
+      if (arrivalOnly) {
+        started.current = true;
+        setPhase('flight');
+        scene.current.startArrival();
+      }
     } catch {
       canvas.current.replaceChildren();
       setFallback(true);
+      if (!releaseSession) {
+        setInitializationError('Não foi possível iniciar o modo 3D neste dispositivo.');
+      } else if (arrivalOnly) {
+        setPhase('complete');
+      }
     }
     return () => {
+      launchAudio.current?.pause();
+      spaceAudio.current?.pause();
+      parachuteAudio.current?.pause();
       scene.current?.dispose();
       scene.current = null;
+      releaseSession?.();
     };
-  }, []);
+  }, [arrivalOnly]);
+
+  useEffect(() => {
+    if (phase !== 'complete' || !session?.ready) return;
+    if (arrivalOnly && (user?.name || getGuestName())) {
+      session.enter();
+      nav('/jogar', { replace: true });
+    } else setSuitModalOpen(true);
+  }, [phase, session, session?.ready, arrivalOnly, nav, user?.name]);
+
+  useEffect(() => {
+    if (session) session.runtime.paused = suitModalOpen;
+    return () => {
+      if (session) session.runtime.paused = false;
+    };
+  }, [session, suitModalOpen]);
 
   useEffect(() => {
     scene.current?.setReducedMotion(video.reducedMotion);
@@ -108,31 +152,59 @@ export default function Home() {
 
   useEffect(() => {
     scene.current?.setQuality(video.quality);
-  }, [video.quality]);
-
-  useEffect(() => {
     scene.current?.setAntialiasing(video.antialiasing);
-  }, [video.antialiasing]);
+    scene.current?.setPostProcessing(video.postProcessing);
+    peekExpedition()?.refreshGraphics();
+  }, [video.quality, video.antialiasing, video.postProcessing]);
 
   useEffect(() => {
-    scene.current?.setPostProcessing(video.postProcessing);
-  }, [video.postProcessing]);
+    if (launchAudio.current) {
+      launchAudio.current.volume = audio.muted
+        ? 0
+        : 0.65 * (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    }
+    if (spaceAudio.current) {
+      spaceAudio.current.volume = audio.muted
+        ? 0
+        : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    }
+    if (parachuteAudio.current) {
+      parachuteAudio.current.volume = audio.muted
+        ? 0
+        : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    }
+  }, [audio]);
 
   const launch = () => {
-    if (started.current) return;
+    if (started.current || initializationError) return;
     if (fallback) {
-      setSuitModalOpen(true);
+      started.current = true;
+      setPhase('complete');
       return;
     }
     if (!scene.current) return;
     started.current = true;
+    spaceAudio.current = new Audio('/assets/audio/foguete2.mp3');
+    spaceAudio.current.volume = audio.muted
+      ? 0
+      : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    parachuteAudio.current = new Audio('/assets/audio/parachute.mp3');
+    parachuteAudio.current.volume = audio.muted
+      ? 0
+      : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    launchAudio.current = new Audio('/assets/audio/foguete.mp3');
+    launchAudio.current.volume = audio.muted
+      ? 0
+      : 0.65 * (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    void launchAudio.current.play().catch(() => {});
     setPhase('ignition');
     scene.current.launch();
   };
 
-  const handleSuitLaunch = (name: string) => {
-    setAstronautName(name);
-    setShowLoading(true);
+  const handleSuitLaunch = () => {
+    if (!session?.ready) return;
+    session.enter();
+    nav('/jogar');
   };
 
   const launching = phase !== 'ready';
@@ -143,9 +215,6 @@ export default function Home() {
       data-phase={phase}
       data-reduced-motion={video.reducedMotion}
     >
-      {/* Efeito de flash/tela branca ao final do lançamento */}
-      <div className={`launch-whiteout ${whiteout ? 'is-active' : ''}`} aria-hidden="true" />
-
       <div className="launch-sky" aria-hidden="true">
         <div className="launch-moon">
           <span />
@@ -218,7 +287,12 @@ export default function Home() {
         </nav>
       </header>
 
-      <section className="launch-copy" aria-label="Sua expedição começa aqui" inert={launching}>
+      <section
+        ref={copy}
+        className="launch-copy"
+        aria-label="Sua expedição começa aqui"
+        inert={launching}
+      >
         <div className="launch-eyebrow">
           BASE ESPACIAL ARES <span>·</span> TERRA <i />
         </div>
@@ -235,12 +309,15 @@ export default function Home() {
           Construa e mantenha uma base em Marte
           <br className="launch-desktop-break" /> com um clima de exploração e descoberta.
         </p>
-        <button className="launch-cta" type="button" onClick={launch} disabled={launching}>
+        <button
+          className="launch-cta"
+          type="button"
+          onClick={launch}
+          disabled={launching || Boolean(initializationError)}
+        >
+          <span className="launch-cta-label">Jogar agora</span>
           <span className="launch-cta-icon" aria-hidden="true">
             <ArrowRight />
-          </span>
-          <span className="launch-cta-label">
-            Jogar Agora<small>Sua missão começa aqui!</small>
           </span>
         </button>
       </section>
@@ -268,19 +345,18 @@ export default function Home() {
                   ? 'Rumo a Marte'
                   : 'Decolando'}
             </strong>
-            <div className="launch-flight-line">
-              <span style={{ transform: `scaleX(${progress})` }} />
-            </div>
             <div className="launch-flight-actions">
               <button
                 type="button"
                 className="launch-skip-button"
+                disabled={phase === 'complete' && !session?.ready}
                 onClick={() => {
-                  setWhiteout(false);
-                  setSuitModalOpen(true);
+                  if (phase === 'complete') {
+                    if (session?.ready) setSuitModalOpen(true);
+                  } else scene.current?.skip();
                 }}
               >
-                Personalizar astronauta e aterrissar →
+                {phase === 'complete' ? 'Personalizar astronauta' : 'Pular animação →'}
               </button>
             </div>
           </>
@@ -300,18 +376,33 @@ export default function Home() {
       </footer>
 
       {/* Popup de Personalização do Astronauta e Apelido */}
-      <SuitModal
-        open={suitModalOpen}
-        onClose={() => setSuitModalOpen(false)}
-        onLaunch={handleSuitLaunch}
-      />
-
-      {/* Tela de Loading que leva para o game */}
-      {showLoading && (
-        <LoadingScreen
-          astronautName={astronautName}
-          onComplete={() => nav('/jogar')}
+      {session?.ready && (
+        <SuitModal
+          open={suitModalOpen}
+          onClose={() => setSuitModalOpen(false)}
+          onLaunch={handleSuitLaunch}
         />
+      )}
+
+      {initializationError && (
+        <div className="expedition-error" role="alert">
+          <p>{initializationError}</p>
+          <button type="button" onClick={() => window.location.reload()}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+
+      {!initializationError && session?.error && (
+        <div className="expedition-error" role="alert">
+          <p>{session.error}</p>
+          <button type="button" onClick={() => void session.prepare()}>
+            Tentar novamente
+          </button>
+          <button type="button" onClick={() => window.location.assign('/')}>
+            Voltar ao início
+          </button>
+        </div>
       )}
 
       {/* Menu de Configurações avançado com Sub-Painéis */}

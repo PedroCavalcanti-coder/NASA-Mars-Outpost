@@ -77,7 +77,9 @@
 }
 
 .suit-modal-preview-col h2 {
-  font: 800 26px / 1.15 "Barlow", sans-serif;
+  font:
+    800 26px / 1.15 "Barlow",
+    sans-serif;
   color: #ffffff;
   margin: 0 0 6px;
 }
@@ -129,39 +131,6 @@
   pointer-events: none;
 }
 
-.suit-preview-loading {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-content: center;
-  gap: 10px;
-  color: #c5dcfa;
-  font-size: 13px;
-}
-
-.suit-loading-spinner {
-  width: 28px;
-  height: 28px;
-  margin: 0 auto;
-  border: 3px solid rgba(120, 172, 225, 0.25);
-  border-top-color: #ffb511;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.suit-preview-fallback {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-}
-
-.suit-fallback-svg {
-  width: 120px;
-  height: 140px;
-}
-
 /* ---------- Presets Grid ---------- */
 .suit-presets-wrap {
   margin-top: 14px;
@@ -183,7 +152,9 @@
   border-radius: 20px;
   background: rgba(22, 45, 90, 0.6);
   color: #e0ecfc;
-  font: 600 12px "Barlow", sans-serif;
+  font:
+    600 12px "Barlow",
+    sans-serif;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -257,7 +228,9 @@
   border-radius: 12px;
   background: #102147;
   color: #f7f8ff;
-  font: 600 16px "Barlow", sans-serif;
+  font:
+    600 16px "Barlow",
+    sans-serif;
   outline: none;
   transition: all 0.2s;
 }
@@ -291,7 +264,9 @@
   border-radius: 10px;
   background: rgba(18, 38, 78, 0.7);
   color: #d8e8fc;
-  font: 600 13px "Barlow", sans-serif;
+  font:
+    600 13px "Barlow",
+    sans-serif;
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -385,7 +360,9 @@
   color: #ffffff;
   cursor: pointer;
   text-align: left;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: all 0.2s;
 }
 
@@ -415,7 +392,9 @@
 
 .suit-btn-text strong {
   display: block;
-  font: 800 22px / 1.1 "Barlow", sans-serif;
+  font:
+    800 22px / 1.1 "Barlow",
+    sans-serif;
   letter-spacing: -0.01em;
 }
 

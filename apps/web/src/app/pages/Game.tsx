@@ -1,64 +1,96 @@
 import { Compass, Dices, Eye, EyeOff, LogOut, TriangleAlert } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
-import type { BaseViewer } from '../../game/BaseViewer';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Link, useNavigate } from 'react-router';
+import type { BaseViewer, BaseViewer as Viewer } from '../../game/BaseViewer';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import '../../styles/game.css';
+import {
+  expeditionSnapshot,
+  peekExpedition,
+  retainExpedition,
+  subscribeExpedition,
+} from '../../game/runtime/expedition';
+import Home from './Home';
 
 /** Jogo (base marciana): sorteia uma das 8 bases e mostra em 3D interativo. */
 export default function Game() {
+  useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
+  const session = peekExpedition();
+  if (!session?.entered || !session.ready) return <Home arrivalOnly />;
+  return <ReadyGame />;
+}
+
+function ReadyGame() {
   const user = useAuth((s) => s.user);
   const guestName = getGuestName();
   const name = user?.name ?? guestName;
   const nav = useNavigate();
   const mount = useRef<HTMLDivElement>(null);
   const viewer = useRef<BaseViewer | null>(null);
-  const [baseId, setBaseId] = useState<BaseId>(() => pickRandomBase());
-  const [info, setInfo] = useState<BaseInfo | null>(null);
+  const [baseId, setBaseId] = useState<BaseId>(() => peekExpedition()?.id ?? pickRandomBase());
+  const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roofs, setRoofs] = useState(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: recria a cena a cada base sorteada
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = mount.current;
-    if (!el || !name) return;
+    if (!el) return;
+    const lease = retainExpedition();
+    const session = lease.session;
+    const releasePreview = setTimeout(() => {
+      session.preview?.dispose();
+      session.preview = null;
+    }, 0);
     let alive = true;
-    let v: BaseViewer | null = null;
+    let replacement: Viewer | null = null;
     setLoading(true);
     setError(null);
-    setInfo(null);
     setRoofs(false);
-    (async () => {
-      try {
-        const [meta, { BaseViewer }] = await Promise.all([
-          loadBaseInfo(baseId),
-          import('../../game/BaseViewer'), // o three.js só é baixado ao entrar no jogo
-        ]);
-        if (!alive) return;
-        setInfo(meta);
-        v = new BaseViewer(el, meta);
-        viewer.current = v;
-        await v.ready;
-        if (alive) setLoading(false);
-      } catch (e) {
-        console.error(e);
-        if (alive) {
-          setError('Não foi possível carregar a base 3D neste dispositivo.');
+    if (baseId === session.info?.id && session.viewer) {
+      session.viewer.activate(el);
+      viewer.current = session.viewer;
+      setInfo(session.info);
+      setLoading(false);
+    } else {
+      void loadBaseInfo(baseId)
+        .then(async (info) => {
+          const { BaseViewer: Viewer } = await import('../../game/BaseViewer');
+          if (!alive) return;
+          replacement = new Viewer(el, info, session.runtime, session.assets);
+          await replacement.ready;
+          if (!alive) return;
+          const previous = session.viewer;
+          session.viewer = replacement;
+          session.info = info;
+          try {
+            sessionStorage.setItem('mo_base', info.id);
+          } catch {
+            /* Private browsing. */
+          }
+          replacement.activate(el);
+          viewer.current = replacement;
+          previous?.dispose();
+          setInfo(info);
           setLoading(false);
-        }
-      }
-    })();
+        })
+        .catch((e) => {
+          if (!alive) return;
+          replacement?.dispose();
+          console.error(e);
+          setError('Não foi possível preparar outra base.');
+          setLoading(false);
+        });
+    }
     return () => {
       alive = false;
-      v?.dispose();
-      viewer.current = null;
+      clearTimeout(releasePreview);
+      if (replacement && replacement !== session.viewer) replacement.dispose();
+      lease.release();
     };
-  }, [baseId, name]);
-
-  if (!name) return <Navigate to="/" replace />;
+  }, [baseId]);
 
   function toggleRoofs() {
     const next = !roofs;
@@ -136,7 +168,7 @@ export default function Game() {
       <aside className="game__card" aria-label="Informações da base">
         <div className="game__card-eyebrow">
           <Compass size={14} />
-          <span>ASTRONAUTA {name.toUpperCase()}</span>
+          <span>ASTRONAUTA {(name ?? 'Explorador').toUpperCase()}</span>
         </div>
         <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
         {info && <p className="game__card-desc">{info.description}</p>}
@@ -150,23 +182,6 @@ export default function Game() {
           <span>Botão direito (ou 2 dedos) para mover</span>
           <span className="game__hint-dot">·</span>
           <span>Roda do mouse para aproximar</span>
-        </div>
-      )}
-
-      {/* Tela de Carregamento 3D */}
-      {loading && (
-        <div className="game__loading" role="status" aria-live="polite">
-          <div className="game__spinner">
-            <div className="game__spinner-ring" />
-            <img
-              src="/assets/branding/mars-outpost-logo.svg"
-              alt=""
-              className="game__spinner-logo"
-            />
-          </div>
-          <span className="game__loading-kicker">APROXIMAÇÃO ORBITAL</span>
-          <h2 className="game__loading-title">Montando a base em Marte…</h2>
-          <p className="game__loading-sub">Renderizando terreno, módulos 3D e estufas</p>
         </div>
       )}
 

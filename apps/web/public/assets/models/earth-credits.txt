@@ -1,0 +1,5 @@
+Low Poly Planet Earth
+Author: Jacobs Development
+Source: https://sketchfab.com/3d-models/low-poly-planet-earth-7b1dc4f802a54a6297e7a46888a85f77
+License: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Changes: centered and scaled in the flight scene.

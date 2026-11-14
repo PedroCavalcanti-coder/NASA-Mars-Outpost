@@ -1,6 +1,7 @@
-import { NAME_MAX, NAME_MIN } from '@mars/shared';
 import {
-  DEFAULT_SUIT,
+  NAME_MAX,
+  NAME_MIN,
+  randomSuit,
   SUIT_COLOR_IDS,
   SUIT_COLORS,
   SUIT_PART_NAMES,
@@ -8,7 +9,6 @@ import {
   SUIT_PRESETS,
   type SuitConfig,
   type SuitPart,
-  randomSuit,
 } from '@mars/shared';
 import { Dices, Rocket, Sparkles, User, X } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
@@ -53,7 +53,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
     setSuit({ ...presetSuit });
   };
 
-  const handleColorChange = (colorId: typeof SUIT_COLOR_IDS[number]) => {
+  const handleColorChange = (colorId: (typeof SUIT_COLOR_IDS)[number]) => {
     setSuit((prev) => ({
       ...prev,
       [selectedPart]: colorId,
@@ -105,11 +105,13 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                 Gire o modelo em 3D e personalize as cores do traje para a expedição.
               </p>
 
-              <SuitPreview
-                suit={suit}
-                highlightPart={selectedPart}
-                className="suit-modal-preview-canvas"
-              />
+              {open && (
+                <SuitPreview
+                  suit={suit}
+                  highlightPart={selectedPart}
+                  className="suit-modal-preview-canvas"
+                />
+              )}
 
               {/* Presets Rápidos */}
               <div className="suit-presets-wrap">
@@ -199,7 +201,9 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
               {/* Paleta de Cores para a Peça Selecionada */}
               <div className="suit-palette-field">
                 <div className="suit-palette-header">
-                  <span className="suit-field-label">2. Cor de {SUIT_PART_NAMES[selectedPart]}</span>
+                  <span className="suit-field-label">
+                    2. Cor de {SUIT_PART_NAMES[selectedPart]}
+                  </span>
                   <span className="suit-active-color-name">
                     {SUIT_COLORS[suit[selectedPart]].name}
                   </span>
