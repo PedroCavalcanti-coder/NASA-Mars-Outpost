@@ -1115,6 +1115,378 @@
 }
 
 /* --------------------------------------------------------------------------
+   Faixa inferior: chat, coordenadas, sair do rover e dicas (sem invadir a doca)
+   -------------------------------------------------------------------------- */
+.hud-bottom {
+  position: fixed;
+  left: 16px;
+  right: 96px;
+  bottom: 14px;
+  z-index: 31;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.hud-bottom__chat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hud-bottom__chat li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid rgba(120, 172, 225, 0.35);
+  border-radius: 999px;
+  background: rgba(10, 22, 50, 0.85);
+  font-size: 13px;
+  animation: hud-bottom-pop 0.25s ease-out;
+}
+
+.hud-bottom__chat li.is-me {
+  border-color: rgba(255, 196, 64, 0.6);
+}
+
+.hud-bottom__emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+@keyframes hud-bottom-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.hud-bottom__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-bottom__exit {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1.5px solid #ffc440;
+  border-radius: 999px;
+  background: rgba(12, 24, 54, 0.92);
+  color: #fff;
+  font:
+    700 14px "Barlow",
+    sans-serif;
+  cursor: pointer;
+}
+
+.hud-bottom__exit:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 3px;
+}
+
+.hud-bottom kbd {
+  padding: 1px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  font:
+    700 11px "Barlow",
+    sans-serif;
+}
+
+.hud-bottom__coords {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(120, 172, 225, 0.35);
+  border-radius: 999px;
+  background: rgba(10, 22, 50, 0.8);
+  color: #cde0fc;
+  font:
+    600 12px "Barlow",
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-bottom__coords .is-inside {
+  color: #7be0a0;
+}
+
+.hud-bottom__coords .is-outside {
+  color: #ffb36b;
+}
+
+.hud-bottom__hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  max-width: 100%;
+  margin: 0;
+  padding: 7px 14px;
+  border: 1px solid rgba(120, 172, 225, 0.3);
+  border-radius: 14px;
+  background: rgba(10, 22, 50, 0.72);
+  color: #c5dcfa;
+  font:
+    500 12px / 1.5 "Barlow",
+    sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Tarefas do Sol
+   -------------------------------------------------------------------------- */
+.hud-tasks__heading {
+  display: flex;
+  justify-content: space-between;
+  margin: 14px 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8fbbe9;
+}
+
+.hud-tasks__heading .is-ok {
+  color: #7be0a0;
+}
+
+.hud-tasks__empty {
+  color: #8fbbe9;
+  font-size: 13px;
+}
+
+.hud-tasks {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hud-task {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(120, 172, 225, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hud-task.is-required:not(.is-done) {
+  border-color: rgba(255, 196, 64, 0.45);
+}
+
+.hud-task.is-done {
+  opacity: 0.6;
+}
+
+.hud-task__check {
+  display: grid;
+  color: #8fbbe9;
+}
+
+.hud-task.is-done .hud-task__check {
+  color: #7be0a0;
+}
+
+.hud-task__icon {
+  display: grid;
+  color: #ffc440;
+}
+
+.hud-task__text {
+  display: grid;
+  min-width: 0;
+}
+
+.hud-task__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.hud-task.is-done .hud-task__title {
+  text-decoration: line-through;
+}
+
+.hud-task__detail {
+  font-size: 11px;
+  line-height: 1.35;
+  color: #8fbbe9;
+}
+
+.hud-task__go {
+  padding: 4px 10px;
+}
+
+/* --------------------------------------------------------------------------
+   Rede elétrica (painel Recursos)
+   -------------------------------------------------------------------------- */
+.hud-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.hud-grid__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.hud-grid__status {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hud-grid__status.is-ok {
+  background: rgba(123, 224, 160, 0.15);
+  color: #7be0a0;
+}
+
+.hud-grid__status.is-warn {
+  background: rgba(255, 196, 64, 0.15);
+  color: #ffc440;
+}
+
+.hud-grid__status.is-bad {
+  background: rgba(255, 99, 99, 0.18);
+  color: #ff8a8a;
+}
+
+.hud-grid__flows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: #cde0fc;
+}
+
+.hud-grid__flows span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-grid__label {
+  font-size: 11px;
+  color: #8fbbe9;
+}
+
+.hud-grid__panel-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hud-grid__panel {
+  position: relative;
+  width: 14px;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 172, 225, 0.4);
+  border-radius: 3px;
+  background: rgba(196, 106, 60, 0.35);
+}
+
+.hud-grid__panel-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #4f8fe0;
+}
+
+.hud-grid__panel.is-dirty {
+  border-color: rgba(255, 179, 107, 0.8);
+}
+
+.hud-grid__oxygen {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.hud-grid__oxygen.is-ok {
+  color: #7be0a0;
+}
+
+.hud-grid__oxygen.is-bad {
+  color: #ff8a8a;
+}
+
+/* Bateria na barra superior: mesmo formato do O₂, cor própria */
+.hud-essential-battery .hud-essential-ox__icon {
+  display: inline-grid;
+}
+
+.hud-essential-battery.hud-essential-ox--ok .hud-essential-ox__fill {
+  background: #ffc440;
+}
+
+.hud-essential-battery small {
+  font-size: 10px;
+}
+
+.hud-essential-battery small.is-up {
+  color: #7be0a0;
+}
+
+.hud-essential-battery small.is-down {
+  color: #ffb36b;
+}
+
+/* O Sol vira sozinho: o antigo botão "Encerrar sol" vira só um aviso */
+.hud-root .mission-endsol {
+  border: 1px dashed rgba(120, 172, 225, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+  color: #cde0fc;
+  cursor: default;
+  padding: 10px 14px;
+  margin: 8px 0 0;
+}
+
+/* Cartões de opção quebram linha em telas estreitas (botão não sai do painel) */
+.hud-option-card {
+  flex-wrap: wrap;
+}
+
+.hud-option-info {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+/* --------------------------------------------------------------------------
    Responsividade: Telas menores (<768px)
    -------------------------------------------------------------------------- */
 @media (max-width: 767px) {
@@ -1183,5 +1555,66 @@
     border-left: none;
     border-right: none;
     border-bottom: none;
+  }
+
+  .hud-bottom {
+    left: 8px;
+    right: 8px;
+    bottom: 66px;
+  }
+
+  .hud-bottom__hints {
+    display: none;
+  }
+
+  /* Barra superior cabe no celular: O₂ e bateria só com o número, alerta só com o ícone */
+  .hud-essential-bar__center {
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .hud-essential-ox {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .hud-essential-ox__bar {
+    display: none;
+  }
+
+  /* botão Menu só com o ícone */
+  .hud-essential-bar__menu-btn span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .hud-essential-alert span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* Celular: o relógio (Sol e hora) vale mais que os botões 2×/3× (velocidade segue no teclado e no desktop) */
+@media (max-width: 640px) {
+  .hud-root .time-controls__speed-group {
+    display: none;
+  }
+
+  .hud-root .time-controls__time-display {
+    display: inline-flex;
+    white-space: nowrap;
+  }
+
+  .hud-root .time-controls__icon-sun,
+  .hud-root .time-controls__icon-moon {
+    display: none;
   }
 }

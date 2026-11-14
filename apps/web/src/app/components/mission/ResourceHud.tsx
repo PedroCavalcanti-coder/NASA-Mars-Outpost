@@ -1,11 +1,12 @@
 import { crises, type DeltaKey, type ResourceId, solForecast } from '@mars/sim';
 import { HeartPulse, Package, Wheat, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useBaseOps } from '../../../game/tasks/store';
 import { useMission } from '../../../store/mission';
 import { DeltaChip } from './DeltaChip';
 
 const RESOURCES: { id: ResourceId; name: string; icon: ReactNode }[] = [
-  { id: 'energy', name: 'Energia', icon: <Zap size={16} /> },
+  { id: 'energy', name: 'Bateria', icon: <Zap size={16} /> },
   { id: 'supplies', name: 'Mantimentos', icon: <Wheat size={16} /> },
   { id: 'materials', name: 'Materiais', icon: <Package size={16} /> },
 ];
@@ -17,6 +18,9 @@ export function ResourceHud() {
   const s = useMission((m) => m.state);
   const feedback = useMission((m) => m.feedback);
   const forecast = solForecast(s);
+  // na base 3D a energia é tempo real: geração dos painéis menos o consumo, por Sol
+  const ops = useBaseOps();
+  const energyRate = ops.active ? ops.generationPerSol - ops.loadPerSol : forecast.energy;
   const active = crises(s);
 
   const delta = (key: DeltaKey) =>
@@ -30,8 +34,7 @@ export function ResourceHud() {
         const { value, max } = s.resources[id];
         const pct = (value / max) * 100;
         const level = value <= 0 ? 'empty' : pct < 25 ? 'low' : 'ok';
-        const perSol =
-          id === 'energy' ? forecast.energy : id === 'supplies' ? forecast.supplies : 0;
+        const perSol = id === 'energy' ? energyRate : id === 'supplies' ? forecast.supplies : 0;
         return (
           <div key={id} className={`mission-res mission-res--${id} is-${level}`}>
             <div className="mission-res__head">

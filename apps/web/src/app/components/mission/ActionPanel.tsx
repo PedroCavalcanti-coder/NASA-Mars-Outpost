@@ -14,13 +14,19 @@ const ICONS: Record<ActionId, ReactNode> = {
 };
 
 const GROUPS: { title: string; actions: ActionId[] }[] = [
-  { title: 'Operações', actions: ['research', 'expedition', 'mine', 'maintain'] },
+  // a limpeza dos painéis agora é feita painel por painel (tarefas do Sol), não por ação
+  { title: 'Operações', actions: ['research', 'expedition', 'mine'] },
   { title: 'Construir', actions: ['build_solar', 'build_greenhouse', 'build_lab'] },
 ];
 
-const COST_LABEL: Record<ResourceId, string> = { energy: 'E', supplies: 'M', materials: 'Mt', oxygen: 'O₂' };
+const COST_LABEL: Record<ResourceId, string> = {
+  energy: 'E',
+  supplies: 'M',
+  materials: 'Mt',
+  oxygen: 'O₂',
+};
 
-/** Ações do sol (cada uma gasta 1 das 3 ações) e o botão de encerrar o sol. */
+/** Ações do sol (cada uma gasta 1 das 3 ações). O Sol vira sozinho com o relógio da base. */
 export function ActionPanel() {
   const s = useMission((m) => m.state);
   const run = useMission((m) => m.run);
@@ -70,20 +76,15 @@ export function ActionPanel() {
         </div>
       ))}
 
-      <button
-        type="button"
-        className="mission-endsol"
-        disabled={!playing}
-        onClick={() => run({ type: 'end_sol' })}
-      >
+      <p className="mission-endsol" role="status">
         <Moon size={18} aria-hidden="true" />
         <span>
-          Encerrar sol
+          {playing ? 'O Sol vira sozinho com o relógio' : 'Missão encerrada'}
           <small>
-            {s.actionsLeft} {s.actionsLeft === 1 ? 'ação restante' : 'ações restantes'}
+            {s.actionsLeft} {s.actionsLeft === 1 ? 'ação restante' : 'ações restantes'} hoje
           </small>
         </span>
-      </button>
+      </p>
     </section>
   );
 }

@@ -20,6 +20,7 @@ import type {
   ActionId,
   CheckResult,
   Command,
+  DeltaKey,
   Deltas,
   LogEntry,
   MissionState,
@@ -149,19 +150,25 @@ function performAction(s: MissionState, id: ActionId) {
   }
 }
 
-function endSol(s: MissionState) {
-  // 1) produção e consumo
+function endSol(s: MissionState, realtime = false) {
+  // 1) produção e consumo (em tempo real, a energia já entrou/saiu da bateria ao longo do sol)
   const forecast = solForecast(s);
-  const economy = change(s, forecast);
+  const economy = change(s, realtime ? { supplies: forecast.supplies } : forecast);
   pushLog(s, {
     tone: 'info',
     title: `Fim do sol ${s.sol}`,
-    text: `Painéis a ${Math.round(s.solarEfficiency * 100)}% de eficiência.`,
+    text: realtime
+      ? 'Relatório diário: consumo de mantimentos da tripulação.'
+      : `Painéis a ${Math.round(s.solarEfficiency * 100)}% de eficiência.`,
     deltas: economy,
   });
 
-  // 2) poeira se acumula
-  s.solarEfficiency = Math.max(ECONOMY.minSolarEfficiency, s.solarEfficiency - ECONOMY.dustPerSol);
+  // 2) poeira se acumula (em tempo real, cada painel tem a própria sujeira)
+  if (!realtime)
+    s.solarEfficiency = Math.max(
+      ECONOMY.minSolarEfficiency,
+      s.solarEfficiency - ECONOMY.dustPerSol,
+    );
 
   // 3) evento do sol
   if (s.sol >= 2 && random(s) < EVENT_CHANCE) pushLog(s, rollEvent(s));
@@ -215,6 +222,23 @@ function checkOutcome(s: MissionState) {
   }
 }
 
+const REWARD_KEYS = new Set<DeltaKey>([...RESOURCE_IDS, 'research', 'morale']);
+
+/** Recompensa de tarefa: só chaves conhecidas e números finitos (limitados a ±100). */
+function applyReward(s: MissionState, cmd: Extract<Command, { type: 'reward' }>) {
+  const clean: Deltas = {};
+  for (const [k, v] of Object.entries(cmd.deltas ?? {}) as [DeltaKey, number][]) {
+    if (REWARD_KEYS.has(k) && Number.isFinite(v)) clean[k] = Math.max(-100, Math.min(100, v));
+  }
+  const deltas = change(s, clean);
+  pushLog(s, {
+    tone: cmd.tone === 'bad' || cmd.tone === 'good' ? cmd.tone : 'info',
+    title: String(cmd.title).slice(0, 80),
+    text: String(cmd.text).slice(0, 240),
+    deltas,
+  });
+}
+
 export interface CommandResult {
   state: MissionState;
   /** registros criados por este comando (mais antigo primeiro) */
@@ -233,7 +257,8 @@ export function runCommand(prev: MissionState, cmd: Command): CommandResult {
 
   const s = cloneState(prev);
   if (cmd.type === 'action') performAction(s, cmd.action);
-  else endSol(s);
+  else if (cmd.type === 'reward') applyReward(s, cmd);
+  else endSol(s, cmd.realtime === true);
   checkOutcome(s);
 
   const entries = s.log.slice(0, s.nextLogId - prev.nextLogId).reverse();

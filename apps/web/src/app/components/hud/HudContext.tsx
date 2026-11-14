@@ -7,6 +7,7 @@
 
 import { createContext, useContext } from 'react';
 import type { BaseViewer } from '../../../game/BaseViewer';
+import type { TaskKind } from '../../../game/tasks/rules';
 import type { BaseInfo } from '../../../lib/bases';
 
 export interface HudContextValue {
@@ -26,8 +27,8 @@ export interface HudContextValue {
   onOpenSettings: () => void;
   onRequestLeave: () => void;
   rollBase: () => void;
-  /** abre um minigame por cima da base (ausente = sem minigames) */
-  onOpenMinigame?: (id: 'solar' | 'oxygen' | 'greenhouse') => void;
+  /** leva o astronauta até uma tarefa do Sol (abre o minigame ao chegar) */
+  onGoToTask?: (kind: TaskKind, index: number) => void;
 }
 
 export const HudContext = createContext<HudContextValue | null>(null);

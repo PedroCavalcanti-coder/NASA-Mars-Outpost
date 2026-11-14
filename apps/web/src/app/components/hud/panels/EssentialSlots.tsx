@@ -5,7 +5,8 @@
  * e o Mostrador de Alertas Ativos.
  */
 
-import { AlertTriangle, CloudSun, Moon, Sun, Wind } from 'lucide-react';
+import { AlertTriangle, BatteryCharging, CloudSun, Fan, Moon, Sun, Wind } from 'lucide-react';
+import { useBaseOps } from '../../../../game/tasks/store';
 import { useMission } from '../../../../store/mission';
 
 interface OxygenSlotProps {
@@ -44,6 +45,44 @@ export function DefaultOxygenSlot({ oxygenLevel }: OxygenSlotProps) {
           className="hud-essential-ox__fill"
           style={{ width: `${Math.max(0, Math.min(100, level))}%` }}
         />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Slot Essencial: bateria da base. Painéis carregam de dia; o suporte à vida consome sempre.
+ * A seta mostra se está carregando (▲) ou descarregando (▼).
+ */
+export function BatterySlot() {
+  const battery = useMission((m) => m.state.resources.energy);
+  const gen = useBaseOps((s) => s.generationPerSol);
+  const load = useBaseOps((s) => s.loadPerSol);
+  const active = useBaseOps((s) => s.active);
+  const pct = Math.round((battery.value / Math.max(1, battery.max)) * 100);
+  const charging = active && gen > load;
+  const level = pct < 15 ? 'critical' : pct < 35 ? 'warning' : 'ok';
+  const trend = !active ? '' : charging ? '▲' : '▼';
+  return (
+    <div
+      className={`hud-essential-slot hud-essential-ox hud-essential-battery hud-essential-ox--${level}`}
+      role="status"
+      title={`Bateria da base: ${battery.value}/${battery.max}. Geração ${gen}/Sol, consumo ${load}/Sol.`}
+      aria-label={`Bateria da base: ${pct}%, ${charging ? 'carregando' : 'descarregando'}`}
+    >
+      <div className="hud-essential-ox__label">
+        <span className="hud-essential-ox__icon" aria-hidden="true">
+          <BatteryCharging size={14} />
+        </span>
+        <span className="hud-essential-ox__value">
+          {pct}%{' '}
+          <small className={charging ? 'is-up' : 'is-down'} aria-hidden="true">
+            {trend}
+          </small>
+        </span>
+      </div>
+      <div className="hud-essential-ox__bar" aria-hidden="true">
+        <div className="hud-essential-ox__fill" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -94,6 +133,7 @@ interface AlertSlotProps {
 export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
   const energy = useMission((m) => m.state.resources.energy.value);
   const blackout = energy <= 0;
+  const clogged = useBaseOps((s) => s.active && s.filterClogged);
 
   if (blackout) {
     return (
@@ -103,6 +143,18 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
       >
         <AlertTriangle size={15} />
         <span>APAGÃO NA BASE</span>
+      </div>
+    );
+  }
+
+  if (clogged) {
+    return (
+      <div
+        className="hud-essential-slot hud-essential-alert hud-essential-alert--danger"
+        role="alert"
+      >
+        <Fan size={15} />
+        <span>FILTRO DE AR ENTUPIDO</span>
       </div>
     );
   }

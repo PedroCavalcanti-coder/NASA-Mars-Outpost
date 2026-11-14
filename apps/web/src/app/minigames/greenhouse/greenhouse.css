@@ -180,3 +180,29 @@
     opacity: 0.8;
   }
 }
+
+/* Dentro da base: sem repetir; um botão claro para voltar ao jogo */
+.greenhouse-preview[data-in-base] .greenhouse-replay {
+  display: none;
+}
+.greenhouse-back {
+  position: absolute;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  min-height: 48px;
+  padding: 0 28px;
+  border: 2px solid #e6d6a1;
+  border-radius: 999px;
+  color: #1d2b27;
+  background: #e6d6a1;
+  font: 700 17px / 1 inherit;
+  cursor: pointer;
+}
+.greenhouse-back:hover {
+  background: #f3e6b8;
+}
+.greenhouse-back:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}

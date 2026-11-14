@@ -60,13 +60,21 @@ export interface GameSettingsStore extends GameSettingsData {
   resetSettings: () => void;
 }
 
+const media = (q: string) =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(q).matches
+    : false;
+/** Celular/tela pequena começa no gráfico baixo; o resto, no médio. */
+const isSmallScreen =
+  typeof window !== 'undefined' && (window.innerWidth < 768 || media('(pointer: coarse)'));
+
 export const DEFAULT_GAME_SETTINGS: GameSettingsData = {
   outline: { ...DEFAULT_OUTLINE_SETTINGS },
   video: {
-    quality: 'medium',
+    quality: isSmallScreen ? 'low' : 'medium',
     postProcessing: true,
     antialiasing: true,
-    reducedMotion: false,
+    reducedMotion: media('(prefers-reduced-motion: reduce)'),
   },
   audio: {
     masterVolume: 80,

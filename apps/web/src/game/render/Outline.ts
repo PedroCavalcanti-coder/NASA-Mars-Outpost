@@ -155,9 +155,14 @@ export class InvertedHullManager {
   addObject(root: THREE.Object3D, category: 'astronaut' | 'vehicle' | 'equipment' = 'equipment') {
     const baseThickness = category === 'astronaut' ? 0.024 : category === 'vehicle' ? 0.034 : 0.028;
 
+    // Coleta antes de mexer na árvore: inserir irmãos durante o traverse altera a lista percorrida
+    const meshes: THREE.Mesh[] = [];
     root.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh || mesh.userData.isOutlineHull) return;
+      if ((o as THREE.Mesh).isMesh) meshes.push(o as THREE.Mesh);
+    });
+
+    for (const mesh of meshes) {
+      if (mesh.userData.isOutlineHull) continue;
 
       // Evita aplicar em partículas, balões de emote e nametags
       if (
@@ -166,10 +171,10 @@ export class InvertedHullManager {
         mesh.name.startsWith('emote') ||
         mesh.type === 'Sprite'
       ) {
-        return;
+        continue;
       }
 
-      if (this.entries.has(mesh)) return;
+      if (this.entries.has(mesh)) continue;
 
       const isSkinned = Boolean((mesh as THREE.SkinnedMesh).isSkinnedMesh);
       const matKey = `${isSkinned ? 'skinned' : 'static'}_${category}`;
@@ -213,20 +218,21 @@ export class InvertedHullManager {
       }
 
       this.entries.set(mesh, { mesh, hull, baseThickness });
-    });
+    }
   }
 
   /** Remove um objeto rastreado e libera seus cascos invertidos */
   removeObject(root: THREE.Object3D) {
+    // Coleta antes de remover: tirar irmãos durante o traverse pula/quebra a iteração
+    const found: HullEntry[] = [];
     root.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const entry = this.entries.get(mesh);
-      if (entry) {
-        entry.hull.parent?.remove(entry.hull);
-        this.entries.delete(mesh);
-      }
+      const entry = this.entries.get(o as THREE.Mesh);
+      if (entry) found.push(entry);
     });
+    for (const entry of found) {
+      entry.hull.parent?.remove(entry.hull);
+      this.entries.delete(entry.mesh);
+    }
   }
 
   /** Sincroniza a visibilidade das silhuetas com a malha base */

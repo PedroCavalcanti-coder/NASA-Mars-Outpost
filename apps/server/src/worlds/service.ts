@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import {
   GAME_MAX_CROPS,
   GAME_MAX_SOLAR,
+  normalizeCare,
   type RecentWorld,
   WORLD_LINK_DAYS,
   WORLD_MISSION_MAX_BYTES,
@@ -57,6 +58,9 @@ export function sanitizeSave(raw: {
   solar: number[];
   crops: number[];
   vehicle?: { x: number; z: number; h: number };
+  timeScale?: unknown;
+  paused?: unknown;
+  care?: unknown;
   mission?: unknown;
 }): WorldSave | null {
   const clampList = (l: number[], max: number, top: number) =>
@@ -68,6 +72,10 @@ export function sanitizeSave(raw: {
     crops: clampList(raw.crops, GAME_MAX_CROPS, 3),
   };
   if (raw.vehicle) save.vehicle = raw.vehicle;
+  if (raw.timeScale === 2 || raw.timeScale === 3) save.timeScale = raw.timeScale;
+  if (raw.paused === true) save.paused = true;
+  const care = normalizeCare(raw.care);
+  if (care) save.care = care;
   if (raw.mission !== undefined) {
     let json = '';
     try {

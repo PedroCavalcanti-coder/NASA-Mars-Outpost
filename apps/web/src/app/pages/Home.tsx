@@ -8,17 +8,13 @@ import {
   retainExpedition,
   subscribeExpedition,
 } from '../../game/runtime/expedition';
+import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { SuitModal } from '../components/astronaut/SuitModal';
 import { CookieConsent } from '../components/CookieConsent';
 import { JoinWorldModal } from '../components/JoinWorldModal';
-import {
-  type AudioSettings,
-  type GameplaySettings,
-  SettingsModal,
-  type VideoSettings,
-} from '../components/SettingsModal';
+import { SettingsModal } from '../components/SettingsModal';
 import './home.css';
 
 export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean }) {
@@ -52,33 +48,15 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
   // Menu de Configurações com sub-painéis
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Detecção de tela pequena: baixo por padrão em mobile, médio em desktop
-  const isSmallScreen =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || matchMedia('(pointer: coarse)').matches);
-
-  const [video, setVideo] = useState<VideoSettings>({
-    quality: isSmallScreen ? 'low' : 'medium',
-    postProcessing: true,
-    antialiasing: true,
-    reducedMotion:
-      typeof window !== 'undefined'
-        ? matchMedia('(prefers-reduced-motion: reduce)').matches
-        : false,
-  });
-
-  const [audio, setAudio] = useState<AudioSettings>({
-    masterVolume: 80,
-    sfxVolume: 85,
-    musicVolume: 70,
-    muted: false,
-  });
-
-  const [gameplay, setGameplay] = useState<GameplaySettings>({
-    showHints: true,
-    highContrast: false,
-    cameraSensitivity: 1,
-  });
+  // Configurações salvas no navegador (as mesmas do jogo; baixo por padrão em celular)
+  const video = useGameSettings((s) => s.video);
+  const setVideo = useGameSettings((s) => s.setVideo);
+  const audio = useGameSettings((s) => s.audio);
+  const setAudio = useGameSettings((s) => s.setAudio);
+  const gameplay = useGameSettings((s) => s.gameplay);
+  const setGameplay = useGameSettings((s) => s.setGameplay);
+  const outline = useGameSettings((s) => s.outline);
+  const setOutline = useGameSettings((s) => s.setOutline);
 
   useEffect(() => {
     if (!canvas.current || !target.current) return;
@@ -532,6 +510,8 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         onAudioChange={setAudio}
         gameplay={gameplay}
         onGameplayChange={setGameplay}
+        outline={outline}
+        onOutlineChange={setOutline}
       />
     </main>
   );

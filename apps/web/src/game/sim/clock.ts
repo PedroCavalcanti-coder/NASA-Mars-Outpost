@@ -154,6 +154,11 @@ export class GameClock {
     GameClock.defaultInstance.reset();
   }
 
+  /** Reavalia quem pode controlar (ex.: alguém entrou ou saiu da sala). */
+  static refresh(): void {
+    GameClock.defaultInstance.refresh();
+  }
+
   private static hourSkipper: ((hour: number) => void) | null = null;
   private static solSkipper: (() => void) | null = null;
 
@@ -225,6 +230,10 @@ export class GameClock {
 
   detachRoom(): void {
     this.room = null;
+    this.notify();
+  }
+
+  refresh(): void {
     this.notify();
   }
 

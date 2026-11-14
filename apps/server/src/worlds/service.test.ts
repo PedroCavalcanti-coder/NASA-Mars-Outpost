@@ -24,6 +24,15 @@ describe('sanitizeSave', () => {
     expect(sanitizeSave({ ...base, mission: big })).toBeNull();
     expect(sanitizeSave({ ...base, mission: { sol: 2 } })?.mission).toEqual({ sol: 2 });
   });
+
+  it('guarda velocidade e pausa só quando válidas', () => {
+    const s = sanitizeSave({ ...base, timeScale: 3, paused: true });
+    expect(s?.timeScale).toBe(3);
+    expect(s?.paused).toBe(true);
+    const bad = sanitizeSave({ ...base, timeScale: 99, paused: 'sim' });
+    expect(bad?.timeScale).toBeUndefined();
+    expect(bad?.paused).toBeUndefined();
+  });
 });
 
 describe('cookies', () => {

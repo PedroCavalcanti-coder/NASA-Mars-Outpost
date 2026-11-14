@@ -6,19 +6,32 @@
  * renderiza a EssentialBar no topo, o HudDock e a gaveta lateral HudPanelContainer.
  */
 
-import { Camera, Compass, Hammer, MessageSquare, Settings, Users, Wrench, Zap } from 'lucide-react';
+import {
+  Camera,
+  ClipboardList,
+  Compass,
+  MessageSquare,
+  Settings,
+  Users,
+  Wrench,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useMemo } from 'react';
+import { useDailyTasks } from '../../../game/tasks/store';
 import { EssentialBar } from './EssentialBar';
+import { HudBottom } from './HudBottom';
 import { HudContext, type HudContextValue } from './HudContext';
 import { HudDock } from './HudDock';
 import { HudPanelContainer } from './HudPanelContainer';
-import { ActivitiesPanel } from './panels/ActivitiesPanel';
 import { ChatPanel } from './panels/ChatPanel';
 import { DevPanel } from './panels/DevPanel';
 import { MissionPanel } from './panels/MissionPanel';
 import { ResourcesPanel } from './panels/ResourcesPanel';
 import { RoomPanel } from './panels/RoomPanel';
 import { SystemPanel } from './panels/SystemPanel';
+import { TasksPanel } from './panels/TasksPanel';
+// registra o relógio com pausa/velocidade no slot essencial (e as ações de tempo do painel Dev)
+import './panels/TimeControls';
 import { ViewPanel } from './panels/ViewPanel';
 import { registerPanel } from './registry';
 import { useHudPanels } from './useHudPanels';
@@ -33,6 +46,10 @@ interface HudRootProps extends HudContextValue {
     formatted: string;
   };
   stormActive: boolean;
+  driving: boolean;
+  onExitRover: () => void;
+  showHints: boolean;
+  showCoords: boolean;
 }
 
 export function HudRoot(props: HudRootProps) {
@@ -55,7 +72,11 @@ export function HudRoot(props: HudRootProps) {
     onOpenSettings,
     onRequestLeave,
     rollBase,
-    onOpenMinigame,
+    onGoToTask,
+    driving,
+    onExitRover,
+    showHints,
+    showCoords,
   } = props;
 
   // Detecta se a URL possui ?dev ou se está em ambiente de desenvolvimento Vite
@@ -84,11 +105,11 @@ export function HudRoot(props: HudRootProps) {
       }),
 
       registerPanel({
-        id: 'atividades',
+        id: 'tarefas',
         group: 'missao',
-        title: 'Atividades',
-        icon: Hammer,
-        component: ActivitiesPanel,
+        title: 'Tarefas do Sol',
+        icon: ClipboardList,
+        component: TasksPanel,
       }),
 
       registerPanel({
@@ -151,13 +172,17 @@ export function HudRoot(props: HudRootProps) {
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
 
   // Badges dinâmicos para a Doca
+  // tarefas obrigatórias pendentes do Sol (o número some quando tudo está feito)
+  const tasks = useDailyTasks();
+  const pendingRequired = tasks.filter((t) => t.required && !t.done).length;
   const dockBadges = useMemo<Record<string, string | number | null>>(() => {
     return {
+      tarefas: pendingRequired > 0 ? pendingRequired : null,
       sala: players.count > 1 ? `${players.count}/4` : null,
       chat: chat.length > 0 ? chat.length : null,
       dev: 'DEV',
     };
-  }, [players.count, chat.length]);
+  }, [players.count, chat.length, pendingRequired]);
 
   // Contexto compartilhado para alimentar os painéis
   const contextValue: HudContextValue = useMemo(
@@ -178,7 +203,7 @@ export function HudRoot(props: HudRootProps) {
       onOpenSettings,
       onRequestLeave,
       rollBase,
-      onOpenMinigame,
+      onGoToTask,
     }),
     [
       roomCode,
@@ -197,7 +222,7 @@ export function HudRoot(props: HudRootProps) {
       onOpenSettings,
       onRequestLeave,
       rollBase,
-      onOpenMinigame,
+      onGoToTask,
     ],
   );
 
@@ -223,6 +248,14 @@ export function HudRoot(props: HudRootProps) {
 
         {/* Gaveta Retrátil do Painel Ativo */}
         <HudPanelContainer panel={activePanel} onClose={closePanel} />
+
+        {/* Faixa inferior: mensagens, coordenadas, sair do rover e dicas (sem invadir a doca) */}
+        <HudBottom
+          driving={driving}
+          onExitRover={onExitRover}
+          showHints={showHints}
+          showCoords={showCoords}
+        />
       </div>
     </HudContext.Provider>
   );

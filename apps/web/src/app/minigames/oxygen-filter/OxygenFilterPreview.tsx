@@ -1,14 +1,27 @@
 import { ArrowDown, Trash2, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
 import { usePreviewClose } from '../usePreviewClose';
 import { OXYGEN_DEBRIS, OxygenDebris, OxygenFilterIllustration } from './OxygenFilterIllustration';
 import { useOxygenCleaning } from './useOxygenCleaning';
 import './oxygenFilter.css';
 
-/** Playable preview, isolated from the base simulation. */
-export default function OxygenFilterPreview({ onClose }: { onClose?: () => void }) {
+/** Troca do filtro de ar. Dentro da base, `onComplete` avisa o jogo uma única vez. */
+export default function OxygenFilterPreview({
+  onClose,
+  onComplete,
+}: {
+  onClose?: () => void;
+  onComplete?: () => void;
+}) {
   const { close, closeButton } = usePreviewClose(onClose);
   const game = useOxygenCleaning();
   const complete = game.removed.size === OXYGEN_DEBRIS.length;
+  const reported = useRef(false);
+  useEffect(() => {
+    if (!complete || !onComplete || reported.current) return;
+    reported.current = true;
+    onComplete();
+  }, [complete, onComplete]);
   const drag = game.active.current;
   return (
     <main
@@ -76,8 +89,8 @@ export default function OxygenFilterPreview({ onClose }: { onClose?: () => void 
         {complete && (
           <>
             <p>Filtro limpo. Fluxo de ar restabelecido.</p>
-            <button type="button" onClick={game.reset}>
-              Limpar novamente
+            <button type="button" onClick={onComplete ? close : game.reset}>
+              {onComplete ? 'Voltar à base' : 'Limpar novamente'}
             </button>
           </>
         )}

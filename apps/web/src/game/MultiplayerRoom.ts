@@ -1,17 +1,22 @@
 import {
+  applyTimeChange,
+  applyTimeState,
   GAME_MAX_PLAYERS,
   GAME_MAX_SOLAR,
   GAME_NAMESPACE,
   GAME_START_HOUR,
+  type GameCareState,
   type GameClientToServer,
   type GameMotion,
   type GamePlayerInfo,
   type GamePlayerState,
   type GameServerToClient,
+  type GameTimeRequest,
+  type GameTimeState,
   type GameVehicleState,
   type GameWorldState,
-  gameClock,
   type SuitConfig,
+  worldClock,
 } from '@mars/shared';
 import { io, type Socket } from 'socket.io-client';
 
@@ -64,6 +69,10 @@ export class MultiplayerRoom {
   onCrops?: (stages: number[]) => void;
   onEmote?: (id: string, emote: number) => void;
   onVehicle?: (v: GameVehicleState) => void;
+  /** cuidados diários (horta/filtro) mudaram por outro jogador */
+  onCare?: (c: GameCareState) => void;
+  /** pausa/velocidade/salto do relógio da sala mudou */
+  onTime?: (t: GameTimeState) => void;
   onStatus?: (status: 'connected' | 'reconnecting') => void;
 
   private socket: GameSocket | null = null;
@@ -94,9 +103,19 @@ export class MultiplayerRoom {
     return room;
   }
 
-  /** Hora do dia e Sol atuais, iguais para todos na sala. */
+  /** Hora do dia e Sol atuais, iguais para todos na sala (com pausa e velocidade). */
   clock() {
-    return gameClock(this.world.clockStart, Date.now() + this.clockOffset);
+    return worldClock(this.world, this.serverNow());
+  }
+
+  /** Agora no relógio do servidor (ms). */
+  serverNow() {
+    return Date.now() + this.clockOffset;
+  }
+
+  /** Astronautas na sala, contando conosco. */
+  get playerCount() {
+    return this.remotes.size + 1;
   }
 
   // ------------------------------------------------------------------ online (Socket.IO)
@@ -173,6 +192,14 @@ export class MultiplayerRoom {
       socket.on('world:solar', (stages) => {
         this.world.solar = stages;
         this.onSolar?.(stages);
+      });
+      socket.on('world:care', (c) => {
+        this.world.care = c;
+        this.onCare?.(c);
+      });
+      socket.on('world:time', (t) => {
+        applyTimeState(this.world, t);
+        this.onTime?.(t);
       });
     });
   }
@@ -259,6 +286,11 @@ export class MultiplayerRoom {
             solar: m.world.solar,
             crops: m.world.crops,
             vehicle: m.world.vehicle,
+            care: m.world.care,
+            timeScale: m.world.timeScale,
+            paused: m.world.paused,
+            timeUpdatedAt: m.world.timeUpdatedAt,
+            virtualElapsedMs: m.world.virtualElapsedMs,
           };
           break;
         case 'joined':
@@ -291,6 +323,14 @@ export class MultiplayerRoom {
         case 'solar':
           this.world.solar = m.stages;
           this.onSolar?.(m.stages);
+          break;
+        case 'care':
+          this.world.care = m.care;
+          this.onCare?.(m.care);
+          break;
+        case 'time':
+          applyTimeState(this.world, m.time);
+          this.onTime?.(m.time);
           break;
       }
     };
@@ -380,6 +420,27 @@ export class MultiplayerRoom {
     else this.post({ t: 'vehicle', from: this.self.id, v });
   }
 
+  /**
+   * Pede mudança no relógio. Online, o servidor decide (e devolve a todos, inclusive a nós);
+   * no modo local, aplicamos aqui e avisamos as outras abas.
+   */
+  sendTime(req: GameTimeRequest) {
+    if (this.disposed) return;
+    if (this.mode === 'online') {
+      this.socket?.emit('world:time', req);
+      return;
+    }
+    const time = applyTimeChange(this.world, this.serverNow(), req);
+    this.onTime?.(time);
+    this.post({ t: 'time', from: this.self.id, time });
+  }
+
+  sendCare(care: GameCareState) {
+    this.world.care = care;
+    if (this.mode === 'online') this.socket?.emit('world:care', care);
+    else this.post({ t: 'care', from: this.self.id, care });
+  }
+
   sendSolar(stages: number[]) {
     this.world.solar = stages;
     if (this.mode === 'online') this.socket?.emit('world:solar', stages);
@@ -429,4 +490,6 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
-  | { t: 'vehicle'; from: string; v: GameVehicleState };
+  | { t: 'vehicle'; from: string; v: GameVehicleState }
+  | { t: 'time'; from: string; time: GameTimeState }
+  | { t: 'care'; from: string; care: GameCareState };

@@ -31,7 +31,15 @@ export type ActionId =
   | 'build_greenhouse'
   | 'build_lab';
 
-export type Command = { type: 'action'; action: ActionId } | { type: 'end_sol' };
+export type Command =
+  | { type: 'action'; action: ActionId }
+  /**
+   * `realtime`: o sol terminou pelo relógio do mundo 3D. Energia (bateria) e poeira dos painéis
+   * já são simuladas em tempo real, então o fim do sol não as recalcula.
+   */
+  | { type: 'end_sol'; realtime?: boolean }
+  /** recompensa/custo vindo de uma tarefa do mundo (minigame, colheita, sondagem) */
+  | { type: 'reward'; tone: LogEntry['tone']; title: string; text: string; deltas: Deltas };
 
 /** Variações exibidas na HUD (recursos, dados de pesquisa e moral). */
 export type DeltaKey = ResourceId | 'research' | 'morale';

@@ -37,6 +37,71 @@ export function gameClock(clockStart: number, now: number, opts?: GameClockOptio
   return { hour: hours % 24, sol: 1 + Math.floor(hours / 24), elapsedMs };
 }
 
+/** Velocidades aceitas do relógio da sala. */
+export type GameTimeScale = 1 | 2 | 3;
+/** Maior salto de tempo aceito num único pedido (ferramentas de teste): 1 Sol. */
+export const GAME_TIME_MAX_ADVANCE_MS = GAME_SOL_SECONDS * 1000;
+
+/** Estado do relógio compartilhado depois de uma mudança de pausa/velocidade. */
+export interface GameTimeState {
+  paused: boolean;
+  scale: GameTimeScale;
+  /** instante (ms, relógio do servidor) da mudança: âncora do cálculo */
+  timeUpdatedAt: number;
+  /** tempo de jogo acumulado até a âncora (ms) */
+  virtualElapsedMs: number;
+}
+
+/** Pedido de mudança no relógio (só o coordenador pode, se houver mais de um jogador). */
+export interface GameTimeRequest {
+  paused: boolean;
+  scale: GameTimeScale;
+  /** avança o relógio nesta quantidade de ms (0..1 Sol) — usado pelas ações de teste */
+  advanceMs?: number;
+}
+
+export const normalizeTimeScale = (s: unknown): GameTimeScale => (s === 2 || s === 3 ? s : 1);
+
+/** Hora/Sol do mundo levando em conta pausa e velocidade. */
+export function worldClock(world: GameWorldState, now: number) {
+  return gameClock(world.clockStart, now, {
+    paused: world.paused,
+    scale: world.timeScale,
+    timeUpdatedAt: world.timeUpdatedAt,
+    virtualElapsedMs: world.virtualElapsedMs,
+  });
+}
+
+/**
+ * Aplica uma mudança de pausa/velocidade ao mundo (muta `world`) e devolve o estado novo.
+ * O tempo já decorrido é "congelado" na âncora, então a hora nunca pula ao trocar de velocidade.
+ */
+export function applyTimeChange(
+  world: GameWorldState,
+  now: number,
+  req: GameTimeRequest,
+): GameTimeState {
+  const advance = Number.isFinite(req.advanceMs)
+    ? Math.max(0, Math.min(GAME_TIME_MAX_ADVANCE_MS, req.advanceMs ?? 0))
+    : 0;
+  const state: GameTimeState = {
+    paused: req.paused === true,
+    scale: normalizeTimeScale(req.scale),
+    timeUpdatedAt: now,
+    virtualElapsedMs: worldClock(world, now).elapsedMs + advance,
+  };
+  applyTimeState(world, state);
+  return state;
+}
+
+/** Copia um estado de relógio recebido para o mundo local. */
+export function applyTimeState(world: GameWorldState, t: GameTimeState): void {
+  world.paused = t.paused;
+  world.timeScale = t.scale;
+  world.timeUpdatedAt = t.timeUpdatedAt;
+  world.virtualElapsedMs = t.virtualElapsedMs;
+}
+
 /** `drive`: o jogador está dentro do rover (x, z, h passam a ser os do veículo). */
 /** Emojis do painel circular. O servidor só aceita estes (pelo índice), nunca texto livre. */
 export const GAME_EMOTES = ['😀', '😂', '👍', '👋', '❤️', '😮', '🎉', '🚀'] as const;
@@ -72,6 +137,26 @@ export interface GameVehicleState {
   h: number;
 }
 
+/**
+ * Cuidados diários compartilhados pela sala: em que Sol cada canteiro e o filtro de ar foram
+ * cuidados pela última vez (0 = nunca). Canteiro sem cuidado num Sol morre na virada do dia;
+ * filtro sem troca num Sol fica entupido até ser limpo.
+ */
+export interface GameCareState {
+  crops: number[];
+  filter: number;
+}
+
+/** Valida cuidados vindos da rede/banco: inteiros 0..100000, no máximo `GAME_MAX_CROPS` canteiros. */
+export function normalizeCare(raw: unknown): GameCareState | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const sol = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100_000, Math.round(v))) : 0;
+  if (!Array.isArray(r.crops)) return null;
+  return { crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol), filter: sol(r.filter) };
+}
+
 /** Estado compartilhado do mundo: todos veem o mesmo relógio, tempestade, painéis, canteiros e rover. */
 export interface GameWorldState {
   /** instante (ms, relógio do servidor) em que a sala estava às `GAME_START_HOUR` do Sol 1 */
@@ -82,8 +167,10 @@ export interface GameWorldState {
   crops: number[];
   /** onde o rover está parado; ausente = ponto de partida da base */
   vehicle?: GameVehicleState;
-  // [seam:tempo-pausa-aceleracao] escala e pausa compartilhadas do mundo
-  timeScale?: 1 | 2 | 3;
+  /** cuidados diários (horta e filtro de ar); ausente = ninguém cuidou ainda */
+  care?: GameCareState;
+  /** relógio: velocidade, pausa e âncora (ver `worldClock`); ausentes = 1×, rodando desde `clockStart` */
+  timeScale?: GameTimeScale;
   paused?: boolean;
   timeUpdatedAt?: number;
   virtualElapsedMs?: number;
@@ -114,8 +201,9 @@ export interface WorldSave {
   solar: number[];
   crops: number[];
   vehicle?: GameVehicleState;
-  // [seam:tempo-pausa-aceleracao] escala e pausa persistidas no save
-  timeScale?: 1 | 2 | 3;
+  care?: GameCareState;
+  /** velocidade e pausa do relógio quando o mundo foi salvo */
+  timeScale?: GameTimeScale;
   paused?: boolean;
   /** estado da missão do ÚLTIMO jogador que salvou */
   mission?: unknown;
@@ -162,9 +250,10 @@ export interface GameServerToClient {
   'world:solar': (stages: number[]) => void;
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
+  'world:care': (c: GameCareState) => void;
   'player:emote': (id: string, emote: number) => void;
-  // [seam:tempo-pausa-aceleracao] sincronização de velocidade e pausa
-  'world:time': (payload: { paused: boolean; scale: 1 | 2 | 3 }) => void;
+  /** relógio mudou (pausa/velocidade/salto): vai para todos, inclusive quem pediu */
+  'world:time': (t: GameTimeState) => void;
 }
 
 export interface GameClientToServer {
@@ -174,9 +263,10 @@ export interface GameClientToServer {
   'world:solar': (stages: number[]) => void;
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
+  'world:care': (c: GameCareState) => void;
   'player:emote': (emote: number) => void;
-  // [seam:tempo-pausa-aceleracao] alteração de velocidade e pausa (restrita ao coordenador se > 1 jogador)
-  'world:time': (payload: { paused: boolean; scale: 1 | 2 | 3 }) => void;
+  /** pede mudança no relógio (restrita ao coordenador se houver mais de um jogador) */
+  'world:time': (req: GameTimeRequest) => void;
   /** Grava o mundo no banco e vincula o jogador a ele. */
   'world:save': (
     payload: { mission?: unknown },

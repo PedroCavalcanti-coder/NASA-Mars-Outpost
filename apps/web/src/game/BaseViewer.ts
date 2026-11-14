@@ -1,4 +1,10 @@
-import { GAME_EMOTES, GAME_MAX_SOLAR, type GameMotion } from '@mars/shared';
+import {
+  GAME_EMOTES,
+  GAME_MAX_SOLAR,
+  type GameCareState,
+  type GameMotion,
+  normalizeTimeScale,
+} from '@mars/shared';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { VideoSettings } from '../app/components/SettingsModal';
@@ -7,6 +13,7 @@ import { isGameOverlayOpen } from '../lib/gameOverlay';
 import { getGuestName } from '../lib/guest';
 import { loadGLB } from '../lib/modelCache';
 import { readSuitPreference } from '../lib/suitPreference';
+import { useMission } from '../store/mission';
 import { AstronautActor, type Collider, type MoveContext } from './AstronautActor';
 import { marsSky, SkyDome } from './Atmosphere';
 import {
@@ -30,13 +37,33 @@ import {
 } from './MultiplayerRoom';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
+import { type OutlineOptions, OutlineSystem } from './render/Outline';
 import type { AssetPool } from './runtime/assets';
 import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
-import { Rover } from './Vehicle';
+import { GameClock } from './sim/clock';
+import { adjustBaseOxygen } from './survival/OxygenSystem';
 // [seam:survival]
 import type { SystemContext } from './systems/context';
 import { GameSystemRegistry } from './systems/registry';
+import { targetLayer } from './tasks/drilling';
+import {
+  caredToday,
+  cropDead,
+  DRILL_ENERGY_COST,
+  dustStage,
+  dustStep,
+  filterClogged,
+  GRID,
+  gridStep,
+  hashString,
+  OXYGEN_PLANT,
+  panelDustRate,
+  SOL_SECONDS,
+  solarGeneration,
+} from './tasks/rules';
+import { publishOps, resetOps } from './tasks/store';
+import { Rover } from './Vehicle';
 import './survival';
 
 const SCALE = 0.75;
@@ -82,11 +109,15 @@ export interface BaseViewerOptions {
   initialHour?: number;
   initialSol?: number;
   videoSettings?: VideoSettings;
+  /** linha de contorno inicial (ver `setOutlineSettings`) */
+  outlineSettings?: Pick<OutlineOptions, 'enabled' | 'strength' | 'color'>;
   onTimeUpdate?: (info: { hour: number; sol: number; isDay: boolean; formatted: string }) => void;
   onCoordinateUpdate?: (info: { gx: number; gy: number; inside: boolean }) => void;
   onStormAlert?: (msg: string) => void;
   onStormChange?: (active: boolean, remote: boolean) => void;
   onSolarCleaned?: () => void;
+  /** abre um minigame por cima da base (tarefas do Sol) */
+  onMinigame?: (req: MinigameRequest) => void;
   onCameraModeChange?: (mode: 'follow' | 'free') => void;
   onPlayersChange?: (info: { count: number; mode: RoomMode }) => void;
   onRoomError?: (msg: string) => void;
@@ -114,13 +145,27 @@ type ShipPhase = 'away' | 'landing' | 'hold' | 'depart';
 type PendingTask =
   | { kind: 'clean'; index: number; face: THREE.Vector3 }
   | { kind: 'crop'; index: number; face: THREE.Vector3 }
+  | { kind: 'filter'; index: number; face: THREE.Vector3 }
+  | { kind: 'drill'; face: THREE.Vector3 }
   | { kind: 'enter'; face: THREE.Vector3 }
   | { kind: 'goto'; face: THREE.Vector3 };
+
+/** Minigame que o viewer pede para a interface abrir (e que volta em `completeMinigame`). */
+export type MinigameRequest =
+  | { kind: 'solar'; index: number }
+  | { kind: 'greenhouse'; index: number }
+  | { kind: 'oxygen'; index: number }
+  | { kind: 'drill'; baseId: string; target: string; sol: number };
+
+/** Resultado de um minigame concluído. */
+export type MinigameResult = { research?: number; layerName?: string; hit?: boolean };
 
 /** Resultado de um clique no cenário. */
 type PickResult =
   | { type: 'solar'; index: number }
   | { type: 'crop'; index: number }
+  | { type: 'filter'; index: number }
+  | { type: 'drill' }
   | { type: 'vehicle' }
   | { type: 'floor'; point: THREE.Vector3 }
   | { type: 'surface'; point: THREE.Vector3; normal: THREE.Vector3 }
@@ -158,6 +203,8 @@ function isTypingTarget(t: EventTarget | null) {
 
 export class BaseViewer {
   private readonly renderer: THREE.WebGLRenderer;
+  /** linha de contorno (desligada por padrão; ligada nas configurações de vídeo) */
+  private readonly outline: OutlineSystem;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 900);
   private readonly controls: OrbitControls;
@@ -252,13 +299,34 @@ export class BaseViewer {
 
   // Multiplayer
   private room: MultiplayerRoom | null = null;
+  /** viewer que controla o GameClock global agora (o último ativado) */
+  private static clockOwner: BaseViewer | null = null;
   private netAcc = 0;
   private lastSent: GameMotion | null = null;
 
   // Painéis solares e poeira
   private solarPanels: Array<{ mesh: THREE.Mesh; stage: number; parentPos: THREE.Vector3 }> = [];
   private solarDustMats: THREE.MeshStandardMaterial[] = [];
-  private stormDustTimer = 0;
+  /** poeira contínua de cada painel (0..4); o estágio visível é a parte inteira */
+  private solarDust: number[] = [];
+  private dustRates: number[] = [];
+  /** semente das tarefas/poeira desta sala (igual para todos os jogadores) */
+  private opsSeed = 0;
+  /** cuidados diários compartilhados (horta e filtro) */
+  private care: GameCareState = { crops: [], filter: 0 };
+  /** Sol visto no último quadro (para detectar a virada do dia) */
+  private opsSol = 0;
+  private opsTimer = 0;
+  private panelsCleanedToday: number[] = [];
+  private drillDoneSol = 0;
+  /** bateria com fração (a missão guarda inteiros) e último valor escrito nela */
+  private batteryFloat = -1;
+  private batteryWritten = -1;
+  private oxygenAcc = 0;
+  private generation = 0;
+  private blackout = false;
+  private filterSpots: THREE.Vector3[] = [];
+  private drillSpot: THREE.Vector3 | null = null;
 
   // Nave: pouso -> desembarque -> decolagem, uma chegada por vez
   private ship: THREE.Object3D | null = null;
@@ -306,6 +374,7 @@ export class BaseViewer {
       runtime?.renderer ??
       new THREE.WebGLRenderer({ antialias: !coarse, powerPreference: 'high-performance' });
     if (!runtime) this.configureRenderer(coarse);
+    this.outline = new OutlineSystem(this.renderer, this.scene, this.camera);
 
     this.skyDome = new SkyDome(380, true);
     this.scene.add(this.skyDome.mesh);
@@ -410,6 +479,19 @@ export class BaseViewer {
     this.options = options;
     this.currentHour = options?.initialHour ?? 9;
     this.currentSol = options?.initialSol ?? 1;
+    // tarefas do Sol: semente estável por sala+base (poeira e sorteios iguais para todos)
+    this.opsSeed = hashString(`${options?.roomCode ?? ''}|${this.info.id}`);
+    this.dustRates = this.solarPanels.map((_, i) => panelDustRate(this.opsSeed, i));
+    this.opsSol = 0;
+    resetOps();
+
+    // relógio da simulação: começa rodando a 1× (a sala, se houver, ajusta ao entrar)
+    BaseViewer.clockOwner = this;
+    GameClock.reset();
+    GameClock.setTimeSkipper(
+      (hour) => this.skipHours((((hour - this.currentHour) % 24) + 24) % 24),
+      () => this.skipHours(24),
+    );
 
     this.runtime?.stop();
     if (this.runtime) this.configureRenderer();
@@ -426,6 +508,7 @@ export class BaseViewer {
     this.bindEvents();
     this.resizeObserver.observe(container);
     if (options?.videoSettings) this.setQualitySettings(options.videoSettings);
+    if (options?.outlineSettings) this.setOutlineSettings(options.outlineSettings);
     this.resize();
 
     // Não depende de `document.hidden`: janela coberta/minimizada também pára o rAF sem avisar.
@@ -556,6 +639,7 @@ export class BaseViewer {
     }
 
     this.setupSolarPanels(model);
+    this.setupTaskSpots(model);
     this.crops = new CropSystem(model, plants?.scene ?? null, (root) => {
       shade(root);
     });
@@ -601,7 +685,9 @@ export class BaseViewer {
 
     // ---- desempenho: mobília fixa vira poucas malhas; matrizes estáticas congeladas ----
     const isProtected = (o: THREE.Object3D) =>
-      /_Telhado$|_Nave$|_Solar_\d+$|Antena|_Folha(Inf|Sup)$/.test(o.name) ||
+      /_Telhado$|_Nave$|_Solar_\d+$|Antena|_Folha(Inf|Sup)$|_FiltroAr_0[12]$|_Sonda$/.test(
+        o.name,
+      ) ||
       o === this.shipFx.flame ||
       o === this.shipFx.dust;
     const stats = batchStaticMeshes(model, isProtected);
@@ -622,6 +708,10 @@ export class BaseViewer {
 
     // Poeira/tempestade: aplicada depois de todas as trocas de material
     applyBoundaryFog(this.scene);
+
+    // Contorno: depois do agrupamento de malhas (registra as malhas finais da base)
+    this.outline.initBase(model);
+    this.outline.addDynamicObject(rover.root, 'vehicle');
 
     if (this.disposed) return;
     // shaders e texturas na GPU antes de mostrar (sem engasgo na primeira imagem)
@@ -658,6 +748,7 @@ export class BaseViewer {
     this.solarPanels = panels
       .slice(0, GAME_MAX_SOLAR)
       .map((p) => ({ mesh: p.overlay, stage: 0, parentPos: p.worldPos }));
+    this.solarDust = this.solarPanels.map(() => 0);
 
     // marca o nó inteiro do painel: clicar em qualquer parte dele vale como clicar no painel
     this.solarPanels.forEach((p, index) => {
@@ -667,6 +758,23 @@ export class BaseViewer {
           break;
         }
       }
+    });
+  }
+
+  /** Filtros de ar (suporte à vida) e sonda de perfuração: alvos de clique das tarefas. */
+  private setupTaskSpots(model: THREE.Object3D) {
+    const filters: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (/_FiltroAr_0[12]$/.test(o.name)) filters.push(o);
+      else if (/_Sonda$/.test(o.name)) {
+        o.userData.pick = { kind: 'drill' };
+        this.drillSpot = o.getWorldPosition(new THREE.Vector3());
+      }
+    });
+    filters.sort((a, b) => a.name.localeCompare(b.name));
+    this.filterSpots = filters.slice(0, 2).map((f, index) => {
+      f.userData.pick = { kind: 'filter', index };
+      return f.getWorldPosition(new THREE.Vector3());
     });
   }
 
@@ -806,14 +914,71 @@ export class BaseViewer {
       this.options?.onStormChange?.(val > 0, true);
     };
     room.onSolar = (stages) => this.applySolarStages(stages);
+    // cuidados: sem histórico (mundo novo), os canteiros que já vêm plantados contam como
+    // cuidados no dia da chegada (o minigame passa a ser exigido a partir do Sol seguinte);
+    // o filtro fica pendente desde o primeiro dia
+    const startSol = room.clock().sol;
+    const known = room.world.care;
+    if (known) this.care = { crops: [...known.crops], filter: known.filter };
+    else {
+      this.care = {
+        crops: (this.crops?.slots ?? []).map(() => startSol),
+        filter: startSol - 1,
+      };
+      if (room.isCoordinator) room.sendCare(this.care);
+    }
+    room.onCare = (c) => {
+      this.care = { crops: [...c.crops], filter: c.filter };
+    };
     room.onCrops = (stages) => this.crops?.apply(stages);
     room.onVehicle = (vs) => {
       if (!this.roverDriver) this.rover?.place(vs.x, vs.z, vs.h, GROUND_Y);
     };
+
+    // Pausa e velocidade são da sala: o GameClock (HUD) pede, a sala decide e devolve a todos
+    if (BaseViewer.clockOwner === this) {
+      GameClock.attachRoom({
+        isCoordinator: () => room.isCoordinator,
+        playerCount: () => room.playerCount,
+        sendTime: (paused, scale) => room.sendTime({ paused, scale }),
+      });
+      GameClock.setFromRemote(room.world.paused === true, normalizeTimeScale(room.world.timeScale));
+    }
+    room.onTime = (t) => {
+      if (BaseViewer.clockOwner === this) GameClock.setFromRemote(t.paused, t.scale);
+      const c = room.clock();
+      this.currentHour = c.hour;
+      this.currentSol = c.sol;
+    };
     this.reportPlayers();
   }
 
+  /**
+   * Avança o relógio em `hours` horas marcianas (ações de teste do painel Dev).
+   * Na sala, o pedido passa pelo servidor (só o coordenador); sozinho/offline, é local.
+   */
+  private skipHours(hours: number) {
+    if (!(hours > 0)) return;
+    if (!GameClock.canControl()) {
+      this.options?.onMessage?.('Só o coordenador da sala pode adiantar o tempo.', 'error');
+      return;
+    }
+    if (this.room) {
+      this.room.sendTime({
+        paused: GameClock.isPaused(),
+        scale: GameClock.getScale(),
+        advanceMs: (hours / 24) * MARS_SOL_DURATION_SECONDS * 1000,
+      });
+      return;
+    }
+    const total = this.currentHour + hours;
+    this.currentSol += Math.floor(total / 24);
+    this.currentHour = total % 24;
+  }
+
   private reportPlayers() {
+    // quem pode pausar depende de quantos estão na sala
+    GameClock.refresh();
     this.options?.onPlayersChange?.({
       count: 1 + this.remoteAstronauts.size,
       mode: this.room?.mode ?? 'local',
@@ -832,6 +997,7 @@ export class BaseViewer {
     }
     this.scene.add(actor.root);
     applyBoundaryFog(actor.root);
+    this.outline.addDynamicObject(actor.root, 'astronaut');
     if (p.motion) actor.applySnapshot(p.motion);
 
     if (existing) {
@@ -885,6 +1051,7 @@ export class BaseViewer {
       this.roverRemoteTarget = null;
       this.rover?.setDriver(null, false);
     }
+    this.outline.removeDynamicObject(actor.root);
     actor.dispose();
     this.reportPlayers();
   }
@@ -898,6 +1065,7 @@ export class BaseViewer {
     if (this.disposed) return;
     this.scene.add(actor.root);
     applyBoundaryFog(actor.root);
+    this.outline.addDynamicObject(actor.root, 'astronaut');
   }
 
   // ====================================================================== pouso
@@ -981,6 +1149,10 @@ export class BaseViewer {
 
   private simulate(dt: number, animate: boolean) {
     this.simTime += dt;
+    // Tempo do MUNDO (relógio, sobrevivência, canteiros, poeira): segue pausa e 1×/2×/3×.
+    // Andar, câmera e animações continuam em tempo real, mesmo pausado.
+    GameClock.tick(dt);
+    const worldDt = dt * GameClock.effectiveScale();
 
     // Relógio: igual para todos da sala (ou local, se estiver sozinho/offline)
     if (this.room) {
@@ -989,7 +1161,7 @@ export class BaseViewer {
       this.currentSol = c.sol;
     } else {
       const prev = this.currentHour;
-      this.currentHour = (this.currentHour + dt * (24 / MARS_SOL_DURATION_SECONDS)) % 24;
+      this.currentHour = (this.currentHour + worldDt * (24 / MARS_SOL_DURATION_SECONDS)) % 24;
       if (this.currentHour < prev) this.currentSol += 1;
     }
 
@@ -1048,15 +1220,16 @@ export class BaseViewer {
       this.shadowDirty = true;
     }
 
-    this.accumulateSolarDust(dt);
-    this.growCrops(dt);
+    this.accumulateSolarDust(worldDt);
+    this.growCrops(worldDt);
+    this.updateOperations(worldDt);
     this.broadcastState(dt, local);
     this.checkStormAlert(local);
 
     if (this.mixer && animate) this.mixer.update(dt);
 
     // [seam:survival] execução dos sistemas de jogo plugáveis com SystemContext
-    this.systems.update(dt, this.getSystemContext());
+    this.systems.update(worldDt, this.getSystemContext());
   }
 
   /** Dirige o rover (jogador local). */
@@ -1160,10 +1333,36 @@ export class BaseViewer {
         this.notify('Este painel já está limpo. ✨', 'info');
         return;
       }
-      local.startTask('clean', p.face, () => {
-        this.setSolarStage(p.index, 0);
-        this.room?.sendSolar(this.solarStages());
-        this.options?.onSolarCleaned?.();
+      local.face(p.face);
+      this.options?.onMinigame?.({ kind: 'solar', index: p.index });
+      return;
+    }
+
+    if (p.kind === 'filter') {
+      if (caredToday(this.care.filter, this.currentSol)) {
+        this.notify('O filtro de ar já foi trocado hoje. ✨', 'info');
+        return;
+      }
+      local.face(p.face);
+      this.options?.onMinigame?.({ kind: 'oxygen', index: p.index });
+      return;
+    }
+
+    if (p.kind === 'drill') {
+      if (this.drillDoneSol >= this.currentSol) {
+        this.notify('A sondagem de hoje já foi feita. Volte amanhã.', 'info');
+        return;
+      }
+      if (useMission.getState().state.resources.energy.value < DRILL_ENERGY_COST) {
+        this.notify(`⚡ A sonda precisa de ${DRILL_ENERGY_COST} de energia na bateria.`, 'error');
+        return;
+      }
+      local.face(p.face);
+      this.options?.onMinigame?.({
+        kind: 'drill',
+        baseId: this.info.id,
+        target: targetLayer(this.info.id, this.opsSeed, this.currentSol).id,
+        sol: this.currentSol,
       });
       return;
     }
@@ -1175,7 +1374,9 @@ export class BaseViewer {
       local.startTask('plant', p.face, () => {
         this.crops?.setStage(p.index, 1);
         this.room?.sendCrops(this.crops?.stages() ?? []);
-        this.notify('🌱 Muda plantada! Volte quando estiver pronta.', 'ok');
+        // plantar conta como o cuidado de hoje: o minigame volta a ser exigido amanhã
+        this.markCropCared(p.index);
+        this.notify('🌱 Muda plantada! Amanhã ela vai precisar de água e luz.', 'ok');
       });
     } else if (slot.stage === 3) {
       local.startTask('harvest', p.face, () => {
@@ -1183,10 +1384,20 @@ export class BaseViewer {
         this.room?.sendCrops(this.crops?.stages() ?? []);
         const label =
           slot.kind === 'Batata' ? 'batatas' : slot.kind === 'Alface' ? 'alfaces' : 'tomates';
+        useMission.getState().run({
+          type: 'reward',
+          tone: 'good',
+          title: 'Colheita',
+          text: `${label[0]?.toUpperCase()}${label.slice(1)} frescas para a tripulação.`,
+          deltas: { supplies: 6 },
+        });
         this.notify(`🧺 Colheita feita: ${label} frescas para a base!`, 'ok');
       });
+    } else if (caredToday(this.care.crops[p.index] ?? 0, this.currentSol)) {
+      this.notify('🌿 Este canteiro já foi cuidado hoje. Volte amanhã.', 'info');
     } else {
-      this.notify('🌿 Ainda está crescendo. Volte daqui a pouco.', 'info');
+      local.face(p.face);
+      this.options?.onMinigame?.({ kind: 'greenhouse', index: p.index });
     }
   }
 
@@ -1426,22 +1637,243 @@ export class BaseViewer {
     const p = this.solarPanels[index];
     if (!p) return;
     p.stage = Math.max(0, Math.min(4, Math.round(stage)));
+    // poeira contínua acompanha o estágio vindo da sala (sem apagar a fração local)
+    const dust = this.solarDust[index] ?? 0;
+    if (dustStage(dust) !== p.stage) this.solarDust[index] = p.stage;
     p.mesh.visible = p.stage > 0;
     const mat = this.solarDustMats[p.stage];
     if (mat) p.mesh.material = mat;
   }
 
-  /** A poeira da tempestade suja os painéis; só UM jogador da sala conta o tempo (sem duplicar). */
+  /**
+   * Poeira: cada painel suja no próprio ritmo, e tempestades aceleram muito.
+   * Só UM jogador da sala conta o tempo (sem duplicar); os outros recebem os estágios.
+   */
   private accumulateSolarDust(dt: number) {
-    if (this.stormCurrent < 0.1) return;
+    if (dt <= 0 || !this.dustRates.length) return;
     if (this.room && !this.room.isCoordinator) return;
-    this.stormDustTimer += dt * this.stormCurrent;
-    if (this.stormDustTimer < 5) return;
-    this.stormDustTimer = 0;
+    let changed = false;
     this.solarPanels.forEach((p, idx) => {
-      if (p.stage < 4) this.setSolarStage(idx, p.stage + 1);
+      const dust = dustStep(
+        this.solarDust[idx] ?? 0,
+        this.dustRates[idx] ?? 1,
+        dt,
+        this.stormCurrent,
+      );
+      this.solarDust[idx] = dust;
+      const stage = dustStage(dust);
+      if (stage !== p.stage) {
+        this.setSolarStage(idx, stage);
+        changed = true;
+      }
     });
-    this.room?.sendSolar(this.solarStages());
+    if (changed) this.room?.sendSolar(this.solarStages());
+  }
+
+  // ====================================================================== operação da base
+
+  /**
+   * Rede elétrica, oxigênio, cuidados diários e virada do Sol (chamado a cada passo do mundo).
+   * A bateria é a energia da missão: painéis carregam de dia, o suporte à vida consome sempre.
+   */
+  private updateOperations(dt: number) {
+    if (!this.started || !this.solarPanels) return;
+    const sol = this.currentSol;
+    const mission = useMission.getState();
+
+    // ---- bateria (a missão guarda inteiros; aqui fica a fração)
+    const res = mission.state.resources.energy;
+    if (this.batteryFloat < 0 || res.value !== this.batteryWritten) {
+      // gasto/ganho por fora (ações da missão, sondagem): adota o valor novo
+      this.batteryFloat =
+        this.batteryFloat < 0 ? res.value : this.batteryFloat + (res.value - this.batteryWritten);
+    }
+    const sun = Math.max(0, 1 - this.nightFactor);
+    const stages = this.solarPanels.map((p) => p.stage);
+    this.generation = solarGeneration(stages, sun, this.stormCurrent);
+    const grid = gridStep(this.batteryFloat, res.max, this.generation, dt);
+    this.batteryFloat = grid.battery;
+    const wasBlackout = this.blackout;
+    this.blackout = grid.blackout;
+    const rounded = Math.round(grid.battery);
+    if (rounded !== res.value) {
+      useMission.setState((m) => ({
+        state: {
+          ...m.state,
+          resources: {
+            ...m.state.resources,
+            energy: { ...m.state.resources.energy, value: rounded },
+          },
+        },
+      }));
+    }
+    this.batteryWritten = rounded;
+    if (this.blackout && !wasBlackout)
+      this.notify('⚡ Apagão: bateria vazia. Limpe os painéis e espere o sol.', 'error');
+    if (!this.blackout && wasBlackout) this.notify('⚡ Energia restabelecida.', 'ok');
+
+    // ---- oxigênio: filtro limpo + energia = a base produz O₂
+    const clogged = filterClogged(this.care.filter, sol);
+    const producing = !clogged && !this.blackout;
+    if (producing) {
+      this.oxygenAcc += (OXYGEN_PLANT.perSol / SOL_SECONDS) * dt;
+      if (this.oxygenAcc >= 1) {
+        const whole = Math.floor(this.oxygenAcc);
+        adjustBaseOxygen(whole);
+        this.oxygenAcc -= whole;
+      }
+    }
+
+    // ---- virada do Sol
+    if (this.opsSol === 0) this.opsSol = sol;
+    if (sol !== this.opsSol) this.onSolChanged(this.opsSol, sol);
+
+    // ---- canteiros sem cuidado morrem (coordenador decide e avisa a sala); 2×/s basta
+    this.opsTimer += dt;
+    if (this.opsTimer < 0.5) return;
+    this.opsTimer = 0;
+    this.killNeglectedCrops(sol);
+    this.publishOperations(producing, clogged);
+  }
+
+  private onSolChanged(prev: number, sol: number) {
+    this.opsSol = sol;
+    this.panelsCleanedToday = [];
+    // a missão (campanha) avança um dia por Sol do mundo; energia e poeira já são tempo real
+    const steps = Math.min(3, Math.max(0, sol - prev));
+    const mission = useMission.getState();
+    for (let i = 0; i < steps; i++) {
+      if (mission.state.status !== 'playing') break;
+      mission.run({ type: 'end_sol', realtime: true });
+    }
+    if (filterClogged(this.care.filter, sol))
+      this.notify('🫁 O filtro de ar entupiu: a base parou de produzir oxigênio.', 'error');
+    this.notify(`☀️ Sol ${sol}: confira as tarefas do dia (tecla T).`, 'info');
+  }
+
+  private killNeglectedCrops(sol: number) {
+    const crops = this.crops;
+    if (!crops || (this.room && !this.room.isCoordinator)) return;
+    const dead: number[] = [];
+    for (const slot of crops.slots) {
+      if (cropDead(slot.stage, this.care.crops[slot.index] ?? 0, sol)) {
+        crops.setStage(slot.index, 0);
+        dead.push(slot.index + 1);
+      }
+    }
+    if (!dead.length) return;
+    this.room?.sendCrops(crops.stages());
+    this.notify(
+      dead.length === 1
+        ? `🥀 O canteiro ${dead[0]} morreu sem cuidados. Replante e cuide no dia seguinte.`
+        : `🥀 ${dead.length} canteiros morreram sem cuidados: ${dead.join(', ')}.`,
+      'error',
+    );
+  }
+
+  private publishOperations(producing: boolean, clogged: boolean) {
+    const res = useMission.getState().state.resources.energy;
+    const crops = this.crops?.slots ?? [];
+    publishOps({
+      active: true,
+      sol: this.currentSol,
+      seed: this.opsSeed,
+      baseId: this.info.id,
+      panelStages: this.solarPanels.map((p) => p.stage),
+      panelsCleanedToday: this.panelsCleanedToday,
+      cropStages: crops.map((c) => c.stage),
+      cropNames: crops.map((c) => c.kind),
+      cropCare: crops.map((c) => this.care.crops[c.index] ?? 0),
+      filterSol: this.care.filter,
+      filterClogged: clogged,
+      drillDoneSol: this.drillDoneSol,
+      drillTarget: targetLayer(this.info.id, this.opsSeed, this.currentSol).name,
+      generationPerSol: Math.round(this.generation * SOL_SECONDS),
+      loadPerSol: GRID.loadPerSol,
+      battery: res.value,
+      capacity: res.max,
+      blackout: this.blackout,
+      oxygenProducing: producing,
+    });
+  }
+
+  /** Cuidados mudaram aqui: guarda e avisa a sala. */
+  private setCare(next: GameCareState) {
+    this.care = { crops: [...next.crops], filter: next.filter };
+    this.room?.sendCare(this.care);
+  }
+
+  private markCropCared(index: number) {
+    const crops = [...this.care.crops];
+    while (crops.length <= index) crops.push(0);
+    crops[index] = this.currentSol;
+    this.setCare({ ...this.care, crops });
+  }
+
+  /** Leva o astronauta até a tarefa (painel, canteiro, filtro ou sonda) e a abre ao chegar. */
+  goToTask(kind: 'solar' | 'crop' | 'plant' | 'filter' | 'drill', index: number) {
+    const local = this.localAstronaut;
+    if (!local?.isRevealed || local.isBusy) return;
+    if (this.roverDriver === 'local') {
+      this.notify('Saia do rover primeiro (tecla E).', 'info');
+      return;
+    }
+    if (kind === 'solar') {
+      const panel = this.solarPanels[index];
+      if (panel)
+        this.goInteract(panel.parentPos, { kind: 'clean', index, face: panel.parentPos.clone() });
+    } else if (kind === 'crop' || kind === 'plant') {
+      const slot = this.crops?.slots[index];
+      if (slot) this.goInteract(slot.world, { kind: 'crop', index, face: slot.world.clone() });
+    } else if (kind === 'filter') {
+      const spot = this.filterSpots[index] ?? this.filterSpots[0];
+      if (spot) this.goInteract(spot, { kind: 'filter', index, face: spot.clone() });
+      else this.notify('Esta base não tem filtro de ar acessível.', 'error');
+    } else if (kind === 'drill') {
+      if (this.drillSpot)
+        this.goInteract(this.drillSpot, { kind: 'drill', face: this.drillSpot.clone() });
+      else this.notify('Esta base não tem sonda de perfuração.', 'error');
+    }
+  }
+
+  /** O minigame terminou com sucesso: aplica o efeito no mundo e na missão. */
+  completeMinigame(req: MinigameRequest, result: MinigameResult = {}) {
+    const sol = this.currentSol;
+    if (req.kind === 'solar') {
+      this.solarDust[req.index] = 0;
+      this.setSolarStage(req.index, 0);
+      this.room?.sendSolar(this.solarStages());
+      if (!this.panelsCleanedToday.includes(req.index))
+        this.panelsCleanedToday = [...this.panelsCleanedToday, req.index];
+      this.options?.onSolarCleaned?.();
+    } else if (req.kind === 'greenhouse') {
+      this.markCropCared(req.index);
+      this.notify(`🌿 Canteiro ${req.index + 1} cuidado hoje.`, 'ok');
+    } else if (req.kind === 'oxygen') {
+      const wasClogged = filterClogged(this.care.filter, sol);
+      this.setCare({ ...this.care, filter: sol });
+      this.notify(
+        wasClogged
+          ? '🫁 Filtro trocado: a base voltou a produzir oxigênio.'
+          : '🫁 Filtro de ar trocado.',
+        'ok',
+      );
+    } else if (req.kind === 'drill') {
+      if (this.drillDoneSol >= sol) return;
+      this.drillDoneSol = sol;
+      const research = Math.max(0, Math.round(result.research ?? 0));
+      useMission.getState().run({
+        type: 'reward',
+        tone: result.hit ? 'good' : 'info',
+        title: result.hit ? 'Sondagem: amostra no alvo' : 'Sondagem: amostra fora do alvo',
+        text: `Amostra de ${result.layerName ?? 'subsolo'} lacrada e analisada.`,
+        deltas: { research, energy: -DRILL_ENERGY_COST },
+      });
+    }
+    this.publishOperations(
+      !filterClogged(this.care.filter, sol) && !this.blackout,
+      filterClogged(this.care.filter, sol),
+    );
   }
 
   /** As plantas crescem; também só um jogador da sala conta o tempo. */
@@ -1583,6 +2015,8 @@ export class BaseViewer {
       // máquinas vencem paredes translúcidas (só uma parede OPACA esconde a máquina)
       if (tag?.kind === 'solar') return { type: 'solar', index: tag.index ?? 0 };
       if (tag?.kind === 'crop') return { type: 'crop', index: tag.index ?? 0 };
+      if (tag?.kind === 'filter') return { type: 'filter', index: tag.index ?? 0 };
+      if (tag?.kind === 'drill') return { type: 'drill' };
       if (tag?.kind === 'vehicle') return { type: 'vehicle' };
       if (!visible) continue; // teto escondido, folhas originais das portas…
       if (
@@ -1724,6 +2158,14 @@ export class BaseViewer {
             index: pick.index,
             face: slot.world.clone(),
           });
+        return;
+      }
+      case 'filter': {
+        this.goToTask('filter', pick.index);
+        return;
+      }
+      case 'drill': {
+        this.goToTask('drill', 0);
         return;
       }
       case 'vehicle': {
@@ -1903,9 +2345,15 @@ export class BaseViewer {
       this.sun.shadow.map.dispose();
       (this.sun.shadow as { map: THREE.WebGLRenderTarget | null }).map = null;
     }
+    this.outline.setQuality(video.quality, video.reducedMotion);
     this.shadowDirty = true;
     this.resize();
     this.updateAtmosphere(true);
+  }
+
+  /** Liga/desliga e ajusta a linha de contorno (configurações de vídeo). */
+  setOutlineSettings(outline: Pick<OutlineOptions, 'enabled' | 'strength' | 'color'>) {
+    this.outline.updateOptions(outline);
   }
 
   // ====================================================================== atmosfera
@@ -1962,6 +2410,7 @@ export class BaseViewer {
     this.camera.bottom = -this.view;
     this.camera.updateProjectionMatrix();
     this.dustOverlay?.resize();
+    this.outline.syncSize();
   }
 
   // ====================================================================== quadro
@@ -2030,6 +2479,7 @@ export class BaseViewer {
     }
 
     this.renderer.render(this.scene, this.camera);
+    this.outline.render();
   }
 
   dispose() {
@@ -2041,6 +2491,12 @@ export class BaseViewer {
       this.fadeOverlay = null;
     }
     this.systems.dispose();
+    // o Game ativa o viewer novo ANTES de descartar o antigo: só limpa o relógio se ainda é nosso
+    if (BaseViewer.clockOwner === this) {
+      BaseViewer.clockOwner = null;
+      GameClock.setTimeSkipper(null, null);
+      GameClock.reset();
+    }
     cancelAnimationFrame(this.frame);
     this.stopTicker?.();
     window.removeEventListener('keydown', this.onKeyDown);
@@ -2054,6 +2510,8 @@ export class BaseViewer {
     (this.groundSkirt.material as THREE.Material).dispose();
     this.localAstronaut?.dispose();
     for (const a of this.remoteAstronauts.values()) a.dispose();
+    this.outline.dispose();
+    if (BaseViewer.clockOwner === null) resetOps();
     this.lights?.dispose();
     this.rover?.dispose();
     this.crops?.dispose();
@@ -2117,7 +2575,7 @@ export class BaseViewer {
     if (!local) return;
     const fx = point.x;
     const fz = point.z;
-    const fy = point.y ?? (this.grid?.groundY(fx, fz) ?? FLOOR_Y);
+    const fy = point.y ?? this.grid?.groundY(fx, fz) ?? FLOOR_Y;
     local.stopMoving();
     local.root.position.set(fx, fy, fz);
   }

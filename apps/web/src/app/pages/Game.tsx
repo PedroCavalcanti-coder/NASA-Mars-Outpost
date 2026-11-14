@@ -1,5 +1,5 @@
 import { WORLD_AUTOSAVE_MS } from '@mars/shared';
-import { Car, MapPin, TriangleAlert } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import {
   lazy,
   Suspense,
@@ -12,7 +12,13 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
-import type { BaseViewer, BaseViewerOptions, BaseViewer as Viewer } from '../../game/BaseViewer';
+import type {
+  BaseViewer,
+  BaseViewerOptions,
+  MinigameRequest,
+  MinigameResult,
+  BaseViewer as Viewer,
+} from '../../game/BaseViewer';
 import { registerDevAction } from '../../game/dev/devActions';
 import {
   expeditionSnapshot,
@@ -21,28 +27,23 @@ import {
   subscribeExpedition,
 } from '../../game/runtime/expedition';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
+import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionEnd } from '../components/mission/MissionEnd';
-import {
-  type AudioSettings,
-  type GameplaySettings,
-  SettingsModal,
-  type VideoSettings,
-} from '../components/SettingsModal';
+import { SettingsModal } from '../components/SettingsModal';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
 import Home from './Home';
 
-// Minigames (prévias jogáveis): carregados só quando abertos
+// Minigames das tarefas do Sol: carregados só quando abertos
 const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/SolarCleaningPreview'));
 const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/OxygenFilterPreview'));
 const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
-
-export type MinigameId = 'solar' | 'oxygen' | 'greenhouse';
+const DrillingMinigame = lazy(() => import('../minigames/drilling/DrillingMinigame'));
 
 /**
  * Jogo (base marciana):
@@ -106,8 +107,15 @@ function ReadyGame() {
   const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [minigame, setMinigame] = useState<MinigameId | null>(null);
+  const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
   const closeMinigame = useCallback(() => setMinigame(null), []);
+  /** o minigame foi concluído: o viewer aplica o efeito no mundo (painel limpo, canteiro cuidado…) */
+  const finishMinigame = useCallback(
+    (result?: MinigameResult) => {
+      if (minigame) viewer.current?.completeMinigame(minigame, result);
+    },
+    [minigame],
+  );
 
   // Com um minigame aberto por cima, a base fica carregada mas para de desenhar
   // (a simulação segue pelo relógio de apoio: numa sala, o mundo não para para os outros).
@@ -163,32 +171,15 @@ function ReadyGame() {
 
   // Configurações do jogo
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const isSmallScreen =
-    typeof window !== 'undefined' &&
-    (window.innerWidth < 768 || matchMedia('(pointer: coarse)').matches);
-
-  const [video, setVideo] = useState<VideoSettings>({
-    quality: isSmallScreen ? 'low' : 'medium',
-    postProcessing: true,
-    antialiasing: true,
-    reducedMotion:
-      typeof window !== 'undefined'
-        ? matchMedia('(prefers-reduced-motion: reduce)').matches
-        : false,
-  });
-
-  const [audio, setAudio] = useState<AudioSettings>({
-    masterVolume: 80,
-    sfxVolume: 85,
-    musicVolume: 70,
-    muted: false,
-  });
-
-  const [gameplay, setGameplay] = useState<GameplaySettings>({
-    showHints: true,
-    highContrast: false,
-    cameraSensitivity: 1,
-  });
+  // vídeo, áudio, jogabilidade e contorno: salvos no navegador (valem também na Home)
+  const video = useGameSettings((s) => s.video);
+  const setVideo = useGameSettings((s) => s.setVideo);
+  const audio = useGameSettings((s) => s.audio);
+  const setAudio = useGameSettings((s) => s.setAudio);
+  const gameplay = useGameSettings((s) => s.gameplay);
+  const setGameplay = useGameSettings((s) => s.setGameplay);
+  const outline = useGameSettings((s) => s.outline);
+  const setOutline = useGameSettings((s) => s.setOutline);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: o viewer é ativado uma vez por base
   useLayoutEffect(() => {
@@ -214,6 +205,7 @@ function ReadyGame() {
     const options: BaseViewerOptions = {
       roomCode,
       videoSettings: video,
+      outlineSettings: outline,
       onTimeUpdate: (t) => {
         if (alive) setMarsTime(t);
       },
@@ -278,7 +270,10 @@ function ReadyGame() {
         toast(msg, 'error');
       },
       onSolarCleaned: () => {
-        toast('✨ Painel solar limpo com sucesso! Eficiência energética a 100%.', 'ok');
+        toast('✨ Painel solar limpo! Ele volta a gerar 100% da energia.', 'ok');
+      },
+      onMinigame: (req) => {
+        if (alive) setMinigame(req);
       },
       onCameraModeChange: (m) => {
         if (alive) setCameraMode(m);
@@ -331,6 +326,10 @@ function ReadyGame() {
   useEffect(() => {
     viewer.current?.setQualitySettings(video);
   }, [video]);
+
+  useEffect(() => {
+    viewer.current?.setOutlineSettings(outline);
+  }, [outline]);
 
   // Salvamento automático a cada 5 minutos, depois que o mundo foi salvo/vinculado a este jogador
   // biome-ignore lint/correctness/useExhaustiveDependencies: o intervalo só depende do vínculo
@@ -503,12 +502,19 @@ function ReadyGame() {
       {minigame &&
         createPortal(
           <Suspense fallback={null}>
-            {minigame === 'solar' ? (
-              <SolarCleaningPreview onClose={closeMinigame} />
-            ) : minigame === 'oxygen' ? (
-              <OxygenFilterPreview onClose={closeMinigame} />
+            {minigame.kind === 'solar' ? (
+              <SolarCleaningPreview onClose={closeMinigame} onComplete={finishMinigame} />
+            ) : minigame.kind === 'oxygen' ? (
+              <OxygenFilterPreview onClose={closeMinigame} onComplete={finishMinigame} />
+            ) : minigame.kind === 'greenhouse' ? (
+              <GreenhousePreview onClose={closeMinigame} onComplete={finishMinigame} />
             ) : (
-              <GreenhousePreview onClose={closeMinigame} />
+              <DrillingMinigame
+                baseId={minigame.baseId}
+                target={minigame.target}
+                onClose={closeMinigame}
+                onComplete={finishMinigame}
+              />
             )}
           </Suspense>,
           document.body,
@@ -539,37 +545,12 @@ function ReadyGame() {
             onOpenSettings={() => setSettingsOpen(true)}
             onRequestLeave={requestLeave}
             rollBase={rollBase}
-            onOpenMinigame={setMinigame}
+            onGoToTask={(kind, index) => viewer.current?.goToTask(kind, index)}
+            driving={driving}
+            onExitRover={() => viewer.current?.exitRover()}
+            showHints={gameplay.showHints}
+            showCoords={showCoords}
           />
-        )}
-
-        {/* Indicador de Coordenadas Flutuante em Tempo Real */}
-        {showCoords && coords && !loading && (
-          <div className="game__coord-status">
-            <MapPin size={13} className="game__coord-icon" />
-            <span>
-              COORDENADAS: [X: {coords.gx >= 0 ? `+${coords.gx}` : coords.gx}, Y:{' '}
-              {coords.gy >= 0 ? `+${coords.gy}` : coords.gy}] ·{' '}
-              <strong className={coords.inside ? 'coord-inside' : 'coord-outside'}>
-                {coords.inside ? 'BASE INTERIOR' : 'TERRENO EXTERNO'}
-              </strong>
-            </span>
-          </div>
-        )}
-
-        {/* Chat: balões de emojis recentes transmitidos na sala */}
-        {chat.length > 0 && (
-          <ul className="game__chat" aria-live="polite" aria-label="Mensagens da sala">
-            {chat.map((m) => (
-              <li
-                key={m.id}
-                className={m.local ? 'game__chat-msg game__chat-msg--me' : 'game__chat-msg'}
-              >
-                <strong>{m.name}</strong>
-                <span className="game__chat-emoji">{m.emoji}</span>
-              </li>
-            ))}
-          </ul>
         )}
 
         {/* Tela de Fim de Missão: vitória (100% dos dados) ou evacuação */}
@@ -616,32 +597,6 @@ function ReadyGame() {
                 )}
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Sair do rover */}
-        {driving && (
-          <button
-            type="button"
-            className="game__vehicle-exit"
-            onClick={() => viewer.current?.exitRover()}
-          >
-            <Car size={18} />
-            <span>Sair do rover</span>
-            <kbd>E</kbd>
-          </button>
-        )}
-
-        {/* Dicas de Controle */}
-        {!loading && !error && gameplay.showHints && (
-          <div className="game__hint" role="note">
-            <span className="game__hint-action">Clique no chão ou use WASD para andar</span>
-            <span className="game__hint-dot">·</span>
-            <span>Clique em painéis, plantas e máquinas para trabalhar</span>
-            <span className="game__hint-dot">·</span>
-            <span>Clique no rover (ou E) para dirigir</span>
-            <span className="game__hint-dot">·</span>
-            <span>Arraste para girar a câmera</span>
           </div>
         )}
 
@@ -694,6 +649,8 @@ function ReadyGame() {
           onAudioChange={setAudio}
           gameplay={gameplay}
           onGameplayChange={setGameplay}
+          outline={outline}
+          onOutlineChange={setOutline}
           inGame={true}
           roomCode={roomCode}
           onCopyRoomCode={handleCopyInvite}

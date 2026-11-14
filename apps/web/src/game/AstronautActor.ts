@@ -282,6 +282,15 @@ export class AstronautActor implements Collider {
     this.input = null;
   }
 
+  /** Vira de frente para um ponto (ao abrir um minigame numa máquina, por exemplo). */
+  face(facePos: THREE.Vector3) {
+    this.currentHeading = Math.atan2(
+      facePos.x - this.root.position.x,
+      facePos.z - this.root.position.z,
+    );
+    this.root.rotation.y = this.currentHeading;
+  }
+
   /** Executa uma tarefa de campo parado, de frente para o alvo. */
   startTask(task: ActorTask, facePos: THREE.Vector3, onFinished: () => void) {
     this.stopMoving();

@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { OutlineSettings } from '../../lib/gameSettings';
 import { toast } from '../../ui/toast';
 import './settingsModal.css';
 
@@ -44,6 +45,9 @@ interface Props {
   onAudioChange: (next: AudioSettings) => void;
   gameplay: GameplaySettings;
   onGameplayChange: (next: GameplaySettings) => void;
+  /** linha de contorno; sem estas props a seção não aparece */
+  outline?: OutlineSettings;
+  onOutlineChange?: (next: OutlineSettings) => void;
   inGame?: boolean;
   roomCode?: string;
   onCopyRoomCode?: () => void;
@@ -61,6 +65,8 @@ export function SettingsModal({
   onAudioChange,
   gameplay,
   onGameplayChange,
+  outline,
+  onOutlineChange,
   inGame = false,
   roomCode,
   onCopyRoomCode,
@@ -331,6 +337,51 @@ export function SettingsModal({
                     <span className="toggle-switch" />
                   </label>
                 </div>
+
+                {/* Linha de Contorno */}
+                {outline && onOutlineChange && (
+                  <>
+                    <div className="settings-item">
+                      <div className="settings-item-label">
+                        <span>Linha de Contorno</span>
+                        <small>
+                          Realça a silhueta de astronautas, rover, equipamentos e da base.
+                          {video.quality === 'low' && ' Indisponível no gráfico baixo.'}
+                        </small>
+                      </div>
+                      <label className="settings-toggle">
+                        <input
+                          type="checkbox"
+                          checked={outline.enabled}
+                          onChange={(e) =>
+                            onOutlineChange({ ...outline, enabled: e.target.checked })
+                          }
+                        />
+                        <span className="toggle-switch" />
+                      </label>
+                    </div>
+                    {outline.enabled && (
+                      <div className="settings-slider-item">
+                        <div className="slider-header">
+                          <span>Espessura do Contorno</span>
+                          <span className="slider-value">{outline.strength.toFixed(1)}×</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.2"
+                          max="2.5"
+                          step="0.1"
+                          value={outline.strength}
+                          onChange={(e) =>
+                            onOutlineChange({ ...outline, strength: Number(e.target.value) })
+                          }
+                          className="settings-range"
+                          aria-label="Espessura do contorno"
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {/* Movimento Reduzido */}
                 <div className="settings-item">

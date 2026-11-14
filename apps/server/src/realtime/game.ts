@@ -1,4 +1,5 @@
 import {
+  applyTimeChange,
   GAME_EMOTES,
   GAME_MAX_CROPS,
   GAME_MAX_PLAYERS,
@@ -9,12 +10,16 @@ import {
   type GameMotion,
   type GamePlayerInfo,
   type GameServerToClient,
+  type GameTimeState,
   type GameWorldState,
   NICKNAME_MAX,
   NICKNAME_MIN,
+  normalizeCare,
   normalizeNickname,
   normalizeSuit,
+  normalizeTimeScale,
   type WorldSave,
+  worldClock,
 } from '@mars/shared';
 import type { Namespace } from 'socket.io';
 import {
@@ -90,13 +95,36 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
     if (i < GAME_MAX_SOLAR) solar[i] = v;
   });
   return {
-    // o relógio retoma de onde o mundo parou
+    // o relógio retoma de onde o mundo parou, com a mesma velocidade/pausa
     clockStart: now - save.elapsedMs,
     storm: 0,
     solar,
     crops: save.crops,
     vehicle: save.vehicle,
+    care: normalizeCare(save.care) ?? undefined,
+    timeScale: normalizeTimeScale(save.timeScale),
+    paused: save.paused === true,
+    timeUpdatedAt: now,
+    virtualElapsedMs: save.elapsedMs,
   };
+}
+
+/** Estado atual do relógio da sala (para reenviar a quem teve o pedido recusado). */
+function timeState(world: GameWorldState, now: number): GameTimeState {
+  return {
+    paused: world.paused === true,
+    scale: normalizeTimeScale(world.timeScale),
+    timeUpdatedAt: now,
+    virtualElapsedMs: worldClock(world, now).elapsedMs,
+  };
+}
+
+/** Coordenador = astronauta de menor vaga presente (mesma regra do cliente). */
+function isCoordinator(room: Room, socketId: string): boolean {
+  const me = room.players.get(socketId);
+  if (!me) return false;
+  for (const p of room.players.values()) if (p.info.slot < me.info.slot) return false;
+  return true;
 }
 
 async function getRoom(code: string, baseId: string): Promise<Room> {
@@ -130,10 +158,13 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
 /** Estado do mundo no formato do banco. */
 function snapshot(room: Room, mission: unknown): WorldSave | null {
   return sanitizeSave({
-    elapsedMs: Date.now() - room.world.clockStart,
+    elapsedMs: worldClock(room.world, Date.now()).elapsedMs,
     solar: room.world.solar,
     crops: room.world.crops,
     vehicle: room.world.vehicle,
+    care: room.world.care,
+    timeScale: room.world.timeScale,
+    paused: room.world.paused,
     mission,
   });
 }
@@ -322,6 +353,25 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('world:storm', v);
     });
 
+    /** Pausa / velocidade / salto de tempo: vale para a sala inteira. */
+    socket.on('world:time', (raw) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2) || !raw || typeof raw !== 'object') return;
+      const now = Date.now();
+      // com mais de um astronauta, só o coordenador decide; os outros recebem o estado de volta
+      if (room.players.size > 1 && !isCoordinator(room, socket.id)) {
+        socket.emit('world:time', timeState(room.world, now));
+        return;
+      }
+      const req = raw as unknown as Record<string, unknown>;
+      const t = applyTimeChange(room.world, now, {
+        paused: req.paused === true,
+        scale: normalizeTimeScale(req.scale),
+        advanceMs: typeof req.advanceMs === 'number' ? req.advanceMs : 0,
+      });
+      ns.to(room.code).emit('world:time', t);
+    });
+
     socket.on('world:solar', (stages) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room || !takeToken(socket.data, 2) || !Array.isArray(stages)) return;
@@ -356,6 +406,15 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!finite(v.x, WORLD_LIMIT) || !finite(v.z, WORLD_LIMIT) || !finite(v.h, 20)) return;
       room.world.vehicle = { x: v.x, z: v.z, h: v.h };
       socket.to(room.code).emit('world:vehicle', room.world.vehicle);
+    });
+
+    socket.on('world:care', (raw) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2)) return;
+      const care = normalizeCare(raw);
+      if (!care) return;
+      room.world.care = care;
+      socket.to(room.code).emit('world:care', care);
     });
 
     socket.on('player:emote', (raw) => {

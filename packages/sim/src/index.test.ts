@@ -120,4 +120,29 @@ describe('sim', () => {
     });
     expect(wins.length).toBeGreaterThanOrEqual(6);
   });
+
+  it('fim de sol em tempo real não mexe na energia nem na poeira', () => {
+    const s0 = createMission(7);
+    const s1 = runCommand(s0, { type: 'end_sol', realtime: true }).state;
+    expect(s1.sol).toBe(2);
+    expect(s1.resources.energy.value).toBe(s0.resources.energy.value);
+    expect(s1.solarEfficiency).toBe(1);
+    // mantimentos continuam sendo consumidos
+    expect(s1.resources.supplies.value).toBeLessThan(s0.resources.supplies.value);
+  });
+
+  it('recompensa de tarefa: aplica só chaves válidas e registra no diário', () => {
+    const s0 = createMission(7);
+    const r = runCommand(s0, {
+      type: 'reward',
+      tone: 'good',
+      title: 'Sondagem',
+      text: 'Amostra coletada',
+      deltas: { research: 8, energy: -5, bogus: 99 } as never,
+    });
+    expect(r.state.research).toBe(8);
+    expect(r.state.resources.energy.value).toBe(s0.resources.energy.value - 5);
+    expect(r.entries[0]?.title).toBe('Sondagem');
+    expect(r.state.actionsLeft).toBe(s0.actionsLeft); // não gasta ação do sol
+  });
 });

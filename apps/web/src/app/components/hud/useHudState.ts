@@ -89,7 +89,8 @@ export function useHudState(isDevMode: boolean) {
   // Atalhos de teclado globais
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
+      // o alvo pode ser a própria janela (eventos sintéticos): só elementos têm atributos
+      const target = e.target instanceof HTMLElement ? e.target : null;
       if (
         target &&
         (target.isContentEditable ||

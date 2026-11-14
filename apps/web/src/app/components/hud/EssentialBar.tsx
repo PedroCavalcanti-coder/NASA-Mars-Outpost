@@ -7,8 +7,14 @@
  */
 
 import { Menu } from 'lucide-react';
+import type { ComponentType } from 'react';
 import { Link } from 'react-router';
-import { DefaultAlertSlot, DefaultClockSlot, DefaultOxygenSlot } from './panels/EssentialSlots';
+import {
+  BatterySlot,
+  DefaultAlertSlot,
+  DefaultClockSlot,
+  DefaultOxygenSlot,
+} from './panels/EssentialSlots';
 import { useGroupPanels } from './useHudPanels';
 
 interface EssentialBarProps {
@@ -37,6 +43,10 @@ export function EssentialBar({
   const customClock = registeredEssential.find(
     (p) => p.id === 'clock' || p.id === 'game-clock' || p.id === 'mars-clock',
   );
+  // o relógio registrado recebe a hora de Marte da HUD (o registro tipa painéis sem props)
+  const CustomClock = customClock?.component as
+    | ComponentType<{ marsTime?: EssentialBarProps['marsTime'] }>
+    | undefined;
 
   return (
     <header className="hud-essential-bar">
@@ -65,8 +75,15 @@ export function EssentialBar({
         {/* Slot de Oxigênio (Conversa 5 ou padrão) */}
         {customOxygen ? <customOxygen.component /> : <DefaultOxygenSlot oxygenLevel={100} />}
 
+        {/* Bateria da base (painéis solares carregam, suporte à vida consome) */}
+        <BatterySlot />
+
         {/* Slot de Relógio Marciano (Conversa 3 ou padrão) */}
-        {customClock ? <customClock.component /> : <DefaultClockSlot marsTime={marsTime} />}
+        {CustomClock ? (
+          <CustomClock marsTime={marsTime} />
+        ) : (
+          <DefaultClockSlot marsTime={marsTime} />
+        )}
 
         {/* Alerta Ativo Compacto */}
         <DefaultAlertSlot stormActive={stormActive} marsTime={marsTime} />

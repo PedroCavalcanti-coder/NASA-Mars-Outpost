@@ -110,6 +110,22 @@ describe('Outline (Linha de Contorno)', () => {
       expect(mat.uniforms.outlineThickness?.value).toBeCloseTo(0.068, 3);
     });
 
+    it('adiciona e remove cascos de várias malhas irmãs sem quebrar a travessia', () => {
+      const root = new THREE.Group();
+      const body = new THREE.Group();
+      root.add(body);
+      for (let i = 0; i < 4; i++) {
+        body.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial()));
+      }
+
+      manager.addObject(root, 'astronaut');
+      expect(body.children.filter((c) => c.userData.isOutlineHull)).toHaveLength(4);
+
+      expect(() => manager.removeObject(root)).not.toThrow();
+      expect(body.children.some((c) => c.userData.isOutlineHull)).toBe(false);
+      expect(body.children).toHaveLength(4);
+    });
+
     it('limpa todas as malhas ao descartar (dispose)', () => {
       const root = new THREE.Group();
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshBasicMaterial());

@@ -3,6 +3,7 @@ import { act, StrictMode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useGameSettings } from '../../lib/gameSettings';
 import type { AudioSettings } from '../components/SettingsModal';
 import Home from './Home';
 
@@ -119,6 +120,8 @@ async function mount(arrivalOnly = false) {
 }
 
 beforeEach(() => {
+  // as configurações agora ficam num store global: cada teste começa do padrão
+  useGameSettings.getState().resetSettings();
   vi.clearAllMocks();
   vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   vi.stubGlobal('Audio', FakeAudio);
