@@ -31,6 +31,10 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
   const launchAudio = useRef<HTMLAudioElement>(null);
   const spaceAudio = useRef<HTMLAudioElement>(null);
   const parachuteAudio = useRef<HTMLAudioElement>(null);
+  const fallingAudio = useRef<HTMLAudioElement>(null);
+  const airAudio = useRef<HTMLAudioElement>(null);
+  const landingVolume = useRef(0.8 * 0.85);
+  const fallingGain = useRef(1);
   const scene = useRef<LaunchScene | null>(null);
   const started = useRef(false);
 
@@ -72,6 +76,11 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
   useEffect(() => {
     if (!canvas.current || !target.current) return;
+    let fadeTimer: ReturnType<typeof setInterval> | undefined;
+    const cancelFallingFade = () => {
+      clearInterval(fadeTimer);
+      fadeTimer = undefined;
+    };
     let emittedFlightPhase: string | null = null;
     let releaseSession: (() => void) | undefined;
     try {
@@ -94,6 +103,9 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           launchAudio.current?.pause();
           spaceAudio.current?.pause();
           parachuteAudio.current?.pause();
+          cancelFallingFade();
+          fallingAudio.current?.pause();
+          airAudio.current?.pause();
           setPhase('complete');
         },
         copy.current,
@@ -103,8 +115,47 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
             void spaceAudio.current?.play().catch(() => {});
           } else {
             spaceAudio.current?.pause();
-            void parachuteAudio.current?.play().catch(() => {});
           }
+        },
+        (event) => {
+          if (event === 'decompression') {
+            if (!airAudio.current) airAudio.current = new Audio('/assets/audio/air.mp3');
+            airAudio.current.volume = landingVolume.current;
+            airAudio.current.currentTime = 0;
+            void airAudio.current.play().catch(() => {});
+            return;
+          }
+          if (event === 'touchdown') {
+            cancelFallingFade();
+            fallingAudio.current?.pause();
+            return;
+          }
+          if (event === 'falling') {
+            cancelFallingFade();
+            fallingGain.current = 1;
+          } else {
+            cancelFallingFade();
+            const fadeStarted = Date.now();
+            fadeTimer = setInterval(() => {
+              const progress = Math.min(1, (Date.now() - fadeStarted) / 1000);
+              fallingGain.current = 1 - progress * 0.8;
+              if (fallingAudio.current) {
+                fallingAudio.current.volume = landingVolume.current * fallingGain.current;
+              }
+              if (progress === 1) cancelFallingFade();
+            }, 25);
+          }
+          const ref = event === 'falling' ? fallingAudio : parachuteAudio;
+          if (!ref.current)
+            ref.current = new Audio(
+              event === 'parachute'
+                ? '/assets/audio/parachute-open.mp3'
+                : '/assets/audio/falling.mp3',
+            );
+          ref.current.volume = landingVolume.current;
+          ref.current.currentTime = 0;
+          ref.current.loop = event === 'falling';
+          void ref.current.play().catch(() => {});
         },
       );
       if (arrivalOnly) {
@@ -122,9 +173,12 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
       }
     }
     return () => {
+      cancelFallingFade();
       launchAudio.current?.pause();
       spaceAudio.current?.pause();
       parachuteAudio.current?.pause();
+      fallingAudio.current?.pause();
+      airAudio.current?.pause();
       scene.current?.dispose();
       scene.current = null;
       releaseSession?.();
@@ -158,6 +212,10 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
   }, [video.quality, video.antialiasing, video.postProcessing]);
 
   useEffect(() => {
+    landingVolume.current = audio.muted ? 0 : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
+    if (airAudio.current) airAudio.current.volume = landingVolume.current;
+    if (fallingAudio.current)
+      fallingAudio.current.volume = landingVolume.current * fallingGain.current;
     if (launchAudio.current) {
       launchAudio.current.volume = audio.muted
         ? 0
@@ -188,7 +246,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
     spaceAudio.current.volume = audio.muted
       ? 0
       : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
-    parachuteAudio.current = new Audio('/assets/audio/parachute.mp3');
+    parachuteAudio.current = new Audio('/assets/audio/parachute-open.mp3');
     parachuteAudio.current.volume = audio.muted
       ? 0
       : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
@@ -369,6 +427,9 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           {launching ? 'EXPEDIÇÃO EM VOO' : 'TODOS OS SISTEMAS PRONTOS'}
         </span>
         <nav className="launch-footer-nav" aria-label="Links do projeto">
+          <Link to="/previa/painel-solar">Prévia: painel solar</Link>
+          <Link to="/previa/filtro-oxigenio">Prévia: oxigênio</Link>
+          <Link to="/previa/estufa">Prévia: estufa</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>

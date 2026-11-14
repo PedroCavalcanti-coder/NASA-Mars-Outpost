@@ -8,7 +8,13 @@ type Spark = {
   drift: number;
 };
 
+export type LandingAudioEvent = 'falling' | 'parachute' | 'touchdown' | 'decompression';
+
 export class MarsLanding {
+  private fallingEmitted = false;
+  private parachuteEmitted = false;
+  private touchdownEmitted = false;
+  private decompressionEmitted = false;
   readonly scene = new THREE.Scene();
   private dust: THREE.InstancedMesh;
   private shadow: THREE.Mesh;
@@ -39,7 +45,11 @@ export class MarsLanding {
   private sparkData: Spark[] = [];
   private heatshieldMaterial: THREE.MeshStandardMaterial;
 
-  constructor(rocket: THREE.Group, flames: THREE.Group) {
+  constructor(
+    rocket: THREE.Group,
+    flames: THREE.Group,
+    private onAudio: (event: LandingAudioEvent) => void = () => {},
+  ) {
     rocket.removeFromParent();
     flames.visible = false;
 
@@ -129,7 +139,10 @@ export class MarsLanding {
     body.position.y = 1.6;
     this.capsule.add(body);
 
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(2, 1.7, 0.35, 12), this.heatshieldMaterial);
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(2, 1.7, 0.35, 12),
+      this.heatshieldMaterial,
+    );
     base.position.y = 0.22;
     this.capsule.add(base);
 
@@ -156,7 +169,15 @@ export class MarsLanding {
       depthWrite: false,
     });
     this.materials.push(this.bowMat);
-    const bowGeom = new THREE.SphereGeometry(2.15, 16, 8, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.5);
+    const bowGeom = new THREE.SphereGeometry(
+      2.15,
+      16,
+      8,
+      0,
+      Math.PI * 2,
+      Math.PI * 0.5,
+      Math.PI * 0.5,
+    );
     this.bowShock = new THREE.Mesh(bowGeom, this.bowMat);
     this.bowShock.scale.set(1.06, 0.38, 1.06);
     this.bowShock.position.y = 0.12;
@@ -301,6 +322,24 @@ export class MarsLanding {
   update(time: number, camera: THREE.PerspectiveCamera, reduced: boolean) {
     const duration = reduced ? 4 : 11;
     const p = Math.min(1, time / duration);
+    // Os sons seguem o tempo da animação, inclusive em movimento reduzido.
+    // Pular direto para o solo não reproduz os efeitos intermediários.
+    if (p < 0.82 && !this.fallingEmitted) {
+      this.fallingEmitted = true;
+      this.onAudio('falling');
+    }
+    if (p >= 0.33 && p < 0.82 && !this.parachuteEmitted) {
+      this.parachuteEmitted = true;
+      this.onAudio('parachute');
+    }
+    if (p >= 0.82 && !this.touchdownEmitted) {
+      this.touchdownEmitted = true;
+      this.onAudio('touchdown');
+    }
+    if (p >= 0.82 && p < 1 && !this.decompressionEmitted) {
+      this.decompressionEmitted = true;
+      this.onAudio('decompression');
+    }
 
     // -------------------------------------------------------------
     // CURVA DE TRAJETÓRIA UNIFICADA E 100% CONTÍNUA (SEM DEGRAUS)
@@ -313,7 +352,7 @@ export class MarsLanding {
 
     // 2. Toque no solo com amortecimento sutil de suspensão (apenas após u = 1.0)
     const touchdownBounce =
-      p >= 0.82 && p < 0.90 ? Math.sin(((p - 0.82) / 0.08) * Math.PI) * 0.07 : 0;
+      p >= 0.82 && p < 0.9 ? Math.sin(((p - 0.82) / 0.08) * Math.PI) * 0.07 : 0;
 
     // Tranco de desaceleração na abertura do paraquedas supersônico
     const snatchTug =
@@ -326,21 +365,17 @@ export class MarsLanding {
     const lateralX = 4.2 * (1 - THREE.MathUtils.smoothstep(u, 0, 0.65));
 
     // 4. Intensidade contínua do plasma (surge em p=0, dissipa suavemente até p=0.36)
-    const plasmaIntensity = reduced
-      ? 0
-      : (1 - THREE.MathUtils.smoothstep(p, 0.20, 0.36));
+    const plasmaIntensity = reduced ? 0 : 1 - THREE.MathUtils.smoothstep(p, 0.2, 0.36);
 
     // 5. Rotação / Atitude Z contínua:
     // Começa com ângulo de ataque hipersônico (0.24 rad = ~14 deg) e alinha suavemente para a vertical
     const reentryTilt = 0.24 * (1 - THREE.MathUtils.smoothstep(p, 0.18, 0.38));
     // Tremor aerodinâmico na reentrada
-    const aeroFlutter =
-      reduced ? 0 : Math.sin(time * 34) * 0.02 * plasmaIntensity;
+    const aeroFlutter = reduced ? 0 : Math.sin(time * 34) * 0.02 * plasmaIntensity;
     // Oscilação pendular suave sob o paraquedas (começa suave em 0.34 e cessa no solo)
     const pendulumEnvelope =
       THREE.MathUtils.smoothstep(p, 0.32, 0.44) * (1 - THREE.MathUtils.smoothstep(p, 0.72, 0.82));
-    const pendulumSway =
-      reduced ? 0 : Math.sin(time * 3.6) * 0.065 * pendulumEnvelope;
+    const pendulumSway = reduced ? 0 : Math.sin(time * 3.6) * 0.065 * pendulumEnvelope;
 
     this.capsule.position.set(lateralX, currentY, 0);
     this.capsule.rotation.z = reentryTilt + aeroFlutter + pendulumSway;
@@ -362,7 +397,11 @@ export class MarsLanding {
       // Ondulação do cone de plasma
       const shockScale = 1 + Math.sin(time * 46) * 0.07;
       this.plasmaSheath.scale.set(shockScale, 1 + Math.cos(time * 38) * 0.1, shockScale);
-      this.outerSheath.scale.set(shockScale * 1.04, 1 + Math.sin(time * 42) * 0.08, shockScale * 1.04);
+      this.outerSheath.scale.set(
+        shockScale * 1.04,
+        1 + Math.sin(time * 42) * 0.08,
+        shockScale * 1.04,
+      );
 
       // Centelhas incandescentes na esteira
       for (let i = 0; i < this.sparkData.length; i++) {
@@ -390,13 +429,13 @@ export class MarsLanding {
     // -------------------------------------------------------------
     // PARAQUEDAS SUPERSÔNICO REALISTA & DINÂMICO
     // -------------------------------------------------------------
-    const deployFactor = THREE.MathUtils.smoothstep(p, 0.28, 0.40);
+    const deployFactor = THREE.MathUtils.smoothstep(p, 0.28, 0.4);
     if (deployFactor > 0) {
       this.parachuteGroup.visible = true;
 
       // 1. Abertura supersônica: esticamento de cabos e inflação elástica
       const pLines = THREE.MathUtils.smoothstep(p, 0.28, 0.33);
-      const pBloom = THREE.MathUtils.smoothstep(p, 0.33, 0.40);
+      const pBloom = THREE.MathUtils.smoothstep(p, 0.33, 0.4);
       const tetherDist = THREE.MathUtils.lerp(2.0, 11.2, pLines);
 
       // Efeito de inflação rápida com rebote elástico (aerodynamic opening shock)
@@ -405,7 +444,7 @@ export class MarsLanding {
       let depthScale = THREE.MathUtils.lerp(0.35, 1.0, pBloom) + elasticBounce * 0.5;
 
       // 2. Vôo e descida estável (0.40 <= p < 0.82)
-      if (p >= 0.40 && p < 0.82) {
+      if (p >= 0.4 && p < 0.82) {
         // Respiração aerodinâmica natural da cúpula sob pressão atmosférica
         const breath = reduced
           ? 1.0
@@ -523,9 +562,7 @@ export class MarsLanding {
             wy += Math.max(0, fold);
 
             // Farfalhar suave da brisa marciana nas bordas do tecido mesmo após pousar
-            const breeze = reduced
-              ? 0
-              : tau * 0.038 * Math.sin(time * 4.2 + i * 2.8) * vj ** 1.3;
+            const breeze = reduced ? 0 : tau * 0.038 * Math.sin(time * 4.2 + i * 2.8) * vj ** 1.3;
             wy += Math.max(0, breeze);
             wx += breeze * 0.4;
             wz -= breeze * 0.2;

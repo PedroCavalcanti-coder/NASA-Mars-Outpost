@@ -12,6 +12,10 @@ const fixture = vi.hoisted(() => ({
   listeners: new Set<() => void>(),
   sceneFailure: false,
   complete: null as (() => void) | null,
+  spaceChange: null as ((active: boolean) => void) | null,
+  landingAudio: null as
+    | ((event: 'falling' | 'parachute' | 'touchdown' | 'decompression') => void)
+    | null,
   changeAudio: null as ((audio: AudioSettings) => void) | null,
   retain: vi.fn(),
   release: vi.fn(),
@@ -44,9 +48,14 @@ vi.mock('../../game/LaunchScene', () => ({
       _target: HTMLButtonElement,
       _flight: unknown,
       complete: () => void,
+      _copy: unknown,
+      spaceChange: (active: boolean) => void,
+      landingAudio: (event: 'falling' | 'parachute' | 'touchdown' | 'decompression') => void,
     ) {
       if (fixture.sceneFailure) throw new Error('Animation initialization failed');
       fixture.complete = complete;
+      fixture.spaceChange = spaceChange;
+      fixture.landingAudio = landingAudio;
     }
     launch() {}
     startArrival() {
@@ -122,6 +131,8 @@ beforeEach(() => {
   fixture.version = 0;
   fixture.sceneFailure = false;
   fixture.complete = null;
+  fixture.spaceChange = null;
+  fixture.landingAudio = null;
   fixture.session.ready = true;
   fixture.session.entered = false;
   fixture.session.runtime.paused = false;
@@ -140,9 +151,57 @@ afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe('Home initialization and recovery', () => {
+  it('starts descent audio on landing events, syncs volume and stops on touchdown', async () => {
+    await mount();
+    await act(async () => button('Jogar agora').click());
+    await act(async () => fixture.spaceChange?.(false));
+    const parachute = FakeAudio.instances.find((a) => a.src.endsWith('/parachute-open.mp3'));
+    expect(parachute?.play).not.toHaveBeenCalled();
+    await act(async () => fixture.landingAudio?.('falling'));
+    const falling = FakeAudio.instances.find((a) => a.src.endsWith('/falling.mp3'));
+    expect(falling?.play).toHaveBeenCalledTimes(1);
+    expect(falling?.volume).toBeCloseTo(0.8 * 0.85);
+    await act(async () =>
+      fixture.changeAudio?.({ masterVolume: 50, sfxVolume: 60, musicVolume: 70, muted: false }),
+    );
+    expect(falling?.volume).toBeCloseTo(0.3);
+    vi.useFakeTimers();
+    await act(async () => fixture.landingAudio?.('parachute'));
+    expect(parachute?.play).toHaveBeenCalledTimes(1);
+    expect(falling?.volume).toBeCloseTo(0.3);
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(falling?.volume).toBeCloseTo(0.18);
+    expect(falling?.pause).not.toHaveBeenCalled();
+    await act(async () =>
+      fixture.changeAudio?.({ masterVolume: 80, sfxVolume: 100, musicVolume: 70, muted: false }),
+    );
+    expect(falling?.volume).toBeCloseTo(0.48);
+    await act(async () => vi.advanceTimersByTime(500));
+    expect(falling?.volume).toBeCloseTo(0.16);
+    expect(falling?.pause).not.toHaveBeenCalled();
+    await act(async () => vi.advanceTimersByTime(1500));
+    expect(falling?.volume).toBeCloseTo(0.16);
+    expect(falling?.pause).not.toHaveBeenCalled();
+    await act(async () => fixture.landingAudio?.('touchdown'));
+    expect(falling?.pause).toHaveBeenCalled();
+    expect(parachute?.pause).not.toHaveBeenCalled();
+    await act(async () => fixture.landingAudio?.('decompression'));
+    const air = FakeAudio.instances.find((a) => a.src.endsWith('/air.mp3'));
+    expect(air?.play).toHaveBeenCalledTimes(1);
+    expect(air?.volume).toBeCloseTo(0.8);
+    await act(async () => fixture.complete?.());
+    expect(air?.pause).toHaveBeenCalledTimes(1);
+    expect(parachute?.pause).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      fixture.changeAudio?.({ masterVolume: 80, sfxVolume: 100, musicVolume: 70, muted: true }),
+    );
+    expect(air?.volume).toBe(0);
+  });
+
   it('keeps the menu and navigation available when WebGL runtime creation throws', async () => {
     fixture.retain.mockImplementation(() => {
       throw new Error('WebGL unavailable');

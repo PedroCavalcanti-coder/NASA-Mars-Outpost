@@ -1,4 +1,5 @@
-import { SUIT_PARTS, type SuitConfig, type SuitPart } from '@mars/shared';
+import type { SuitConfig } from '@mars/shared';
+import { Rotate3D } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -7,10 +8,9 @@ import { peekExpedition } from '../../../game/runtime/expedition';
 
 interface Props {
   suit: SuitConfig;
-  highlightPart?: SuitPart | null;
   className?: string;
 }
-export function SuitPreview({ suit, highlightPart, className = '' }: Props) {
+export function SuitPreview({ suit, className = '' }: Props) {
   const mount = useRef<HTMLDivElement>(null);
   const preview = peekExpedition()?.preview;
   useEffect(() => {
@@ -19,17 +19,38 @@ export function SuitPreview({ suit, highlightPart, className = '' }: Props) {
     const { renderer, scene, camera } = preview;
     container.append(renderer.domElement);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0.85, 0);
+    const bounds = new THREE.Box3().setFromObject(preview.model);
+    const height = bounds.max.y - bounds.min.y;
+    const targetY = height * 0.5;
+    camera.position.set(0.35, targetY + 0.2, height * 2.15);
+    controls.target.set(0, targetY, 0);
     controls.enablePan = controls.enableZoom = false;
-    controls.minPolarAngle = 0.4;
-    controls.maxPolarAngle = Math.PI * 0.58;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 1.2;
+    controls.minPolarAngle = Math.PI * 0.38;
+    controls.maxPolarAngle = Math.PI * 0.49;
+    controls.enableDamping = true;
+    // A pose inicial fica de frente; o jogador controla a rotação.
+    controls.autoRotate = false;
     const resize = () => {
       const w = container.clientWidth,
         h = container.clientHeight;
       if (!w || !h) return;
       camera.aspect = w / h;
+      const mobile = w <= 700;
+      const distance = height * (mobile ? 4.4 : 2.15);
+      camera.position
+        .sub(controls.target)
+        .normalize()
+        .multiplyScalar(distance)
+        .add(controls.target);
+      // Desloca o enquadramento, preservando o pivô no astronauta.
+      camera.setViewOffset(
+        w,
+        h,
+        mobile ? 0 : -Math.max(w * 0.18, 200),
+        mobile ? h * 0.24 : 0,
+        w,
+        h,
+      );
       camera.updateProjectionMatrix();
       renderer.setSize(w, h, false);
     };
@@ -55,25 +76,19 @@ export function SuitPreview({ suit, highlightPart, className = '' }: Props) {
       controls.dispose();
       document.removeEventListener('visibilitychange', visibility);
       renderer.domElement.remove();
+      camera.clearViewOffset();
     };
   }, [preview]);
   useEffect(() => {
     if (!preview) return;
     applySuitColors(preview.model, suit);
-    for (const part of SUIT_PARTS)
-      preview.model.getObjectByName(`color_${part}`)?.traverse((o) => {
-        if (!(o instanceof THREE.Mesh)) return;
-        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
-          if (!(m instanceof THREE.MeshStandardMaterial)) continue;
-          m.emissive.setHex(highlightPart === part ? 0xffb511 : 0);
-          m.emissiveIntensity = highlightPart === part ? 0.28 : 0;
-        }
-      });
-  }, [preview, suit, highlightPart]);
+  }, [preview, suit]);
   return (
     <div className={`suit-preview-wrap ${className}`}>
       <div ref={mount} className="suit-preview-canvas" />
-      <div className="suit-preview-hint">Arraste para girar 360°</div>
+      <div className="suit-preview-hint">
+        <Rotate3D size={15} /> Arraste para girar o astronauta
+      </div>
     </div>
   );
 }

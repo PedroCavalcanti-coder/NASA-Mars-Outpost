@@ -359,8 +359,9 @@
 }
 .launch-footer-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 26px;
+  gap: 0 26px;
 }
 .launch-footer-nav > a,
 .launch-footer-nav > button {
@@ -627,7 +628,7 @@
     width: 7px;
   }
   .launch-footer-nav {
-    gap: 18px;
+    gap: 0 18px;
   }
   .launch-footer-nav > a,
   .launch-footer-nav > button {

@@ -24,6 +24,12 @@ const Center = lazy(() => import('./app/pages/Center'));
 const Support = lazy(() => import('./app/pages/Support'));
 const About = lazy(() => import('./app/pages/About'));
 const NotFound = lazy(() => import('./app/pages/NotFound'));
+const SolarCleaningPreview = lazy(
+  () => import('./app/minigames/solar-cleaning/SolarCleaningPreview'),
+);
+
+const OxygenFilterPreview = lazy(() => import('./app/minigames/oxygen-filter/OxygenFilterPreview'));
+const GreenhousePreview = lazy(() => import('./app/minigames/greenhouse/GreenhousePreview'));
 
 export function App() {
   const load = useAuth((s) => s.load);
@@ -87,6 +93,9 @@ export function App() {
           </Route>
 
           <Route path="jogar" element={<Game />} />
+          <Route path="previa/painel-solar" element={<SolarCleaningPreview />} />
+          <Route path="previa/filtro-oxigenio" element={<OxygenFilterPreview />} />
+          <Route path="previa/estufa" element={<GreenhousePreview />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

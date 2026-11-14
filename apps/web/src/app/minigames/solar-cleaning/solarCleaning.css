@@ -1,0 +1,183 @@
+.solar-preview {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  isolation: isolate;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: #b47c5b;
+}
+.solar-landscape {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 23% 12%, #f9d9a18c, transparent 57%),
+    linear-gradient(#6b6971, #b18c76 33%, #d7a378 60%, #bd7b51);
+}
+.solar-landscape::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, #54392d30 100%);
+}
+.solar-distant-ridge,
+.solar-near-ridge {
+  position: absolute;
+  inset: 29% -5% 0;
+  background: #a37563;
+  clip-path: polygon(
+    0 17%,
+    9% 24%,
+    18% 9%,
+    23% 9%,
+    27% 19%,
+    35% 24%,
+    42% 14%,
+    51% 30%,
+    62% 18%,
+    72% 23%,
+    81% 5%,
+    89% 8%,
+    93% 0,
+    100% 5%,
+    100% 100%,
+    0 100%
+  );
+}
+.solar-near-ridge {
+  inset: 40% -5% 0;
+  transform: scaleX(-1);
+  background: #ba805b;
+}
+.solar-ground {
+  position: absolute;
+  inset: 52% 0 0;
+  background: linear-gradient(#cf9568, #bd7b51);
+  clip-path: polygon(0 8%, 23% 3%, 39% 10%, 64% 0, 83% 8%, 100% 1%, 100% 100%, 0 100%);
+}
+.solar-ground::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 9% 63%, #955b3b 0 0.45%, transparent 0.55%),
+    radial-gradient(ellipse at 84% 84%, #9f6042 0 0.7%, transparent 0.8%),
+    radial-gradient(ellipse at 73% 29%, #e9b17c 0 0.7%, transparent 0.8%),
+    radial-gradient(ellipse at 28% 88%, #a86643 0 1%, transparent 1.1%);
+}
+.solar-panel-art {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(96vw, 138svh);
+  height: auto;
+  overflow: visible;
+  transform: translate(-50%, -50%);
+  touch-action: none;
+  cursor: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.solar-panel-art:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.solar-dust-layer,
+.solar-brush,
+.solar-dust-particles {
+  pointer-events: none;
+}
+.solar-dust {
+  display: block;
+  width: 650px;
+  height: 396px;
+  transition: opacity 0.6s ease-out;
+}
+.solar-panel-art[data-complete="true"] .solar-dust {
+  opacity: 0;
+}
+.solar-panel-art:focus-visible .solar-brush {
+  filter: drop-shadow(0 0 3px #fff4ce);
+}
+.solar-panel-art[data-brushing="true"] .solar-brush {
+  filter: drop-shadow(0 2px 2px #372d2433);
+}
+.solar-result {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  color: #fff6df;
+  text-shadow: 0 2px 8px #362720;
+  font: 600 16px var(--font-body);
+}
+.solar-result:empty {
+  display: none;
+}
+.solar-result p {
+  margin: 0 0 8px;
+}
+.solar-result button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid #f4e0b994;
+  border-radius: 6px;
+  color: #fff2da;
+  background: #3c3f35e6;
+  font: 600 14px var(--font-body);
+  cursor: pointer;
+  text-shadow: none;
+}
+.solar-result button:hover {
+  background: #283d35;
+}
+@media (prefers-reduced-motion: reduce) {
+  .solar-dust {
+    transition: none;
+  }
+}
+.solar-close {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #f6e4c44d;
+  border-radius: 50%;
+  color: #fff4e3;
+  background: #423b365c;
+  cursor: pointer;
+}
+.solar-close:hover {
+  background: #423b3699;
+}
+.solar-close:focus-visible {
+  outline: 2px solid #ffe1a4;
+  outline-offset: 4px;
+  box-shadow: none;
+}
+@media (max-aspect-ratio: 3 / 4) {
+  .solar-panel-art {
+    width: min(90svh, 140vw);
+    transform: translate(-50%, -50%) rotate(90deg);
+  }
+  .solar-scene-rocks {
+    display: none;
+  }
+  .solar-distant-ridge {
+    inset-block-start: 15%;
+  }
+  .solar-near-ridge {
+    inset-block-start: 29%;
+  }
+  .solar-ground {
+    inset-block-start: 40%;
+  }
+}

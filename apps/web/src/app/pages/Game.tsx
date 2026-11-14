@@ -1,5 +1,15 @@
-import { Compass, Dices, Eye, EyeOff, LogOut, TriangleAlert } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { Compass, Dices, Eye, EyeOff, Fan, LogOut, Sprout, Sun, TriangleAlert } from 'lucide-react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router';
 import type { BaseViewer, BaseViewer as Viewer } from '../../game/BaseViewer';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
@@ -13,6 +23,11 @@ import {
   subscribeExpedition,
 } from '../../game/runtime/expedition';
 import Home from './Home';
+
+const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/SolarCleaningPreview'));
+
+const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/OxygenFilterPreview'));
+const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
 
 /** Jogo (base marciana): sorteia uma das 8 bases e mostra em 3D interativo. */
 export default function Game() {
@@ -34,6 +49,20 @@ function ReadyGame() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roofs, setRoofs] = useState(false);
+  const [preview, setPreview] = useState<'solar' | 'oxygen' | 'greenhouse' | null>(null);
+  const closePreview = useCallback(() => setPreview(null), []);
+
+  // Keep the prepared base alive while a minigame preview covers its canvas.
+  useEffect(() => {
+    if (!preview) return;
+    const runtime = peekExpedition()?.runtime;
+    if (!runtime) return;
+    const wasPaused = runtime.paused;
+    runtime.paused = true;
+    return () => {
+      runtime.paused = wasPaused;
+    };
+  }, [preview]);
 
   useLayoutEffect(() => {
     const el = mount.current;
@@ -100,110 +129,152 @@ function ReadyGame() {
 
   return (
     <main className="game">
-      <div className="game__canvas" ref={mount} />
-      <div className="game__vignette" />
+      {preview &&
+        createPortal(
+          <Suspense fallback={null}>
+            {preview === 'solar' ? (
+              <SolarCleaningPreview onClose={closePreview} />
+            ) : preview === 'oxygen' ? (
+              <OxygenFilterPreview onClose={closePreview} />
+            ) : (
+              <GreenhousePreview onClose={closePreview} />
+            )}
+          </Suspense>,
+          document.body,
+        )}
+      <div className="game__interface" inert={preview !== null}>
+        <div className="game__canvas" ref={mount} />
+        <div className="game__vignette" />
 
-      {/* Cabeçalho HUD Superior */}
-      <header className="game__header">
-        <div className="game__header-brands">
-          <Link to="/" className="game__brand" aria-label="Mars Outpost — Início">
-            <img
-              className="game__brand-logo"
-              src="/assets/branding/mars-outpost-logo.svg"
-              alt=""
-              width={46}
-              height={46}
-            />
-            <img
-              className="game__brand-wordmark"
-              src="/assets/branding/mars-outpost-wordmark.svg"
-              alt="Mars Outpost"
-              width={160}
-              height={70}
-            />
-          </Link>
-          <span className="game__brand-divider" aria-hidden="true" />
-          <div className="game__mission-status">
-            <span className="game__status-dot" aria-hidden="true" />
-            <span>SOL 1 · BASE MARCIANA ATIVA</span>
-          </div>
-        </div>
-
-        <nav className="game__actions" aria-label="Ações da base">
-          <button
-            type="button"
-            className="game__action-btn"
-            onClick={() => setBaseId((cur) => pickRandomBase(cur))}
-            disabled={loading}
-            title="Sortear outra das 8 bases marcianas"
-          >
-            <Dices size={18} />
-            <span>Sortear outra base</span>
-          </button>
-
-          <button
-            type="button"
-            className="game__action-btn"
-            onClick={toggleRoofs}
-            disabled={loading}
-            title={roofs ? 'Ocultar telhados (visão de corte)' : 'Mostrar telhados'}
-          >
-            {roofs ? <EyeOff size={18} /> : <Eye size={18} />}
-            <span>{roofs ? 'Ocultar telhados' : 'Mostrar telhados'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="game__action-btn game__action-btn--exit"
-            onClick={() => nav('/')}
-            title="Voltar ao início"
-          >
-            <LogOut size={18} />
-            <span>Voltar à Terra</span>
-          </button>
-        </nav>
-      </header>
-
-      {/* Cartão de Informações da Base Marciana */}
-      <aside className="game__card" aria-label="Informações da base">
-        <div className="game__card-eyebrow">
-          <Compass size={14} />
-          <span>ASTRONAUTA {(name ?? 'Explorador').toUpperCase()}</span>
-        </div>
-        <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
-        {info && <p className="game__card-desc">{info.description}</p>}
-      </aside>
-
-      {/* Dicas de Controle da Câmera */}
-      {!loading && !error && (
-        <div className="game__hint" role="note">
-          <span>Arraste para girar</span>
-          <span className="game__hint-dot">·</span>
-          <span>Botão direito (ou 2 dedos) para mover</span>
-          <span className="game__hint-dot">·</span>
-          <span>Roda do mouse para aproximar</span>
-        </div>
-      )}
-
-      {/* Estado de Erro */}
-      {error && (
-        <div className="game__error-dialog">
-          <div className="game__error-card" role="alert">
-            <TriangleAlert size={28} className="game__error-icon" />
-            <div>
-              <h3>Falha no carregamento</h3>
-              <p>{error}</p>
+        {/* Cabeçalho HUD Superior */}
+        <header className="game__header">
+          <div className="game__header-brands">
+            <Link to="/" className="game__brand" aria-label="Mars Outpost — Início">
+              <img
+                className="game__brand-logo"
+                src="/assets/branding/mars-outpost-logo.svg"
+                alt=""
+                width={46}
+                height={46}
+              />
+              <img
+                className="game__brand-wordmark"
+                src="/assets/branding/mars-outpost-wordmark.svg"
+                alt="Mars Outpost"
+                width={160}
+                height={70}
+              />
+            </Link>
+            <span className="game__brand-divider" aria-hidden="true" />
+            <div className="game__mission-status">
+              <span className="game__status-dot" aria-hidden="true" />
+              <span>SOL 1 · BASE MARCIANA ATIVA</span>
             </div>
+          </div>
+
+          <nav className="game__actions" aria-label="Ações da base">
+            <button
+              type="button"
+              className="game__action-btn"
+              onClick={() => setPreview('greenhouse')}
+              title="Abrir prévia visual dos cuidados com a plantação"
+            >
+              <Sprout size={18} />
+              <span>Prévia: estufa</span>
+            </button>
+            <button
+              type="button"
+              className="game__action-btn"
+              onClick={() => setPreview('oxygen')}
+              title="Abrir prévia visual do filtro de oxigênio"
+            >
+              <Fan size={18} />
+              <span>Prévia: oxigênio</span>
+            </button>
+            <button
+              type="button"
+              className="game__action-btn"
+              onClick={() => setPreview('solar')}
+              title="Abrir prévia visual do minigame"
+            >
+              <Sun size={18} />
+              <span>Prévia: painel solar</span>
+            </button>
             <button
               type="button"
               className="game__action-btn"
               onClick={() => setBaseId((cur) => pickRandomBase(cur))}
+              disabled={loading}
+              title="Sortear outra das 8 bases marcianas"
             >
-              Tentar outra base
+              <Dices size={18} />
+              <span>Sortear outra base</span>
             </button>
+
+            <button
+              type="button"
+              className="game__action-btn"
+              onClick={toggleRoofs}
+              disabled={loading}
+              title={roofs ? 'Ocultar telhados (visão de corte)' : 'Mostrar telhados'}
+            >
+              {roofs ? <EyeOff size={18} /> : <Eye size={18} />}
+              <span>{roofs ? 'Ocultar telhados' : 'Mostrar telhados'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="game__action-btn game__action-btn--exit"
+              onClick={() => nav('/')}
+              title="Voltar ao início"
+            >
+              <LogOut size={18} />
+              <span>Voltar à Terra</span>
+            </button>
+          </nav>
+        </header>
+
+        {/* Cartão de Informações da Base Marciana */}
+        <aside className="game__card" aria-label="Informações da base">
+          <div className="game__card-eyebrow">
+            <Compass size={14} />
+            <span>ASTRONAUTA {(name ?? 'Explorador').toUpperCase()}</span>
           </div>
-        </div>
-      )}
+          <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
+          {info && <p className="game__card-desc">{info.description}</p>}
+        </aside>
+
+        {/* Dicas de Controle da Câmera */}
+        {!loading && !error && (
+          <div className="game__hint" role="note">
+            <span>Arraste para girar</span>
+            <span className="game__hint-dot">·</span>
+            <span>Botão direito (ou 2 dedos) para mover</span>
+            <span className="game__hint-dot">·</span>
+            <span>Roda do mouse para aproximar</span>
+          </div>
+        )}
+
+        {/* Estado de Erro */}
+        {error && (
+          <div className="game__error-dialog">
+            <div className="game__error-card" role="alert">
+              <TriangleAlert size={28} className="game__error-icon" />
+              <div>
+                <h3>Falha no carregamento</h3>
+                <p>{error}</p>
+              </div>
+              <button
+                type="button"
+                className="game__action-btn"
+                onClick={() => setBaseId((cur) => pickRandomBase(cur))}
+              >
+                Tentar outra base
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
