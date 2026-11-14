@@ -253,7 +253,9 @@ export class LaunchScene {
     const isLow = quality === 'low';
     const isHigh = quality === 'high';
     this.renderer.shadowMap.enabled = !isLow;
-    this.renderer.setPixelRatio(isLow ? 1 : isHigh ? Math.min(devicePixelRatio, 2) : Math.min(devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(
+      isLow ? 1 : isHigh ? Math.min(devicePixelRatio, 2) : Math.min(devicePixelRatio, 1.5),
+    );
     this.resize();
   }
   setAntialiasing(enabled: boolean) {

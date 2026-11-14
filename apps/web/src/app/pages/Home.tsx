@@ -1,8 +1,9 @@
-import { ArrowRight, LogIn, LogOut, Settings } from 'lucide-react';
+import { ArrowRight, LogIn, LogOut, Settings, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
 import { useAuth } from '../../store/auth';
+import { JoinWorldModal } from '../components/JoinWorldModal';
 import { LoadingScreen } from '../components/LoadingScreen';
 import {
   type AudioSettings,
@@ -32,6 +33,10 @@ export default function Home() {
   // Popup de apelido e personalização do astronauta
   const [suitModalOpen, setSuitModalOpen] = useState(false);
   const [astronautName, setAstronautName] = useState('');
+
+  // Modal para entrar em um mundo compartilhado
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [destinationUrl, setDestinationUrl] = useState('/jogar');
 
   // Tela de Loading antes de entrar no jogo
   const [showLoading, setShowLoading] = useState(false);
@@ -132,6 +137,13 @@ export default function Home() {
 
   const handleSuitLaunch = (name: string) => {
     setAstronautName(name);
+    setDestinationUrl('/jogar');
+    setShowLoading(true);
+  };
+
+  const handleJoinWorld = (roomCode: string, nick: string) => {
+    setAstronautName(nick);
+    setDestinationUrl(`/jogar?sala=${encodeURIComponent(roomCode)}`);
     setShowLoading(true);
   };
 
@@ -193,6 +205,17 @@ export default function Home() {
           <button
             className="launch-nav-button"
             type="button"
+            aria-label="Entrar em um mundo compartilhado"
+            onClick={() => setJoinModalOpen(true)}
+            title="Conectar a uma sala marciana com código de convite"
+          >
+            <Users size={20} aria-hidden="true" />
+            <span>Entrar em um Mundo</span>
+          </button>
+
+          <button
+            className="launch-nav-button"
+            type="button"
             aria-label="Configurações"
             onClick={() => setSettingsOpen(true)}
           >
@@ -235,14 +258,32 @@ export default function Home() {
           Construa e mantenha uma base em Marte
           <br className="launch-desktop-break" /> com um clima de exploração e descoberta.
         </p>
-        <button className="launch-cta" type="button" onClick={launch} disabled={launching}>
-          <span className="launch-cta-icon" aria-hidden="true">
-            <ArrowRight />
-          </span>
-          <span className="launch-cta-label">
-            Jogar Agora<small>Sua missão começa aqui!</small>
-          </span>
-        </button>
+
+        <div className="launch-cta-row">
+          <button className="launch-cta" type="button" onClick={launch} disabled={launching}>
+            <span className="launch-cta-icon" aria-hidden="true">
+              <ArrowRight />
+            </span>
+            <span className="launch-cta-label">
+              Jogar Agora<small>Sua missão começa aqui!</small>
+            </span>
+          </button>
+
+          <button
+            className="launch-join-cta"
+            type="button"
+            onClick={() => setJoinModalOpen(true)}
+            disabled={launching}
+            title="Conectar à base de um amigo usando o código da sala"
+          >
+            <span className="launch-join-cta-icon" aria-hidden="true">
+              <Users size={22} />
+            </span>
+            <span className="launch-join-cta-label">
+              Entrar em um Mundo<small>Conectar com código da sala</small>
+            </span>
+          </button>
+        </div>
       </section>
 
       {!fallback && (
@@ -310,9 +351,16 @@ export default function Home() {
       {showLoading && (
         <LoadingScreen
           astronautName={astronautName}
-          onComplete={() => nav('/jogar')}
+          onComplete={() => nav(destinationUrl)}
         />
       )}
+
+      {/* Modal para Entrar em um Mundo com Código da Sala */}
+      <JoinWorldModal
+        open={joinModalOpen}
+        onClose={() => setJoinModalOpen(false)}
+        onJoin={handleJoinWorld}
+      />
 
       {/* Menu de Configurações avançado com Sub-Painéis */}
       <SettingsModal

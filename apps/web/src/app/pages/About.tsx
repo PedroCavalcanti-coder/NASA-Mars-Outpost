@@ -63,20 +63,13 @@ export default function About() {
         </section>
 
         {/* Pilares do Projeto */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 24,
-            marginBottom: 44,
-          }}
-        >
+        <div className="public-grid-3">
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <BookOpen size={24} color="#ffb511" />
               <h2 style={{ fontSize: 20, margin: 0 }}>Educação Científica</h2>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55 }}>
+            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
               O objetivo principal é aproximar conceitos reais de astrofísica, biologia de plantas
               espaciais e engenharia aeroespacial do público geral de forma intuitiva, lúdica e
               visual.
@@ -88,7 +81,7 @@ export default function About() {
               <Compass size={24} color="#78ace1" />
               <h2 style={{ fontSize: 20, margin: 0 }}>Geografia Planetária Real</h2>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55 }}>
+            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
               Todas as 8 bases do jogo estão situadas em locais autênticos de Marte: cratera Jezero,
               Utopia Planitia, cratera Gale, Olympus Mons, Valles Marineris, Hellas, Elysium e
               Arcadia Planitia.
@@ -98,49 +91,60 @@ export default function About() {
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Cpu size={24} color="#7fd6a0" />
-              <h2 style={{ fontSize: 20, margin: 0 }}>Arquitetura Tecnológica</h2>
+              <h2 style={{ fontSize: 20, margin: 0 }}>Engenharia 3D em Tempo Real</h2>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55 }}>
-              Construído com tecnologias modernas: React 19, TypeScript, Three.js para renderização
-              3D acelerada por hardware, shaders customizados e modelos comprimidos com Meshopt para
-              carregamento ultrarrápido.
+            <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
+              Desenvolvido com Three.js e WebGL moderno, renderizando shaders dinâmicos de poeira
+              marciana, ciclos de dia e noite solares e personalização completa de trajes espaciais.
             </p>
           </div>
         </div>
 
-        {/* Detalhes e Disclaimer */}
-        <section className="public-card" style={{ marginBottom: 36, padding: '32px 36px' }}>
-          <h2 style={{ fontSize: 24, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ShieldCheck size={24} color="#ffb511" /> Declaração de Independência e Inspiração
-          </h2>
-          <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.6, marginBottom: 16 }}>
-            O <strong>Mars Outpost</strong> é um projeto independente concebido por entusiastas de
-            tecnologia e exploração espacial no âmbito do hackathon global <em>NASA Space Apps Challenge</em>,
-            na etapa local de Fortaleza.
+        {/* Declaração e Agradecimentos */}
+        <section className="public-card" style={{ padding: '36px 32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
+            <ShieldCheck size={28} color="#ffb511" />
+            <h2 style={{ fontSize: 24, margin: 0 }}>NASA Space Apps Challenge 2026</h2>
+          </div>
+          <p style={{ color: '#d0e2fc', fontSize: 15.5, lineHeight: 1.6, margin: '0 0 16px' }}>
+            O <strong>Mars Outpost</strong> é um projeto independente desenvolvido por entusiastas e
+            estudantes de ciência espacial e tecnologia para o hackathon global NASA Space Apps
+            Challenge Fortaleza.
           </p>
-          <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.6, margin: 0 }}>
-            Utilizamos dados e referências abertas disponibilizados pela NASA, JPL e agências
-            espaciais internacionais para recriar as condições de Marte com rigor educativo. O
-            projeto não possui endosso, afiliação direta ou patrocínio oficial da NASA.
+          <p style={{ color: '#d0e2fc', fontSize: 15.5, lineHeight: 1.6, margin: '0 0 24px' }}>
+            Não há afiliação governamental formal, endosso ou patrocínio comercial direto da NASA.
+            Todos os logotipos e menções da NASA e do Space Apps Challenge são marcas registradas de
+            seus respectivos proprietários e são utilizados aqui para fins educativos e de submissão
+            no evento.
           </p>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '10px 20px',
+              borderRadius: 30,
+              background: 'rgba(120, 172, 225, 0.15)',
+              border: '1px solid rgba(120, 172, 225, 0.35)',
+              color: '#cde4ff',
+              fontSize: 14,
+              fontWeight: 600,
+            }}
+          >
+            <HeartHandshake size={18} color="#ffd63c" /> Feito com paixão pela exploração espacial
+          </div>
         </section>
-
-        {/* Chamada para Ação */}
-        <div style={{ textAlign: 'center', padding: '24px 0' }}>
-          <Link to="/jogar" className="public-nav-cta" style={{ fontSize: 17, padding: '12px 32px' }}>
-            <Rocket size={20} /> Embarcar na Missão Agora
-          </Link>
-        </div>
       </main>
 
       {/* Footer */}
       <footer className="public-footer">
-        <span>MARS OUTPOST · PROJETO INDEPENDENTE PARA O NASA SPACE APPS CHALLENGE</span>
+        <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
           <Link to="/">Início</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>
+          <Link to="/jogar">Jogar</Link>
         </div>
       </footer>
     </div>

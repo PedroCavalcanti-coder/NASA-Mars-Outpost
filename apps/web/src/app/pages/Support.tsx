@@ -1,4 +1,4 @@
-import { CheckCircle2, HelpCircle, LifeBuoy, MessageSquare, MousePointer, Rocket, Send } from 'lucide-react';
+import { CheckCircle2, HelpCircle, LifeBuoy, MessageSquare, Rocket } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import '../../styles/publicPages.css';
@@ -10,19 +10,19 @@ const FAQS = [
   },
   {
     q: 'Como funcionam os controles na cena 3D?',
-    a: 'Arraste com o botão esquerdo para girar a câmera em órbita; arraste com o botão direito (ou toque com dois dedos) para mover o enquadramento; use a roda do mouse (ou pinça na tela) para aproximar ou afastar o zoom.',
+    a: 'Clique com o botão esquerdo no solo para mover seu astronauta ou interagir com painéis solares; arraste com o botão esquerdo para girar a maquete da base; arraste com o botão direito para mover o foco e use a roda do mouse para aproximar.',
   },
   {
     q: 'O jogo está lento ou travando no meu dispositivo. Como resolver?',
-    a: 'Acesse o menu de Configurações na página inicial, vá na aba "Vídeo" e selecione a qualidade "Baixo". Isso reduzirá a resolução de sombras e efeitos pesados, garantindo fluidez mesmo em celulares e notebooks modestos.',
+    a: 'Acesse o menu de Configurações (ícone de engrenagem), vá na aba "Vídeo" e selecione a qualidade "Baixo". Isso ajustará sombras e efeitos para máxima fluidez em celulares e notebooks.',
   },
   {
     q: 'Quais são as 8 bases marcianas disponíveis?',
-    a: 'O simulador conta com bases em Jezero, Utopia, Gale, Olympus, Valles Marineris, Hellas, Elysium e Arcadia. A cada nova partida, uma das bases é sorteada com relevo, estufas, painéis solares e habitats fiéis.',
+    a: 'O simulador conta com bases em Jezero, Utopia, Gale, Olympus, Valles Marineris, Hellas, Elysium e Arcadia. A cada partida você pode explorar uma base diferente ou sortear outra diretamente pelo HUD.',
   },
   {
     q: 'Os dados científicos apresentados são reais?',
-    a: 'Sim! As distâncias, duração do Sol (dia marciano), composição da atmosfera, dados de radiação e tecnologia MOXIE são baseados em pesquisas e missões reais da NASA e JPL.',
+    a: 'Sim! As distâncias, ciclo de Sol (dia marciano de 24h), tecnologias de suporte de vida (MOXIE) e topografia planetária foram modeladas com base em dados de missões reais da NASA.',
   },
 ];
 
@@ -98,13 +98,7 @@ export default function Support() {
         </section>
 
         {/* Grid: FAQs e Formulário de Contato */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 28,
-          }}
-        >
+        <div className="public-grid-2">
           {/* FAQs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <h2 style={{ fontSize: 24, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -119,7 +113,7 @@ export default function Support() {
             ))}
           </div>
 
-          {/* Form de Contato / Relato de Bug */}
+          {/* Form de Contato */}
           <div>
             <h2 style={{ fontSize: 24, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
               <MessageSquare size={22} color="#78ace1" /> Relatar Problema ou Dúvida
@@ -159,7 +153,15 @@ export default function Support() {
                   <div>
                     <label
                       htmlFor="support-subject"
-                      style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#8fbbe9', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#8fbbe9',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                      }}
                     >
                       Assunto
                     </label>
@@ -172,15 +174,17 @@ export default function Support() {
                       required
                       style={{
                         width: '100%',
+                        boxBox: 'border-box',
                         height: 44,
                         padding: '0 14px',
                         borderRadius: 10,
-                        border: '1.5px solid #78ace180',
+                        border: '1.5px solid rgba(120, 172, 225, 0.4)',
                         background: '#0d1a3c',
                         color: '#ffffff',
                         fontSize: 15,
                         fontFamily: 'inherit',
                         outline: 'none',
+                        boxSizing: 'border-box',
                       }}
                     />
                   </div>
@@ -188,7 +192,15 @@ export default function Support() {
                   <div>
                     <label
                       htmlFor="support-email"
-                      style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#8fbbe9', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#8fbbe9',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                      }}
                     >
                       Seu E-mail (Opcional)
                     </label>
@@ -203,12 +215,13 @@ export default function Support() {
                         height: 44,
                         padding: '0 14px',
                         borderRadius: 10,
-                        border: '1.5px solid #78ace180',
+                        border: '1.5px solid rgba(120, 172, 225, 0.4)',
                         background: '#0d1a3c',
                         color: '#ffffff',
                         fontSize: 15,
                         fontFamily: 'inherit',
                         outline: 'none',
+                        boxSizing: 'border-box',
                       }}
                     />
                   </div>
@@ -216,28 +229,37 @@ export default function Support() {
                   <div>
                     <label
                       htmlFor="support-msg"
-                      style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#8fbbe9', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                      style={{
+                        display: 'block',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: '#8fbbe9',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                      }}
                     >
-                      Detalhes da Mensagem
+                      Mensagem ou Relato
                     </label>
                     <textarea
                       id="support-msg"
                       rows={4}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Descreva o que ocorreu ou sua sugestão..."
+                      placeholder="Descreva com detalhes o que aconteceu..."
                       required
                       style={{
                         width: '100%',
                         padding: '12px 14px',
                         borderRadius: 10,
-                        border: '1.5px solid #78ace180',
+                        border: '1.5px solid rgba(120, 172, 225, 0.4)',
                         background: '#0d1a3c',
                         color: '#ffffff',
                         fontSize: 15,
                         fontFamily: 'inherit',
                         outline: 'none',
                         resize: 'vertical',
+                        boxSizing: 'border-box',
                       }}
                     />
                   </div>
@@ -245,22 +267,20 @@ export default function Support() {
                   <button
                     type="submit"
                     style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: 10,
-                      minHeight: 48,
+                      alignSelf: 'flex-start',
+                      padding: '10px 24px',
+                      borderRadius: 30,
                       border: '2px solid #ffb511',
-                      borderRadius: 24,
                       background: 'linear-gradient(135deg, #ffd63c, #ffb511)',
-                      color: '#0a1532',
-                      font: '700 15px "Barlow", sans-serif',
+                      color: '#08122c',
+                      fontWeight: 800,
+                      fontSize: 15,
                       cursor: 'pointer',
-                      marginTop: 4,
-                      boxShadow: '0 4px 15px rgba(255, 181, 17, 0.3)',
+                      boxShadow: '0 4px 15px rgba(255, 181, 17, 0.35)',
+                      transition: 'all 0.2s',
                     }}
                   >
-                    <Send size={18} /> Transmitir Mensagem
+                    Transmitir Mensagem
                   </button>
                 </form>
               )}
@@ -271,12 +291,13 @@ export default function Support() {
 
       {/* Footer */}
       <footer className="public-footer">
-        <span>MARS OUTPOST · SUPORTE E ENGENHARIA</span>
+        <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
           <Link to="/">Início</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>
+          <Link to="/jogar">Jogar</Link>
         </div>
       </footer>
     </div>

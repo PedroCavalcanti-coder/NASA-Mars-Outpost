@@ -41,9 +41,21 @@ function sharedAssets(): Plugin {
         ) {
           return next();
         }
+        // ETag + Last-Modified: o navegador (e o cache de modelos do jogo) revalida com HEAD/304
+        // em vez de baixar de novo; editar um .glb continua refletindo na hora.
+        const stat = statSync(file);
+        const etag = `W/"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
         res.setHeader('Content-Type', TYPES[extname(file)] ?? 'application/octet-stream');
         res.setHeader('Cache-Control', 'no-cache');
-        res.end(readFileSync(file));
+        res.setHeader('ETag', etag);
+        res.setHeader('Last-Modified', stat.mtime.toUTCString());
+        res.setHeader('Content-Length', stat.size);
+        if (req.headers['if-none-match'] === etag) {
+          res.statusCode = 304;
+          res.end();
+          return;
+        }
+        res.end(req.method === 'HEAD' ? undefined : readFileSync(file));
       });
     },
     generateBundle() {

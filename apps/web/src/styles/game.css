@@ -120,7 +120,8 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.9;
   }
@@ -149,8 +150,12 @@
   color: #f4f7ff;
   background: linear-gradient(180deg, rgba(28, 66, 129, 0.75), rgba(20, 45, 96, 0.7));
   backdrop-filter: blur(10px);
-  box-shadow: inset 0 0 0 1px rgba(24, 57, 116, 0.4), 0 4px 15px rgba(0, 0, 0, 0.3);
-  font: 600 14px "Barlow", sans-serif;
+  box-shadow:
+    inset 0 0 0 1px rgba(24, 57, 116, 0.4),
+    0 4px 15px rgba(0, 0, 0, 0.3);
+  font:
+    600 14px "Barlow",
+    sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -177,6 +182,166 @@
   background: rgba(40, 20, 30, 0.8);
   border-color: #ff8585;
   color: #ffe0e0;
+}
+
+.game__action-btn--invite {
+  border-color: #78ace1;
+  background: linear-gradient(180deg, rgba(35, 78, 155, 0.85), rgba(20, 48, 102, 0.8));
+  color: #cde4ff;
+}
+
+.game__action-btn--invite:hover:not(:disabled) {
+  border-color: #ffd54f;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(45, 96, 190, 0.95), rgba(25, 60, 125, 0.9));
+}
+
+.game__action-btn--active {
+  border-color: #ffb511;
+  background: linear-gradient(180deg, rgba(50, 95, 175, 0.9), rgba(28, 60, 120, 0.85));
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(255, 181, 17, 0.35);
+}
+
+.game__action-btn--storm-active {
+  border-color: #ff7043;
+  background: linear-gradient(180deg, rgba(160, 50, 20, 0.88), rgba(95, 25, 12, 0.85));
+  color: #fff3e0;
+  box-shadow: 0 0 16px rgba(255, 112, 67, 0.45);
+  animation: pulse-storm-btn 1.6s infinite ease-in-out;
+}
+
+@keyframes pulse-storm-btn {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 14px rgba(255, 112, 67, 0.4);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 22px rgba(255, 112, 67, 0.7);
+  }
+}
+
+/* Indicador de Coordenadas e Grade HUD */
+.game__coord-status {
+  position: absolute;
+  z-index: 10;
+  left: 24px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(120, 172, 225, 0.4);
+  border-radius: 20px;
+  background: rgba(10, 22, 50, 0.82);
+  backdrop-filter: blur(10px);
+  color: #cde0fc;
+  font:
+    700 12px / 1 "Barlow",
+    monospace;
+  letter-spacing: 0.08em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.game__coord-icon {
+  color: #ffb511;
+}
+
+.coord-inside {
+  color: #72e49c;
+}
+
+.coord-outside {
+  color: #ffb511;
+}
+
+.game__hint-action {
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* Engrenagem de Configurações no Canto */
+.game__settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #78ace1;
+  border-radius: 50%;
+  color: #ffffff;
+  background: linear-gradient(180deg, #1f488f, #122856);
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.game__settings-btn:hover {
+  background: linear-gradient(180deg, #2d62bd, #19387a);
+  border-color: #ffd54f;
+  transform: rotate(45deg) scale(1.08);
+  box-shadow: 0 0 20px rgba(255, 213, 79, 0.45);
+}
+
+/* Status do Clima / Relógio de Marte */
+.game__weather-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 15px;
+  border: 1px solid rgba(120, 172, 225, 0.45);
+  border-radius: 20px;
+  background: rgba(14, 28, 65, 0.65);
+  backdrop-filter: blur(10px);
+  color: #f7f9ff;
+  font:
+    700 12px "Barlow",
+    sans-serif;
+  letter-spacing: 0.08em;
+}
+
+.weather-icon-sun {
+  color: #ffca28;
+  filter: drop-shadow(0 0 6px rgba(255, 202, 40, 0.7));
+}
+
+.weather-icon-moon {
+  color: #9eccfc;
+  filter: drop-shadow(0 0 6px rgba(158, 204, 252, 0.6));
+}
+
+/* Badge clicável da Sala */
+.game__room-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid rgba(120, 172, 225, 0.4);
+  border-radius: 20px;
+  background: rgba(18, 38, 80, 0.6);
+  backdrop-filter: blur(10px);
+  color: #cde0fc;
+  font:
+    700 12px / 1 "Barlow",
+    monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.game__room-status:hover {
+  border-color: #ffd54f;
+  color: #ffffff;
+  background: rgba(26, 54, 114, 0.85);
+  transform: translateY(-1px);
+}
+
+.game__hint-highlight {
+  color: #ffd54f;
+  font-weight: 700;
 }
 
 /* ---------- Cartão de Informações da Base ---------- */
@@ -222,7 +387,9 @@
 .game__card-title {
   margin: 2px 0 0;
   color: #ffffff;
-  font: 800 clamp(24px, 2.5vw, 32px) / 1.1 "Barlow", sans-serif;
+  font:
+    800 clamp(24px, 2.5vw, 32px) / 1.1 "Barlow",
+    sans-serif;
   letter-spacing: -0.01em;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
@@ -319,7 +486,9 @@
 }
 
 .game__loading-title {
-  font: 800 clamp(28px, 4vw, 42px) "Barlow", sans-serif;
+  font:
+    800 clamp(28px, 4vw, 42px) "Barlow",
+    sans-serif;
   color: #ffffff;
   letter-spacing: -0.01em;
   margin: 0;
@@ -377,53 +546,295 @@
 /* ---------- Responsividade Mobile ---------- */
 @media (max-width: 760px) {
   .game__header {
-    padding: 12px 16px;
-    gap: 10px;
+    padding: 10px 14px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .game__header-brands {
+    gap: 8px;
   }
 
   .game__brand-logo {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
   }
 
-  .game__brand-wordmark {
-    display: none;
-  }
-
+  .game__brand-wordmark,
   .game__brand-divider,
   .game__mission-status {
     display: none;
   }
 
+  .game__weather-status {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .game__room-status {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  .game__actions {
+    gap: 6px;
+    margin-left: auto;
+  }
+
   .game__action-btn {
     min-height: 36px;
-    padding: 0 12px;
-    font-size: 13px;
-    gap: 6px;
+    min-width: 36px;
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 4px;
   }
 
   .game__action-btn span {
     display: none;
   }
 
+  .game__settings-btn {
+    width: 36px;
+    height: 36px;
+  }
+
   .game__card {
-    top: 68px;
-    left: 16px;
-    padding: 14px 16px;
-    border-radius: 16px;
+    top: 60px;
+    left: 14px;
+    max-width: calc(100vw - 28px);
+    padding: 12px 14px;
+    border-radius: 14px;
   }
 
   .game__card-title {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .game__card-desc {
-    font-size: 13px;
+    font-size: 12.5px;
+    line-height: 1.35;
+  }
+
+  .game__coord-status {
+    left: 14px;
+    bottom: 56px;
+    padding: 5px 12px;
+    font-size: 11px;
+    border-radius: 14px;
   }
 
   .game__hint {
     font-size: 11px;
-    padding: 6px 14px;
+    padding: 7px 14px;
     bottom: 12px;
+    max-width: calc(100vw - 28px);
+    white-space: normal;
+    text-align: center;
+    line-height: 1.3;
+  }
+}
+
+/* ---------- Rover ---------- */
+.game__vehicle-exit {
+  position: absolute;
+  z-index: 11;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 22px;
+  border: 1.5px solid var(--game-gold);
+  border-radius: 30px;
+  background: rgba(12, 24, 54, 0.92);
+  backdrop-filter: blur(10px);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.game__vehicle-exit:hover {
+  background: rgba(255, 181, 17, 0.18);
+}
+
+.game__vehicle-exit kbd {
+  padding: 1px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* ---------- Emojis: painel circular e chat ---------- */
+.game__emote {
+  position: absolute;
+  z-index: 12;
+  left: 28px;
+  bottom: 84px;
+  width: 56px;
+  height: 56px;
+}
+
+.game__emote-btn {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid rgba(120, 172, 225, 0.5);
+  border-radius: 50%;
+  background: rgba(12, 24, 54, 0.9);
+  backdrop-filter: blur(10px);
+  color: var(--game-gold);
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.game__emote-btn:hover,
+.game__emote-btn--open {
+  background: rgba(255, 181, 17, 0.2);
+  transform: scale(1.06);
+}
+
+.game__emote-wheel {
+  position: absolute;
+  /* o disco (raio ~118px) abre para cima e para a direita do botão, sem sair da tela */
+  left: 100px;
+  top: -150px;
+  width: 0;
+  height: 0;
+}
+
+.game__emote-wheel::before {
+  content: "";
+  position: absolute;
+  left: -118px;
+  top: -118px;
+  width: 236px;
+  height: 236px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(12, 24, 54, 0.55) 30%, rgba(12, 24, 54, 0.86) 100%);
+  border: 1.5px solid rgba(120, 172, 225, 0.4);
+  backdrop-filter: blur(8px);
+  animation: emote-wheel-in 0.22s ease-out both;
+}
+
+.game__emote-item {
+  position: absolute;
+  left: -24px;
+  top: -24px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  animation: emote-item-in 0.22s ease-out both;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.game__emote-item:hover:not(:disabled) {
+  background: rgba(255, 181, 17, 0.3);
+  border-color: var(--game-gold);
+}
+
+.game__emote-item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@keyframes emote-wheel-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes emote-item-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.game__chat {
+  position: absolute;
+  z-index: 11;
+  left: 28px;
+  bottom: 156px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.game__chat-msg {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1.5px solid rgba(120, 172, 225, 0.35);
+  border-radius: 18px;
+  background: rgba(12, 24, 54, 0.82);
+  color: #c9dcf7;
+  font-size: 13px;
+  animation: chat-life 9s linear both;
+}
+
+.game__chat-msg--me {
+  border-color: rgba(255, 181, 17, 0.6);
+}
+
+.game__chat-msg strong {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.game__chat-emoji {
+  font-size: 20px;
+  line-height: 1;
+}
+
+@keyframes chat-life {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  4%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .game__emote {
+    left: 16px;
+    bottom: 76px;
+  }
+  .game__emote-wheel {
+    left: 112px;
+  }
+  .game__chat {
+    left: 16px;
+    bottom: 146px;
   }
 }

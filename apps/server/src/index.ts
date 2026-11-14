@@ -4,12 +4,14 @@ import { purgeSessions } from './auth/sessions';
 import { config } from './config';
 import { closeDb } from './db/client';
 import { runMigrations } from './db/migrate';
+import { registerGameNamespace } from './realtime/game';
 import { createSocketServer } from './realtime/socket';
 
 await runMigrations();
 
 const app = await buildApp();
 const io = createSocketServer(app.server);
+registerGameNamespace(io);
 
 await app.listen({ port: config.port, host: '0.0.0.0' });
 console.log(`🚀 ${GAME_NAME} — API + Socket.IO em http://localhost:${config.port}`);

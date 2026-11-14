@@ -26,10 +26,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 4%;
+  padding: 18px 4%;
   border-bottom: 1px solid rgba(120, 172, 225, 0.2);
-  background: rgba(8, 18, 44, 0.7);
-  backdrop-filter: blur(12px);
+  background: rgba(8, 18, 44, 0.75);
+  backdrop-filter: blur(14px);
 }
 
 .public-header-brands {
@@ -44,17 +44,24 @@
   gap: 12px;
   text-decoration: none;
   color: inherit;
+  transition: transform 0.2s;
+}
+
+.public-brand:hover {
+  transform: translateY(-1px);
 }
 
 .public-brand-mark {
   width: 44px;
   height: 44px;
   object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
 }
 
 .public-brand-name {
   height: 24px;
   width: auto;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
 }
 
 .public-brand-divider {
@@ -64,7 +71,7 @@
 }
 
 .public-space-apps-logo {
-  height: 40px;
+  height: 38px;
   width: auto;
   object-fit: contain;
 }
@@ -72,15 +79,15 @@
 .public-nav {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .public-nav-link {
   color: #cde0fc;
   text-decoration: none;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
-  padding: 8px 12px;
+  padding: 7px 14px;
   border-radius: 20px;
   transition: all 0.2s;
 }
@@ -95,7 +102,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
+  padding: 8px 22px;
   border: 2px solid #ffb511;
   border-radius: 30px;
   background: linear-gradient(135deg, #ffd63c, #ffb511);
@@ -109,21 +116,23 @@
 .public-nav-cta:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(255, 181, 17, 0.5);
+  color: #000;
 }
 
 .public-main-content {
   position: relative;
   z-index: 2;
   flex: 1;
-  max-width: 1160px;
+  max-width: 1180px;
   width: 100%;
   margin: 0 auto;
-  padding: 48px 24px 64px;
+  padding: 44px 24px 64px;
+  box-sizing: border-box;
 }
 
 .public-hero {
   text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 44px;
 }
 
 .public-eyebrow {
@@ -131,7 +140,7 @@
   align-items: center;
   gap: 8px;
   color: #8fbbe9;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -139,7 +148,7 @@
 }
 
 .public-hero h1 {
-  font: 800 clamp(36px, 5.5vw, 56px) / 1.1 "Barlow", sans-serif;
+  font: 800 clamp(34px, 5vw, 54px) / 1.1 "Barlow", sans-serif;
   color: #ffffff;
   margin: 0 0 14px;
   letter-spacing: -0.02em;
@@ -147,20 +156,42 @@
 
 .public-hero p {
   color: #cde0fc;
-  font-size: clamp(16px, 1.8vw, 20px);
-  max-width: 680px;
+  font-size: clamp(15.5px, 1.7vw, 19px);
+  max-width: 700px;
   margin: 0 auto;
-  line-height: 1.5;
+  line-height: 1.55;
+}
+
+/* Grids Responsivos */
+.public-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
+}
+
+.public-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 22px;
+  margin-bottom: 40px;
+}
+
+.public-grid-bases {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
+  gap: 22px;
 }
 
 /* Cartões de Conteúdo */
 .public-card {
-  padding: 28px 32px;
+  padding: 26px 30px;
   border: 1.5px solid rgba(120, 172, 225, 0.35);
   border-radius: 20px;
   background: linear-gradient(145deg, rgba(22, 44, 90, 0.75), rgba(12, 24, 52, 0.85));
   backdrop-filter: blur(14px);
   box-shadow: 0 15px 45px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
 }
 
 .public-card h2,
@@ -183,12 +214,15 @@
   color: #b0c8ea;
   font-size: 13px;
   font-weight: 500;
+  flex-wrap: wrap;
+  gap: 16px;
 }
 
 .public-footer-links {
   display: flex;
   align-items: center;
   gap: 20px;
+  flex-wrap: wrap;
 }
 
 .public-footer-links a {
@@ -205,20 +239,63 @@
   color: #ffffff;
 }
 
+/* Responsividade Mobile */
 @media (max-width: 768px) {
-  .public-header-brands .public-brand-wordmark,
-  .public-header-brands .public-brand-divider,
-  .public-header-brands .public-space-apps-logo {
+  .public-page-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 18px;
+    gap: 12px;
+  }
+
+  .public-header-brands {
+    justify-content: space-between;
+  }
+
+  .public-brand-name,
+  .public-brand-divider,
+  .public-space-apps-logo {
     display: none;
   }
 
-  .public-page-header {
-    padding: 14px 18px;
+  .public-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .public-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .public-nav-link {
+    font-size: 13.5px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+
+  .public-nav-cta {
+    padding: 6px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  .public-main-content {
+    padding: 28px 16px 48px;
   }
 
   .public-footer {
     flex-direction: column;
-    gap: 12px;
     text-align: center;
+    gap: 12px;
+  }
+
+  .public-footer-links {
+    justify-content: center;
   }
 }

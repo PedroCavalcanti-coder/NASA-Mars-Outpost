@@ -107,20 +107,13 @@ export default function Center() {
         </section>
 
         {/* Telemetry Highlights */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: 20,
-            marginBottom: 44,
-          }}
-        >
+        <div className="public-grid-3">
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Zap size={22} color="#ffb511" />
               <h3 style={{ margin: 0, fontSize: 18 }}>Matriz Energética</h3>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>
+            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
               Painéis solares fotovoltaicos otimizados e baterias de lítio de alta densidade
               alimentam os habitats contra as noites frias de até -125 °C.
             </p>
@@ -131,7 +124,7 @@ export default function Center() {
               <Shield size={22} color="#78ace1" />
               <h3 style={{ margin: 0, fontSize: 18 }}>Suporte de Vida (ECLSS)</h3>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>
+            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
               Sistemas de eletrólise MOXIE produzem oxigênio a partir do dióxido de carbono
               atmosférico, enquanto recicladores recuperam 98% da água.
             </p>
@@ -142,7 +135,7 @@ export default function Center() {
               <Users size={22} color="#7fd6a0" />
               <h3 style={{ margin: 0, fontSize: 18 }}>Tripulação e Estufas</h3>
             </div>
-            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>
+            <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
               Estufas hidropônicas pressurizadas cultivam batatas, tomates e alfaces frescas para
               manter a nutrição e moral dos astronautas em solo marciano.
             </p>
@@ -155,19 +148,13 @@ export default function Center() {
             <span className="public-eyebrow">
               <Compass size={14} /> TOPOGRAFIA RECONHECIDA
             </span>
-            <h2 style={{ fontSize: 32, margin: '4px 0 8px' }}>As 8 Bases Marcianas em 3D</h2>
+            <h2 style={{ fontSize: 32, margin: '4px 0 8px', color: '#fff' }}>As 8 Bases Marcianas em 3D</h2>
             <p style={{ color: '#c5dcf7', maxWidth: 600, margin: '0 auto' }}>
               Cada partida sorteia uma das regiões reais mapeadas por sondas e rovers da NASA.
             </p>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: 20,
-            }}
-          >
+          <div className="public-grid-bases">
             {BASE_IDS.map((id) => {
               const meta = BASE_NAMES[id] ?? {
                 title: `Base ${id}`,
@@ -216,23 +203,24 @@ export default function Center() {
                       {meta.desc}
                     </p>
                     <Link
-                      to="/jogar"
+                      to={`/jogar?base=${id}`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         gap: 8,
-                        padding: '8px 16px',
-                        border: '1.5px solid #78ace1',
+                        padding: '9px 16px',
                         borderRadius: 20,
-                        background: 'rgba(28, 62, 130, 0.6)',
+                        border: '1.5px solid #78ace1',
+                        background: 'rgba(28, 62, 130, 0.65)',
                         color: '#ffffff',
-                        textDecoration: 'none',
-                        fontSize: 13,
                         fontWeight: 700,
+                        fontSize: 13,
+                        textDecoration: 'none',
+                        transition: 'all 0.2s',
                       }}
                     >
-                      <Rocket size={14} /> Explorar Base
+                      Explorar Esta Base
                     </Link>
                   </div>
                 </div>
@@ -244,12 +232,13 @@ export default function Center() {
 
       {/* Footer */}
       <footer className="public-footer">
-        <span>MARS OUTPOST · EXPEDIÇÃO ESPACIAL INTERATIVA</span>
+        <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
           <Link to="/">Início</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>
+          <Link to="/jogar">Jogar</Link>
         </div>
       </footer>
     </div>

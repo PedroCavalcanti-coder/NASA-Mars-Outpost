@@ -1,13 +1,18 @@
 import {
+  Check,
+  Copy,
   HelpCircle,
+  LogOut,
   Monitor,
+  Share2,
   Sliders,
+  Users,
   Volume2,
   VolumeX,
   X,
-  Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from '../../ui/toast';
 import './settingsModal.css';
 
 export interface VideoSettings {
@@ -39,9 +44,13 @@ interface Props {
   onAudioChange: (next: AudioSettings) => void;
   gameplay: GameplaySettings;
   onGameplayChange: (next: GameplaySettings) => void;
+  inGame?: boolean;
+  roomCode?: string;
+  onCopyRoomCode?: () => void;
+  onLeaveRoom?: () => void;
 }
 
-type TabId = 'video' | 'audio' | 'gameplay' | 'about';
+type TabId = 'video' | 'audio' | 'gameplay' | 'room' | 'about';
 
 export function SettingsModal({
   open,
@@ -52,16 +61,46 @@ export function SettingsModal({
   onAudioChange,
   gameplay,
   onGameplayChange,
+  inGame = false,
+  roomCode,
+  onCopyRoomCode,
+  onLeaveRoom,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [tab, setTab] = useState<TabId>('video');
+  const [tab, setTab] = useState<TabId>(inGame ? 'room' : 'video');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const d = dialogRef.current;
     if (!d) return;
-    if (open && !d.open) d.showModal();
+    if (open && !d.open) {
+      d.showModal();
+      if (inGame) setTab('room');
+      else setTab('video');
+    }
     if (!open && d.open) d.close();
-  }, [open]);
+  }, [open, inGame]);
+
+  const handleCopy = () => {
+    if (!roomCode) return;
+    if (onCopyRoomCode) {
+      onCopyRoomCode();
+    } else {
+      navigator.clipboard.writeText(roomCode);
+      toast(`Código da sala ${roomCode} copiado!`, 'ok');
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2600);
+  };
+
+  const handleCopyLink = () => {
+    if (!roomCode) return;
+    const link = `${window.location.origin}/jogar?sala=${encodeURIComponent(roomCode)}`;
+    navigator.clipboard.writeText(link);
+    toast('Link de convite da sala copiado!', 'ok');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2600);
+  };
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop click handles close
@@ -76,7 +115,9 @@ export function SettingsModal({
         <header className="game-settings-header">
           <div className="game-settings-title-wrap">
             <span className="game-settings-kicker">SISTEMA DA MISSÃO</span>
-            <h2 id="settings-dialog-title">Configurações</h2>
+            <h2 id="settings-dialog-title">
+              {inGame ? 'Configurações & Sala' : 'Configurações'}
+            </h2>
           </div>
           <button
             type="button"
@@ -91,6 +132,17 @@ export function SettingsModal({
         <div className="game-settings-layout">
           {/* Menu Lateral de Sub-Painéis */}
           <nav className="game-settings-nav" aria-label="Seções de configurações">
+            {inGame && (
+              <button
+                type="button"
+                className={`game-nav-tab is-special ${tab === 'room' ? 'is-active' : ''}`}
+                onClick={() => setTab('room')}
+              >
+                <Users size={18} />
+                <span>Sala & Convite</span>
+              </button>
+            )}
+
             <button
               type="button"
               className={`game-nav-tab ${tab === 'video' ? 'is-active' : ''}`}
@@ -99,6 +151,7 @@ export function SettingsModal({
               <Monitor size={18} />
               <span>Vídeo</span>
             </button>
+
             <button
               type="button"
               className={`game-nav-tab ${tab === 'audio' ? 'is-active' : ''}`}
@@ -107,6 +160,7 @@ export function SettingsModal({
               <Volume2 size={18} />
               <span>Volume</span>
             </button>
+
             <button
               type="button"
               className={`game-nav-tab ${tab === 'gameplay' ? 'is-active' : ''}`}
@@ -115,6 +169,7 @@ export function SettingsModal({
               <Sliders size={18} />
               <span>Geral</span>
             </button>
+
             <button
               type="button"
               className={`game-nav-tab ${tab === 'about' ? 'is-active' : ''}`}
@@ -125,8 +180,66 @@ export function SettingsModal({
             </button>
           </nav>
 
-          {/* Conteúdo do Sub-Painel */}
+          {/* Painel de Conteúdo com scroll seguro */}
           <div className="game-settings-panel">
+            {/* SUB-PAINEL: SALA & CONVITE (EM JOGO) */}
+            {tab === 'room' && inGame && (
+              <div className="settings-section">
+                <div className="settings-section-head">
+                  <h3>Sala & Convite da Expedição</h3>
+                  <p>Compartilhe o código exclusivo desta sala para jogar junto com amigos.</p>
+                </div>
+
+                <div className="settings-room-card">
+                  <span className="settings-room-label">CÓDIGO EXCLUSIVO DA SALA</span>
+                  <div className="settings-room-code-display">
+                    <code>{roomCode ?? 'MARS-OUTPOST-LOCAL'}</code>
+                    <button
+                      type="button"
+                      className="settings-room-btn is-primary"
+                      onClick={handleCopy}
+                    >
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                      <span>{copied ? 'Código Copiado!' : 'Copiar Código'}</span>
+                    </button>
+                  </div>
+                  <p className="settings-room-instructions">
+                    Seu amigo pode entrar na sua sala clicando em{' '}
+                    <strong>"Entrar em um mundo"</strong> na tela inicial e colando este código (máximo 4 jogadores).
+                  </p>
+                  <div className="settings-room-actions">
+                    <button
+                      type="button"
+                      className="settings-room-link-btn"
+                      onClick={handleCopyLink}
+                    >
+                      <Share2 size={15} />
+                      <span>Copiar Link de Convite Direto</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="settings-danger-zone">
+                  <div className="settings-danger-info">
+                    <h4>Sair da Missão Atual</h4>
+                    <p>Encerra sua sessão na base marciana e retorna ao centro de lançamento na Terra.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="settings-btn-danger"
+                    onClick={() => {
+                      onClose();
+                      onLeaveRoom?.();
+                    }}
+                  >
+                    <LogOut size={16} />
+                    <span>Sair da Sala</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-PAINEL: VÍDEO */}
             {tab === 'video' && (
               <div className="settings-section">
                 <div className="settings-section-head">
@@ -134,20 +247,22 @@ export function SettingsModal({
                   <p>Ajuste a qualidade visual para melhor fluidez no seu dispositivo.</p>
                 </div>
 
+                {/* Opções de Vídeo: Baixo / Médio / Alto */}
                 <div className="settings-item">
                   <div className="settings-item-label">
                     <span>Nível de Qualidade Visual</span>
                     <small>
-                      {video.quality === 'low' && 'Econômico · Recomendado para celulares e tablets'}
-                      {video.quality === 'medium' && 'Equilibrado · Padrão para PCs e notebooks'}
-                      {video.quality === 'high' && 'Máximo · Alta fidelidade com sombras detalhadas'}
+                      {video.quality === 'low' && 'Baixo · Recomendado para celulares e telas pequenas'}
+                      {video.quality === 'medium' && 'Médio · Padrão equilibrado para PC / Notebook'}
+                      {video.quality === 'high' && 'Alto · Fidelidade gráfica máxima com sombras detalhadas'}
                     </small>
                   </div>
-                  <div className="settings-tier-selector">
+                  <div className="settings-tier-selector" role="radiogroup" aria-label="Qualidade gráfica">
                     <button
                       type="button"
                       className={`tier-btn ${video.quality === 'low' ? 'is-active' : ''}`}
                       onClick={() => onVideoChange({ ...video, quality: 'low' })}
+                      aria-pressed={video.quality === 'low'}
                     >
                       Baixo
                     </button>
@@ -155,6 +270,7 @@ export function SettingsModal({
                       type="button"
                       className={`tier-btn ${video.quality === 'medium' ? 'is-active' : ''}`}
                       onClick={() => onVideoChange({ ...video, quality: 'medium' })}
+                      aria-pressed={video.quality === 'medium'}
                     >
                       Médio
                     </button>
@@ -162,16 +278,18 @@ export function SettingsModal({
                       type="button"
                       className={`tier-btn ${video.quality === 'high' ? 'is-active' : ''}`}
                       onClick={() => onVideoChange({ ...video, quality: 'high' })}
+                      aria-pressed={video.quality === 'high'}
                     >
                       Alto
                     </button>
                   </div>
                 </div>
 
+                {/* Post-Processing */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Pós-processamento</span>
-                    <small>Iluminação atmosférica e vinheta de cinema.</small>
+                    <span>Pós-processamento (Post-Processing)</span>
+                    <small>Filtros de atmosfera marciana, vinheta e correção tonal ACES Filmic.</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -185,10 +303,11 @@ export function SettingsModal({
                   </label>
                 </div>
 
+                {/* Anti-aliasing (Suavização) */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Suavização de Bordas (Antialiasing)</span>
-                    <small>Reduz serrilhados nos modelos 3D e no terreno.</small>
+                    <span>Suavização de Serrilhado (Anti-aliasing)</span>
+                    <small>Suaviza arestas poligonais do terreno, habitats e painéis solares.</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -202,10 +321,11 @@ export function SettingsModal({
                   </label>
                 </div>
 
+                {/* Movimento Reduzido */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Reduzir Movimentos</span>
-                    <small>Evita tremores e transições bruscas de câmera.</small>
+                    <span>Reduzir Movimento de Câmera</span>
+                    <small>Diminui a inércia dos controles orbitais para maior conforto visual.</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -221,17 +341,18 @@ export function SettingsModal({
               </div>
             )}
 
+            {/* SUB-PAINEL: VOLUME / ÁUDIO */}
             {tab === 'audio' && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Controle de Áudio & Volume</h3>
-                  <p>Ajuste os canais de som ambiente e efeitos de propulsão.</p>
+                  <h3>Sons & Ambiência Espacial</h3>
+                  <p>Controle os volumes de navegação, propulsão da nave e som ambiente de Marte.</p>
                 </div>
 
-                <div className="settings-item settings-item--audio-row">
+                <div className="settings-item">
                   <div className="settings-item-label">
                     <span>Silenciar Todos os Sons</span>
-                    <small>Desativa qualquer saída de áudio instantaneamente.</small>
+                    <small>Desativa qualquer saída de áudio do simulador.</small>
                   </div>
                   <button
                     type="button"
@@ -239,13 +360,13 @@ export function SettingsModal({
                     onClick={() => onAudioChange({ ...audio, muted: !audio.muted })}
                   >
                     {audio.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                    <span>{audio.muted ? 'Mudo' : 'Ativo'}</span>
+                    <span>{audio.muted ? 'Mutado' : 'Áudio Ativo'}</span>
                   </button>
                 </div>
 
                 <div className="settings-slider-item">
                   <div className="slider-header">
-                    <span>Volume Geral</span>
+                    <span>Volume Geral (Master)</span>
                     <span className="slider-value">{audio.muted ? '0%' : `${audio.masterVolume}%`}</span>
                   </div>
                   <input
@@ -263,7 +384,7 @@ export function SettingsModal({
 
                 <div className="settings-slider-item">
                   <div className="slider-header">
-                    <span>Efeitos Sonoros (SFX / Propulsão)</span>
+                    <span>Efeitos Sonoros (SFX & Propulsão)</span>
                     <span className="slider-value">{audio.muted ? '0%' : `${audio.sfxVolume}%`}</span>
                   </div>
                   <input
@@ -299,17 +420,18 @@ export function SettingsModal({
               </div>
             )}
 
+            {/* SUB-PAINEL: GERAL / JOGO */}
             {tab === 'gameplay' && (
               <div className="settings-section">
                 <div className="settings-section-head">
                   <h3>Jogabilidade & Interface</h3>
-                  <p>Preferências de assistência e visualização.</p>
+                  <p>Preferências de assistência, acessibilidade e visualização.</p>
                 </div>
 
                 <div className="settings-item">
                   <div className="settings-item-label">
                     <span>Exibir Dicas de Controle na Tela</span>
-                    <small>Mostra a barra inferior com comandos de rotação e zoom.</small>
+                    <small>Mostra a barra inferior com comandos de caminhada, rotação e limpeza.</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -326,7 +448,7 @@ export function SettingsModal({
                 <div className="settings-item">
                   <div className="settings-item-label">
                     <span>Modo Alto Contraste</span>
-                    <small>Aumenta a separação de bordas e textos para maior clareza.</small>
+                    <small>Aumenta a separação de bordas e textos para maior clareza visual.</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -343,13 +465,14 @@ export function SettingsModal({
                 <div className="settings-item">
                   <div className="settings-item-label">
                     <span>Idioma da Missão</span>
-                    <small>Comunicações e relatórios científicos.</small>
+                    <small>Comunicações da base e telemetria marciana.</small>
                   </div>
                   <span className="settings-badge">Português (Brasil)</span>
                 </div>
               </div>
             )}
 
+            {/* SUB-PAINEL: SOBRE */}
             {tab === 'about' && (
               <div className="settings-section">
                 <div className="settings-section-head">
@@ -378,6 +501,18 @@ export function SettingsModal({
         </div>
 
         <footer className="game-settings-footer">
+          <div className="game-settings-footer-in-game">
+            {inGame && roomCode && (
+              <button
+                type="button"
+                className="game-settings-quick-invite"
+                onClick={handleCopy}
+              >
+                <Share2 size={15} />
+                <span>Copiar Código: {roomCode}</span>
+              </button>
+            )}
+          </div>
           <button type="button" className="game-settings-done" onClick={onClose}>
             Concluir
           </button>

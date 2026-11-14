@@ -4,5 +4,16 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build -w @mars/web",
   "outputDirectory": "apps/web/dist",
+  "headers": [
+    {
+      "source": "/assets/(bases|modelos)/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
+        }
+      ]
+    }
+  ],
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }

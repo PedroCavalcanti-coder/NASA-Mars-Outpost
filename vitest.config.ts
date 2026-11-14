@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['packages/**/*.test.ts', 'apps/server/**/*.test.ts'],
+    include: ['packages/**/*.test.ts', 'apps/server/**/*.test.ts', 'apps/web/src/**/*.test.ts'],
     environment: 'node',
     // Valores falsos só para os testes unitários: nada aqui toca o banco real.
     env: {
