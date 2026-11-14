@@ -1,8 +1,123 @@
 import { describe, expect, it } from 'vitest';
-import { describeSim } from './index';
+import {
+  type ActionId,
+  checkAction,
+  createMission,
+  describeSim,
+  type MissionState,
+  RESEARCH_GOAL,
+  runCommand,
+} from './index';
+
+const act = (s: MissionState, action: ActionId) => runCommand(s, { type: 'action', action });
+const endSol = (s: MissionState) => runCommand(s, { type: 'end_sol' });
 
 describe('sim', () => {
   it('descreve a simulação', () => {
     expect(describeSim()).toContain('Mars Outpost');
+  });
+
+  it('é determinística: mesma semente e comandos dão o mesmo estado', () => {
+    const play = () => {
+      let s = createMission(42);
+      for (let i = 0; i < 6; i++) {
+        s = act(s, 'expedition').state;
+        s = act(s, 'research').state;
+        s = endSol(s).state;
+      }
+      return s;
+    };
+    expect(play()).toEqual(play());
+  });
+
+  it('não altera o estado recebido', () => {
+    const s = createMission(1);
+    const snapshot = JSON.parse(JSON.stringify(s));
+    act(s, 'research');
+    endSol(s);
+    expect(s).toEqual(snapshot);
+  });
+
+  it('pesquisa gasta energia, rende dados e consome uma ação', () => {
+    const s = createMission(1);
+    const { state } = act(s, 'research');
+    expect(state.resources.energy.value).toBe(s.resources.energy.value - 12);
+    expect(state.research).toBe(5);
+    expect(state.actionsLeft).toBe(s.actionsLeft - 1);
+  });
+
+  it('bloqueia ações sem recursos, sem ações restantes ou em apagão', () => {
+    const s = createMission(1);
+    s.resources.materials.value = 10;
+    expect(checkAction(s, 'build_solar')).toEqual({ ok: false, reason: 'Falta materiais' });
+
+    s.actionsLeft = 0;
+    expect(checkAction(s, 'research').ok).toBe(false);
+
+    const dark = createMission(1);
+    dark.resources.energy.value = 0;
+    expect(checkAction(dark, 'research')).toEqual({ ok: false, reason: 'Bloqueado: Apagão' });
+    expect(checkAction(dark, 'maintain').ok).toBe(true);
+  });
+
+  it('crises tiram dados e moral, sem deixar a pesquisa negativa', () => {
+    const s = createMission(1);
+    s.facilities.solar = 0;
+    s.resources.energy.value = 0;
+    s.research = 2;
+    const { state, entries } = endSol(s);
+    expect(entries.some((e) => e.title === 'Crise: Apagão')).toBe(true);
+    expect(state.research).toBe(0);
+    expect(state.morale).toBeLessThan(s.morale);
+  });
+
+  it('vence ao chegar a 100% de dados com a base operacional', () => {
+    const s = createMission(1);
+    s.research = RESEARCH_GOAL - 3;
+    const { state } = act(s, 'research');
+    expect(state.research).toBe(RESEARCH_GOAL);
+    expect(state.status).toBe('won');
+    expect(act(state, 'research').error).toBe('Missão encerrada');
+  });
+
+  it('não vence com a base em crise, mesmo com a barra cheia', () => {
+    const s = createMission(1);
+    s.research = RESEARCH_GOAL;
+    s.resources.supplies.value = 0;
+    s.resources.materials.value = 30;
+    const { state } = act(s, 'build_solar');
+    expect(state.status).toBe('playing');
+  });
+
+  it('perde quando a moral zera ou os sóis acabam', () => {
+    const s = createMission(1);
+    s.morale = 5;
+    s.resources.supplies.value = 0;
+    s.facilities.greenhouse = 0;
+    expect(endSol(s).state).toMatchObject({ status: 'lost', lossReason: 'morale' });
+
+    let t = createMission(7);
+    for (let i = 0; i < 15; i++) t = endSol(t).state;
+    expect(t.status).toBe('lost');
+  });
+
+  it('jogando com cuidado dá para vencer dentro da campanha', () => {
+    // Estratégia simples: manter energia/mantimentos, construir e pesquisar.
+    const wins = [1, 2, 3, 4, 5, 6, 7, 8].filter((seed) => {
+      let s = createMission(seed);
+      while (s.status === 'playing') {
+        const order: ActionId[] = [];
+        if (s.solarEfficiency < 0.75) order.push('maintain');
+        if (s.facilities.solar < 4) order.push('build_solar');
+        if (s.facilities.greenhouse < 2) order.push('build_greenhouse');
+        if (s.facilities.lab < 2) order.push('build_lab');
+        if (s.resources.materials.value < 40) order.push('mine');
+        order.push('research', 'expedition', 'mine');
+        const pick = order.find((a) => checkAction(s, a).ok);
+        s = pick ? act(s, pick).state : endSol(s).state;
+      }
+      return s.status === 'won';
+    });
+    expect(wins.length).toBeGreaterThanOrEqual(6);
   });
 });

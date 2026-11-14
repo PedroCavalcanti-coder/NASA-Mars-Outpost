@@ -5,9 +5,16 @@ import type { BaseViewer } from '../../game/BaseViewer';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
+import { useMission } from '../../store/mission';
+import { ActionPanel } from '../components/mission/ActionPanel';
+import { MissionEnd } from '../components/mission/MissionEnd';
+import { MissionLog } from '../components/mission/MissionLog';
+import { ResearchBar } from '../components/mission/ResearchBar';
+import { ResourceHud } from '../components/mission/ResourceHud';
 import '../../styles/game.css';
+import '../components/mission/mission.css';
 
-/** Jogo (base marciana): sorteia uma das 8 bases e mostra em 3D interativo. */
+/** Jogo (base marciana): sorteia uma das 8 bases, mostra em 3D e roda a missão de pesquisa. */
 export default function Game() {
   const user = useAuth((s) => s.user);
   const guestName = getGuestName();
@@ -20,6 +27,16 @@ export default function Game() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [roofs, setRoofs] = useState(false);
+  const startMission = useMission((m) => m.start);
+  const sol = useMission((m) => m.state.sol);
+  const blackout = useMission((m) => m.state.resources.energy.value <= 0);
+  const missionStarted = useMission((m) => m.state.log.length > 0 && m.state.status === 'playing');
+
+  // Cada base sorteada começa uma missão nova.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia a missão a cada base sorteada
+  useEffect(() => {
+    startMission();
+  }, [baseId, startMission]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: recria a cena a cada base sorteada
   useEffect(() => {
@@ -60,6 +77,12 @@ export default function Game() {
 
   if (!name) return <Navigate to="/" replace />;
 
+  function rollBase() {
+    if (missionStarted && !window.confirm('Sortear outra base reinicia a missão atual. Continuar?'))
+      return;
+    setBaseId((cur) => pickRandomBase(cur));
+  }
+
   function toggleRoofs() {
     const next = !roofs;
     setRoofs(next);
@@ -67,7 +90,7 @@ export default function Game() {
   }
 
   return (
-    <main className="game">
+    <main className={`game ${blackout ? 'game--blackout' : ''}`}>
       <div className="game__canvas" ref={mount} />
       <div className="game__vignette" />
 
@@ -93,7 +116,9 @@ export default function Game() {
           <span className="game__brand-divider" aria-hidden="true" />
           <div className="game__mission-status">
             <span className="game__status-dot" aria-hidden="true" />
-            <span>SOL 1 · BASE MARCIANA ATIVA</span>
+            <span>
+              SOL {sol} · {blackout ? 'APAGÃO NA BASE' : 'BASE MARCIANA ATIVA'}
+            </span>
           </div>
         </div>
 
@@ -101,9 +126,9 @@ export default function Game() {
           <button
             type="button"
             className="game__action-btn"
-            onClick={() => setBaseId((cur) => pickRandomBase(cur))}
+            onClick={rollBase}
             disabled={loading}
-            title="Sortear outra das 8 bases marcianas"
+            title="Sortear outra das 8 bases marcianas (reinicia a missão)"
           >
             <Dices size={18} />
             <span>Sortear outra base</span>
@@ -140,17 +165,24 @@ export default function Game() {
         </div>
         <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
         {info && <p className="game__card-desc">{info.description}</p>}
+        {!loading && !error && (
+          <p className="game__card-hint">
+            Arraste para girar · botão direito (ou 2 dedos) para mover · roda para aproximar
+          </p>
+        )}
       </aside>
 
-      {/* Dicas de Controle da Câmera */}
+      {/* Missão: recursos, pesquisa, diário e ações */}
       {!loading && !error && (
-        <div className="game__hint" role="note">
-          <span>Arraste para girar</span>
-          <span className="game__hint-dot">·</span>
-          <span>Botão direito (ou 2 dedos) para mover</span>
-          <span className="game__hint-dot">·</span>
-          <span>Roda do mouse para aproximar</span>
-        </div>
+        <>
+          <aside className="mission-status" aria-label="Estado da missão">
+            <ResearchBar />
+            <ResourceHud />
+          </aside>
+          <MissionLog />
+          <ActionPanel />
+          <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
+        </>
       )}
 
       {/* Tela de Carregamento 3D */}

@@ -1,0 +1,694 @@
+/* ---------- HUD da missão (recursos, pesquisa, diário, ações) ---------- */
+.game {
+  --res-energy: #ffd63c;
+  --res-supplies: #6ee7b7;
+  --res-materials: #c9a27a;
+  --res-research: #78c6ff;
+  --res-danger: #ff7b7b;
+}
+
+.game__canvas {
+  transition: filter 0.6s ease;
+}
+
+.game--blackout .game__canvas {
+  filter: brightness(0.45) saturate(0.55);
+}
+
+.game__card-hint {
+  margin: 6px 0 0;
+  color: #8fbbe9;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mission-status,
+.mission-log,
+.mission-actions {
+  position: absolute;
+  z-index: 10;
+  border: 2px solid rgba(120, 172, 225, 0.45);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(16, 33, 70, 0.9), rgba(9, 18, 42, 0.95));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 15px 40px rgba(4, 9, 28, 0.6);
+}
+
+/* ---------- Painel de estado (canto superior direito) ---------- */
+.mission-status {
+  top: 80px;
+  right: 24px;
+  display: grid;
+  gap: 14px;
+  width: 320px;
+  padding: 16px 18px;
+}
+
+/* Barra de dados coletados */
+.mission-research__head,
+.mission-res__head,
+.mission-morale {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mission-research__head {
+  color: var(--res-research);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mission-research__head strong {
+  color: #fff;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
+.mission-research__sol {
+  margin-left: auto;
+  color: #8fbbe9;
+  font-size: 12px;
+}
+
+.mission-research__track {
+  position: relative;
+  height: 14px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(120, 198, 255, 0.45);
+  border-radius: 8px;
+  background: rgba(4, 12, 32, 0.8);
+}
+
+.mission-research__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3d8bd6, var(--res-research), #c4f1ff);
+  box-shadow: 0 0 12px rgba(120, 198, 255, 0.6);
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.mission-research__track.is-gain {
+  animation: research-gain 0.9s ease-out;
+}
+
+.mission-research__track.is-loss {
+  animation: research-loss 0.5s ease-in-out;
+  border-color: var(--res-danger);
+}
+
+@keyframes research-gain {
+  0% {
+    box-shadow: 0 0 0 rgba(110, 231, 183, 0);
+  }
+  30% {
+    box-shadow: 0 0 18px rgba(110, 231, 183, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(110, 231, 183, 0);
+  }
+}
+
+@keyframes research-loss {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* Recursos */
+.mission-resources {
+  display: grid;
+  gap: 10px;
+}
+
+.mission-res {
+  display: grid;
+  gap: 5px;
+}
+
+.mission-res__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mission-res--energy {
+  --res: var(--res-energy);
+}
+.mission-res--supplies {
+  --res: var(--res-supplies);
+}
+.mission-res--materials {
+  --res: var(--res-materials);
+}
+
+.mission-res__icon,
+.mission-res__name {
+  color: var(--res);
+}
+
+.mission-res__name {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mission-res__value {
+  margin-left: auto;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.mission-res__value small {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mission-res__track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: rgba(4, 12, 32, 0.8);
+}
+
+.mission-res__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--res);
+  transition:
+    width 0.5s ease,
+    background 0.3s;
+}
+
+.mission-res__rate {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.mission-res__rate.is-neg {
+  color: var(--res-danger);
+}
+
+.mission-res.is-low .mission-res__fill {
+  animation: res-low 1.2s infinite ease-in-out;
+}
+
+.mission-res.is-empty .mission-res__value,
+.mission-res.is-empty .mission-res__name {
+  color: var(--res-danger);
+}
+
+@keyframes res-low {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.mission-morale {
+  padding-top: 8px;
+  border-top: 1px solid rgba(120, 172, 225, 0.2);
+  color: #c5daf7;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mission-morale strong {
+  color: #fff;
+}
+
+.mission-morale strong.is-low {
+  color: var(--res-danger);
+}
+
+.mission-morale__solar {
+  margin-left: auto;
+  color: #8fbbe9;
+  font-size: 12px;
+}
+
+.mission-crisis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mission-crisis span {
+  padding: 4px 10px;
+  border: 1px solid var(--res-danger);
+  border-radius: 20px;
+  background: rgba(255, 123, 123, 0.15);
+  color: #ffd0d0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  animation: res-low 1.4s infinite ease-in-out;
+}
+
+/* Número flutuante de ganho/perda */
+.delta-chip {
+  position: absolute;
+  right: 0;
+  top: -6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  pointer-events: none;
+  animation: delta-float 1.6s ease-out forwards;
+}
+
+.delta-chip.is-up {
+  color: #0b2a1e;
+  background: var(--res-supplies);
+}
+
+.delta-chip.is-down {
+  color: #3a0b0b;
+  background: var(--res-danger);
+}
+
+@keyframes delta-float {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+}
+
+/* ---------- Diário da missão (lateral esquerda) ---------- */
+.mission-log {
+  left: 24px;
+  bottom: 168px;
+  display: grid;
+  gap: 8px;
+  width: min(360px, calc(100vw - 48px));
+  max-height: calc(100vh - 480px);
+  margin: 0;
+  padding: 12px;
+  overflow: hidden;
+  list-style: none;
+}
+
+.mission-log--empty {
+  color: #c5daf7;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mission-log__item {
+  padding: 8px 10px;
+  border-left: 3px solid #78ace1;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  animation: card-appear 0.3s ease-out;
+}
+
+.mission-log__item.is-good {
+  border-color: var(--res-supplies);
+}
+
+.mission-log__item.is-bad {
+  border-color: var(--res-danger);
+}
+
+.mission-log__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.mission-log__sol {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mission-log__item p {
+  margin: 3px 0 0;
+  color: #c5daf7;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mission-log__deltas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mission-log__deltas .is-up {
+  color: var(--res-supplies);
+}
+
+.mission-log__deltas .is-down {
+  color: var(--res-danger);
+}
+
+/* ---------- Painel de ações (rodapé) ---------- */
+.mission-actions {
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  max-width: calc(100vw - 48px);
+  padding: 12px 14px;
+}
+
+.mission-actions__group {
+  display: grid;
+  gap: 6px;
+}
+
+.mission-actions__title {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.mission-actions__row {
+  display: flex;
+  gap: 8px;
+}
+
+.mission-action {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 112px;
+  padding: 8px 10px;
+  border: 1.5px solid rgba(120, 172, 225, 0.5);
+  border-radius: 12px;
+  color: #f4f7ff;
+  background: rgba(28, 66, 129, 0.55);
+  font:
+    600 13px "Barlow",
+    sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.mission-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #b1d6ff;
+  background: rgba(52, 92, 164, 0.8);
+}
+
+.mission-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mission-action__icon {
+  grid-row: span 2;
+  color: var(--game-gold);
+}
+
+.mission-action__name small {
+  color: #8fbbe9;
+  font-weight: 600;
+}
+
+.mission-action__cost {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cost--energy {
+  color: var(--res-energy);
+}
+.cost--supplies {
+  color: var(--res-supplies);
+}
+.cost--materials {
+  color: var(--res-materials);
+}
+
+.mission-action__reason {
+  grid-column: 1 / -1;
+  color: #ffb3b3;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.mission-endsol {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  border: 2px solid var(--game-gold);
+  border-radius: 14px;
+  color: #0b1736;
+  background: linear-gradient(180deg, #ffd63c, #ffb511);
+  font:
+    800 15px "Barlow",
+    sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    filter 0.15s;
+}
+
+.mission-endsol span {
+  display: grid;
+  white-space: nowrap;
+}
+
+.mission-endsol small {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.mission-endsol:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+
+.mission-endsol:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---------- Fim de partida ---------- */
+.mission-end {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(4, 9, 28, 0.72);
+  backdrop-filter: blur(4px);
+  animation: card-appear 0.4s ease-out;
+}
+
+.mission-end__card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: min(480px, 100%);
+  padding: 28px 26px;
+  border: 2px solid var(--res-research);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(16, 33, 70, 0.97), rgba(9, 18, 42, 0.99));
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}
+
+.mission-end__card.is-won {
+  border-color: var(--game-gold);
+}
+
+.mission-end__card.is-lost {
+  border-color: var(--res-danger);
+}
+
+.mission-end__icon {
+  color: var(--game-gold);
+}
+
+.is-lost .mission-end__icon {
+  color: var(--res-danger);
+}
+
+.mission-end__kicker {
+  color: #8fbbe9;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.mission-end h2 {
+  margin: 0;
+  font:
+    800 clamp(22px, 3vw, 30px) / 1.15 "Barlow",
+    sans-serif;
+}
+
+.mission-end p {
+  margin: 0;
+  color: #c9dcf7;
+  line-height: 1.45;
+}
+
+.mission-end__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0;
+}
+
+.mission-end__stats div {
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mission-end__stats dt {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mission-end__stats dd {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.mission-end__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* ---------- Telas menores ---------- */
+@media (max-width: 1180px) {
+  .mission-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .mission-log {
+    display: none;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 761px) {
+  .mission-log {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .game__card {
+    display: none;
+  }
+
+  .mission-status {
+    top: 64px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .mission-resources {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .mission-res__name,
+  .mission-res__rate,
+  .mission-res__value small {
+    display: none;
+  }
+
+  .mission-morale,
+  .mission-crisis {
+    grid-column: 1 / -1;
+  }
+
+  .mission-actions {
+    left: 16px;
+    right: 16px;
+    bottom: 12px;
+    transform: none;
+    flex-direction: column;
+    gap: 8px;
+    max-width: none;
+    padding: 10px;
+  }
+
+  .mission-actions__row {
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .mission-action {
+    flex: 0 0 auto;
+    min-width: 104px;
+  }
+
+  .mission-endsol {
+    justify-content: center;
+    min-height: 44px;
+  }
+
+  .mission-end__stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mission-end .game__action-btn span {
+    display: inline;
+  }
+}
