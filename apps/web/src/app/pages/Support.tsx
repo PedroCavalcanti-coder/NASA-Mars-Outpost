@@ -195,7 +195,6 @@ export default function Support() {
                       required
                       style={{
                         width: '100%',
-                        boxBox: 'border-box',
                         height: 44,
                         padding: '0 14px',
                         borderRadius: 10,

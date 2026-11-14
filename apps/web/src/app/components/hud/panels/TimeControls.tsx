@@ -1,14 +1,17 @@
 import { Clock, Moon, Pause, Play, Sun } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { registerDevAction } from '../../../../game/dev/devActions';
+import { refreshDevActions, registerDevAction } from '../../../../game/dev/devActions';
 import { type ClockScale, GameClock, useGameClock } from '../../../../game/sim/clock';
 import { registerPanel } from '../registry';
 import './timeControls.css';
 
 /**
  * Registra as ações de depuração do painel Dev (Conversa 0 / Conversa 3).
+ * Os rótulos/`isActive` dependem do relógio, então o catálogo é reavaliado a cada mudança dele.
  */
+GameClock.subscribe(refreshDevActions);
+
 registerDevAction({
   id: 'dev:time-skip-dawn',
   label: 'Pular para Amanhecer (06:00)',
@@ -110,6 +113,8 @@ export function TimeControls({ marsTime }: TimeControlsProps) {
       ) {
         return;
       }
+      // atalhos do navegador/SO (Ctrl+1 troca de aba etc.) e tecla segurada não contam
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
 
       if (e.code === 'Space') {
         e.preventDefault();

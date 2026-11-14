@@ -15,11 +15,13 @@
   border-radius: 8px;
   padding: 4px 10px;
   color: #f1f5f9;
-  font-family: var(--font-game, 'Barlow', system-ui, sans-serif);
+  font-family: var(--font-game, "Barlow", system-ui, sans-serif);
   font-size: 13px;
   user-select: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .time-controls:hover {
@@ -89,7 +91,8 @@
 }
 
 @keyframes time-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 4px rgba(245, 158, 11, 0.2);
   }
   50% {
@@ -236,10 +239,12 @@
   background: rgba(15, 23, 42, 0.88);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(245, 158, 11, 0.7);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.3);
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(245, 158, 11, 0.3);
   border-radius: 9999px;
   color: #f8fafc;
-  font-family: var(--font-game, 'Barlow', system-ui, sans-serif);
+  font-family: var(--font-game, "Barlow", system-ui, sans-serif);
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.05em;

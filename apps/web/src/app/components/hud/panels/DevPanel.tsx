@@ -6,14 +6,15 @@
  */
 
 import { Play, Terminal, Wrench } from 'lucide-react';
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import {
-  type DevActionDefinition,
   getRegisteredDevActions,
+  type ResolvedDevAction,
+  refreshDevActions,
   subscribeDevActions,
 } from '../../../../game/dev/devActions';
 
-function useDevActions(): readonly DevActionDefinition[] {
+function useDevActions(): readonly ResolvedDevAction[] {
   return useSyncExternalStore(
     subscribeDevActions,
     getRegisteredDevActions,
@@ -23,13 +24,10 @@ function useDevActions(): readonly DevActionDefinition[] {
 
 export function DevPanel() {
   const actions = useDevActions();
-  const [, setTick] = useState(0);
-
-  const refresh = () => setTick((t) => t + 1);
 
   // Agrupa as ações por categoria/grupo
   const grouped = useMemo(() => {
-    const map = new Map<string, DevActionDefinition[]>();
+    const map = new Map<string, ResolvedDevAction[]>();
     for (const a of actions) {
       const g = a.group ?? 'Comandos Gerais';
       const list = map.get(g) ?? [];
@@ -39,10 +37,11 @@ export function DevPanel() {
     return Array.from(map.entries());
   }, [actions]);
 
-  const handleRun = async (action: DevActionDefinition) => {
+  const handleRun = async (action: ResolvedDevAction) => {
     try {
       await action.run();
-      refresh();
+      // rótulos/estado dinâmicos (ex.: Pausar ↔ Retomar) mudam depois de executar
+      refreshDevActions();
     } catch (err) {
       console.error(`Erro ao executar devAction [${action.id}]:`, err);
     }
@@ -77,7 +76,8 @@ export function DevPanel() {
                     type="button"
                     className="hud-dev-action-btn"
                     onClick={() => void handleRun(action)}
-                    title={action.label}
+                    title={action.description ?? action.label}
+                    aria-pressed={action.isActive ? action.isActive() : undefined}
                   >
                     <div className="hud-dev-action-head">
                       <Play size={13} className="hud-dev-play-icon" />

@@ -122,10 +122,10 @@ describe('Integração de Grupos HUD', () => {
 
     const recursos = getPanelsByGroup('recursos');
     expect(recursos).toHaveLength(1);
-    expect(recursos[0].id).toBe('recursos');
+    expect(recursos[0]?.id).toBe('recursos');
 
     const missao = getPanelsByGroup('missao');
     expect(missao).toHaveLength(1);
-    expect(missao[0].id).toBe('missao');
+    expect(missao[0]?.id).toBe('missao');
   });
 });
