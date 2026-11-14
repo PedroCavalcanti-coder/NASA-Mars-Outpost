@@ -1,0 +1,572 @@
+{
+ "id": "arcadia",
+ "name": "Arcadia · Campus",
+ "description": "Campus científico em H. Extras: laboratório, pesquisa, enfermaria e refeitório.",
+ "tileMeters": 4,
+ "bounds": {
+  "x0": -4,
+  "y0": -3,
+  "x1": 7,
+  "y1": 9
+ },
+ "rooms": [
+  {
+   "id": "Laboratorio_0",
+   "kind": "Laboratorio",
+   "tile": [
+    0,
+    0
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      12
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      0
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Habitacao_1",
+   "kind": "Habitacao",
+   "tile": [
+    -4,
+    0
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      -4,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      -10,
+      8
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      -10,
+      0
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -16,
+      6
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Estufa_2",
+   "kind": "Estufa",
+   "tile": [
+    -4,
+    3
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      -4,
+      18
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "N1",
+     "pos": [
+      -10,
+      24
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      -10,
+      12
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -16,
+      18
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "SuporteVida_3",
+   "kind": "SuporteVida",
+   "tile": [
+    -4,
+    -3
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 180,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      -16,
+      -10
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S0",
+     "pos": [
+      -10,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Refeitorio_4",
+   "kind": "Refeitorio",
+   "tile": [
+    4,
+    0
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      28,
+      6
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      22,
+      0
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      16,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "CentralEnergia_5",
+   "kind": "CentralEnergia",
+   "tile": [
+    4,
+    -3
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      22,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Pesquisa_6",
+   "kind": "Pesquisa",
+   "tile": [
+    1,
+    4
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      10,
+      24
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S0",
+     "pos": [
+      6,
+      16
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Comunicacoes_7",
+   "kind": "Comunicacoes",
+   "tile": [
+    2,
+    7
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 90,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      14,
+      36
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      10,
+      28
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Armazem_8",
+   "kind": "Armazem",
+   "tile": [
+    1,
+    -3
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N0",
+     "pos": [
+      6,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      10,
+      -12
+     ],
+     "garage": true,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Medicina_9",
+   "kind": "Medicina",
+   "tile": [
+    -3,
+    7
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      -6,
+      36
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S0",
+     "pos": [
+      -10,
+      28
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  }
+ ],
+ "corridors": [
+  {
+   "tile": [
+    3,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    3
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -1,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -3,
+    2
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -3,
+    6
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -3,
+    -1
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    5,
+    -1
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    2,
+    6
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    1,
+    -1
+   ],
+   "axis": "y"
+  }
+ ],
+ "bay": {
+  "room": "Armazem_8",
+  "kind": "Armazem",
+  "crew": {
+   "path": [
+    [
+     12.6,
+     -8.8
+    ],
+    [
+     10.0,
+     -9.6
+    ],
+    [
+     10.0,
+     -12.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    -1
+   ]
+  },
+  "auto": {
+   "path": [
+    [
+     7.0,
+     -9.2
+    ],
+    [
+     10.0,
+     -10.4
+    ],
+    [
+     10.0,
+     -12.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    -1
+   ]
+  }
+ },
+ "solar": [
+  [
+   30.0,
+   -18.0
+  ],
+  [
+   34.0,
+   -18.0
+  ],
+  [
+   38.0,
+   -18.0
+  ],
+  [
+   30.0,
+   -14.0
+  ],
+  [
+   34.0,
+   -14.0
+  ],
+  [
+   38.0,
+   -14.0
+  ],
+  [
+   30.0,
+   -10.0
+  ],
+  [
+   34.0,
+   -10.0
+  ],
+  [
+   38.0,
+   -10.0
+  ],
+  [
+   30.0,
+   -6.0
+  ],
+  [
+   34.0,
+   -6.0
+  ],
+  [
+   38.0,
+   -6.0
+  ]
+ ],
+ "pad": [
+  -14,
+  -26
+ ],
+ "model": "/assets/bases/base_arcadia.glb"
+}

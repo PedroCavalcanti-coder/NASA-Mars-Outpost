@@ -1,0 +1,511 @@
+{
+ "id": "valles",
+ "name": "Valles · Duas Estufas",
+ "description": "Duas estufas lado a lado em volta da habitação: muita comida, mais água e energia. Extra: refeitório.",
+ "tileMeters": 4,
+ "bounds": {
+  "x0": -4,
+  "y0": -5,
+  "x1": 7,
+  "y1": 5
+ },
+ "rooms": [
+  {
+   "id": "Estufa_0",
+   "kind": "Estufa",
+   "tile": [
+    -4,
+    -1
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      -4,
+      2
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      -10,
+      8
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      -10,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -16,
+      2
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Habitacao_1",
+   "kind": "Habitacao",
+   "tile": [
+    0,
+    -1
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      2
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      4
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      2
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Estufa_2",
+   "kind": "Estufa",
+   "tile": [
+    4,
+    -1
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      28,
+      2
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      22,
+      -4
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      16,
+      2
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Refeitorio_3",
+   "kind": "Refeitorio",
+   "tile": [
+    0,
+    2
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      14
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      8
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      14
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "CentralEnergia_4",
+   "kind": "CentralEnergia",
+   "tile": [
+    4,
+    2
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      22,
+      16
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      16,
+      14
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Comunicacoes_5",
+   "kind": "Comunicacoes",
+   "tile": [
+    -3,
+    3
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      -4,
+      14
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -12,
+      18
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "SuporteVida_6",
+   "kind": "SuporteVida",
+   "tile": [
+    0,
+    -4
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 180,
+   "doors": [
+    {
+     "side": "S0",
+     "pos": [
+      6,
+      -8
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Armazem_7",
+   "kind": "Armazem",
+   "tile": [
+    -3,
+    -5
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      0,
+      -18
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "N0",
+     "pos": [
+      -10,
+      -12
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      -6,
+      -20
+     ],
+     "garage": true,
+     "exterior": true
+    }
+   ]
+  }
+ ],
+ "corridors": [
+  {
+   "tile": [
+    -1,
+    0
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    3,
+    0
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    1
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    3,
+    3
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -1,
+    3
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    -2
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -3,
+    -3
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -3,
+    -2
+   ],
+   "axis": "y"
+  }
+ ],
+ "bay": {
+  "room": "Armazem_7",
+  "kind": "Armazem",
+  "crew": {
+   "path": [
+    [
+     -3.4,
+     -16.8
+    ],
+    [
+     -6.0,
+     -17.6
+    ],
+    [
+     -6.0,
+     -20.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    -1
+   ]
+  },
+  "auto": {
+   "path": [
+    [
+     -9.0,
+     -17.2
+    ],
+    [
+     -6.0,
+     -18.4
+    ],
+    [
+     -6.0,
+     -20.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    -1
+   ]
+  }
+ },
+ "solar": [
+  [
+   30.0,
+   14.0
+  ],
+  [
+   34.0,
+   14.0
+  ],
+  [
+   38.0,
+   14.0
+  ],
+  [
+   30.0,
+   18.0
+  ],
+  [
+   34.0,
+   18.0
+  ],
+  [
+   38.0,
+   18.0
+  ],
+  [
+   30.0,
+   22.0
+  ],
+  [
+   34.0,
+   22.0
+  ],
+  [
+   38.0,
+   22.0
+  ],
+  [
+   30.0,
+   26.0
+  ],
+  [
+   34.0,
+   26.0
+  ],
+  [
+   38.0,
+   26.0
+  ],
+  [
+   30.0,
+   30.0
+  ],
+  [
+   34.0,
+   30.0
+  ],
+  [
+   38.0,
+   30.0
+  ]
+ ],
+ "pad": [
+  6,
+  -30
+ ],
+ "model": "/assets/bases/base_valles.glb"
+}
