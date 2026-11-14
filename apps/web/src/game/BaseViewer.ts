@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { VideoSettings } from '../app/components/SettingsModal';
 import { type BaseId, type BaseInfo, baseModelUrl } from '../lib/bases';
+import { isGameOverlayOpen } from '../lib/gameOverlay';
 import { getGuestName } from '../lib/guest';
 import { loadGLB } from '../lib/modelCache';
 import { readSuitPreference } from '../lib/suitPreference';
@@ -1478,6 +1479,8 @@ export class BaseViewer {
 
   private onKeyDown = (e: KeyboardEvent) => {
     if (isTypingTarget(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+    // minigame aberto por cima: setas/Espaço são dele, o astronauta não anda
+    if (isGameOverlayOpen()) return;
     const k = e.key.toLowerCase();
     if (k in BaseViewer.KEY_MAP) {
       this.keys.add(BaseViewer.KEY_MAP[k]!);

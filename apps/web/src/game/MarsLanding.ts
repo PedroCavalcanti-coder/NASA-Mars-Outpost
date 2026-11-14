@@ -8,7 +8,13 @@ type Spark = {
   drift: number;
 };
 
+export type LandingAudioEvent = 'falling' | 'parachute' | 'touchdown' | 'decompression';
+
 export class MarsLanding {
+  private fallingEmitted = false;
+  private parachuteEmitted = false;
+  private touchdownEmitted = false;
+  private decompressionEmitted = false;
   readonly scene = new THREE.Scene();
   private dust: THREE.InstancedMesh;
   private shadow: THREE.Mesh;
@@ -39,7 +45,11 @@ export class MarsLanding {
   private sparkData: Spark[] = [];
   private heatshieldMaterial: THREE.MeshStandardMaterial;
 
-  constructor(rocket: THREE.Group, flames: THREE.Group) {
+  constructor(
+    rocket: THREE.Group,
+    flames: THREE.Group,
+    private onAudio: (event: LandingAudioEvent) => void = () => {},
+  ) {
     rocket.removeFromParent();
     flames.visible = false;
 
@@ -312,6 +322,24 @@ export class MarsLanding {
   update(time: number, camera: THREE.PerspectiveCamera, reduced: boolean) {
     const duration = reduced ? 4 : 11;
     const p = Math.min(1, time / duration);
+    // Os sons seguem o tempo da animação, inclusive em movimento reduzido.
+    // Pular direto para o solo não reproduz os efeitos intermediários.
+    if (p < 0.82 && !this.fallingEmitted) {
+      this.fallingEmitted = true;
+      this.onAudio('falling');
+    }
+    if (p >= 0.33 && p < 0.82 && !this.parachuteEmitted) {
+      this.parachuteEmitted = true;
+      this.onAudio('parachute');
+    }
+    if (p >= 0.82 && !this.touchdownEmitted) {
+      this.touchdownEmitted = true;
+      this.onAudio('touchdown');
+    }
+    if (p >= 0.82 && p < 1 && !this.decompressionEmitted) {
+      this.decompressionEmitted = true;
+      this.onAudio('decompression');
+    }
 
     // -------------------------------------------------------------
     // CURVA DE TRAJETÓRIA UNIFICADA E 100% CONTÍNUA (SEM DEGRAUS)

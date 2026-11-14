@@ -135,6 +135,8 @@
 /* ---------- Botões de Ação ---------- */
 .game__actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: 10px;
 }
@@ -546,6 +548,9 @@
 
 /* ---------- Responsividade Mobile ---------- */
 @media (max-width: 760px) {
+  .game__actions {
+    gap: 6px;
+  }
   .game__header {
     padding: 10px 14px;
     gap: 8px;
@@ -585,9 +590,9 @@
   .game__action-btn {
     min-height: 36px;
     min-width: 36px;
-    padding: 0 10px;
-    font-size: 12px;
-    gap: 4px;
+    padding: 0 9px;
+    font-size: 13px;
+    gap: 6px;
   }
 
   .game__action-btn span {

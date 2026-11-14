@@ -26,6 +26,8 @@ export interface HudContextValue {
   onOpenSettings: () => void;
   onRequestLeave: () => void;
   rollBase: () => void;
+  /** abre um minigame por cima da base (ausente = sem minigames) */
+  onOpenMinigame?: (id: 'solar' | 'oxygen' | 'greenhouse') => void;
 }
 
 export const HudContext = createContext<HudContextValue | null>(null);

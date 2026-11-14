@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { isGameOverlayOpen } from '../../../lib/gameOverlay';
 import { getPanelMeta } from './panelMeta';
 import { useHudPanels } from './useHudPanels';
 
@@ -98,6 +99,8 @@ export function useHudState(isDevMode: boolean) {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      // minigame aberto: as teclas são dele
+      if (isGameOverlayOpen()) return;
 
       const key = e.key.toUpperCase();
 

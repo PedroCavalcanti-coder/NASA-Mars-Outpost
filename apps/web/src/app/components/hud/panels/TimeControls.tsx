@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { refreshDevActions, registerDevAction } from '../../../../game/dev/devActions';
 import { type ClockScale, GameClock, useGameClock } from '../../../../game/sim/clock';
+import { isGameOverlayOpen } from '../../../../lib/gameOverlay';
 import { registerPanel } from '../registry';
 import './timeControls.css';
 
@@ -115,6 +116,8 @@ export function TimeControls({ marsTime }: TimeControlsProps) {
       }
       // atalhos do navegador/SO (Ctrl+1 troca de aba etc.) e tecla segurada não contam
       if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      // minigame aberto: Espaço/1/2/3 são dele (ex.: Espaço limpa o painel solar)
+      if (isGameOverlayOpen()) return;
 
       if (e.code === 'Space') {
         e.preventDefault();

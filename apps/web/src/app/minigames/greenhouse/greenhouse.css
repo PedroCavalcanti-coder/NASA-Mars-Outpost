@@ -1,0 +1,182 @@
+.greenhouse-preview {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  isolation: isolate;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #293f3c;
+}
+.greenhouse-backdrop {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 20% 40%, #93ac7430, transparent 65%),
+    radial-gradient(ellipse at 100% 100%, #c8956840, transparent 60%),
+    repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), #cbd0ac08 calc(25% - 2px) 25%),
+    linear-gradient(135deg, #314d47, #283b39 70%);
+}
+.greenhouse-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-width: 1500px;
+}
+.greenhouse-close {
+  position: absolute;
+  top: max(20px, env(safe-area-inset-top));
+  right: max(20px, env(safe-area-inset-right));
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid #c3cbb35c;
+  border-radius: 50%;
+  color: #ece9d2;
+  background: #243c37cc;
+  cursor: pointer;
+}
+.greenhouse-close:hover {
+  background: #47614d;
+}
+.greenhouse-close:focus-visible {
+  outline: 2px solid #e6d6a1;
+  outline-offset: 4px;
+  box-shadow: none;
+}
+@media (max-width: 700px) {
+  .greenhouse-preview {
+    padding: 12px;
+  }
+  .greenhouse-close {
+    top: max(16px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+  }
+}
+.greenhouse-art {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.greenhouse-control {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 14px;
+  box-shadow: none;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.greenhouse-control:disabled {
+  cursor: default;
+}
+.greenhouse-control:focus-visible {
+  outline: none;
+  border-color: #f2d693;
+  background: #ffe5a412;
+  box-shadow: inset 0 0 0 2px #294b45;
+}
+.greenhouse-control:hover:not(:disabled) {
+  background: #e5f1b614;
+}
+.greenhouse-water-control {
+  border-radius: 50%;
+  cursor: grab;
+}
+.greenhouse-water-control:active {
+  cursor: grabbing;
+}
+.greenhouse-water-mark {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  color: #587d76;
+}
+.greenhouse-ready-light {
+  transition: fill 0.4s;
+}
+.greenhouse-leaf,
+.greenhouse-seedlings {
+  transition:
+    transform 0.25s ease-out,
+    opacity 0.25s;
+}
+.greenhouse-reservoir,
+.greenhouse-valve,
+.greenhouse-light-beam {
+  transition: all 0.15s linear;
+}
+.greenhouse-bed[data-healthy="true"] .greenhouse-ready-light {
+  filter: drop-shadow(0 0 5px #b7e788);
+}
+.greenhouse-bed[data-watering="true"] .greenhouse-valve {
+  filter: drop-shadow(0 0 5px #a7e4dc);
+}
+.greenhouse-replay {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 3px solid #a5b492;
+  border-radius: 12px;
+  color: #dce9bb;
+  background: #36574b;
+  cursor: pointer;
+}
+.greenhouse-replay:hover {
+  background: #476c57;
+}
+.greenhouse-replay:focus-visible {
+  outline: none;
+  border-color: #f6dca1;
+}
+.greenhouse-announcement {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.greenhouse-water-drops path {
+  animation: greenhouse-drip 0.65s linear infinite;
+}
+@keyframes greenhouse-drip {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  to {
+    transform: translateY(96px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .greenhouse-leaf,
+  .greenhouse-seedlings,
+  .greenhouse-reservoir,
+  .greenhouse-valve,
+  .greenhouse-light-beam,
+  .greenhouse-ready-light {
+    transition: none;
+  }
+  .greenhouse-water-drops path {
+    animation: none;
+    opacity: 0.8;
+  }
+}

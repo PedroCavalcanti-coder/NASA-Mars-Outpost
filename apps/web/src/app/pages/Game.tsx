@@ -1,6 +1,16 @@
 import { WORLD_AUTOSAVE_MS } from '@mars/shared';
 import { Car, MapPin, TriangleAlert } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import type { BaseViewer, BaseViewerOptions, BaseViewer as Viewer } from '../../game/BaseViewer';
 import { registerDevAction } from '../../game/dev/devActions';
@@ -26,6 +36,13 @@ import {
 import '../../styles/game.css';
 import '../components/mission/mission.css';
 import Home from './Home';
+
+// Minigames (prévias jogáveis): carregados só quando abertos
+const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/SolarCleaningPreview'));
+const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/OxygenFilterPreview'));
+const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
+
+export type MinigameId = 'solar' | 'oxygen' | 'greenhouse';
 
 /**
  * Jogo (base marciana):
@@ -89,6 +106,21 @@ function ReadyGame() {
   const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [minigame, setMinigame] = useState<MinigameId | null>(null);
+  const closeMinigame = useCallback(() => setMinigame(null), []);
+
+  // Com um minigame aberto por cima, a base fica carregada mas para de desenhar
+  // (a simulação segue pelo relógio de apoio: numa sala, o mundo não para para os outros).
+  useEffect(() => {
+    if (!minigame) return;
+    const runtime = peekExpedition()?.runtime;
+    if (!runtime) return;
+    const wasPaused = runtime.paused;
+    runtime.paused = true;
+    return () => {
+      runtime.paused = wasPaused;
+    };
+  }, [minigame]);
   /** `false` = teto automático (some ao entrar na base); `true` = sempre oculto (visão de corte) */
   const [roofsHidden, setRoofsHidden] = useState(false);
   const [cameraMode, setCameraMode] = useState<'follow' | 'free'>('follow');
@@ -468,189 +500,206 @@ function ReadyGame() {
 
   return (
     <main className="game">
-      <div className="game__canvas" ref={mount} />
-      <div className="game__vignette" />
-
-      {/* Nova HUD Modular Unificada (Barra Essencial, Doca e Painéis Recolhíveis) */}
-      {!loading && !error && (
-        <HudRoot
-          marsTime={marsTime}
-          stormActive={stormActive}
-          roomCode={roomCode}
-          players={players}
-          onCopyInvite={handleCopyInvite}
-          cameraMode={cameraMode}
-          onToggleCamera={toggleCamera}
-          roofsHidden={roofsHidden}
-          onToggleRoofs={toggleRoofs}
-          chat={chat}
-          onSendEmote={pickEmote}
-          info={info}
-          astronautName={name ?? 'Explorador'}
-          coords={coords}
-          viewer={viewer.current}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onRequestLeave={requestLeave}
-          rollBase={rollBase}
-        />
-      )}
-
-      {/* Indicador de Coordenadas Flutuante em Tempo Real */}
-      {showCoords && coords && !loading && (
-        <div className="game__coord-status">
-          <MapPin size={13} className="game__coord-icon" />
-          <span>
-            COORDENADAS: [X: {coords.gx >= 0 ? `+${coords.gx}` : coords.gx}, Y:{' '}
-            {coords.gy >= 0 ? `+${coords.gy}` : coords.gy}] ·{' '}
-            <strong className={coords.inside ? 'coord-inside' : 'coord-outside'}>
-              {coords.inside ? 'BASE INTERIOR' : 'TERRENO EXTERNO'}
-            </strong>
-          </span>
-        </div>
-      )}
-
-      {/* Chat: balões de emojis recentes transmitidos na sala */}
-      {chat.length > 0 && (
-        <ul className="game__chat" aria-live="polite" aria-label="Mensagens da sala">
-          {chat.map((m) => (
-            <li
-              key={m.id}
-              className={m.local ? 'game__chat-msg game__chat-msg--me' : 'game__chat-msg'}
-            >
-              <strong>{m.name}</strong>
-              <span className="game__chat-emoji">{m.emoji}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Tela de Fim de Missão: vitória (100% dos dados) ou evacuação */}
-      {!loading && !error && (
-        <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
-      )}
-
-      {/* Sair: salvar o mundo? */}
-      {leaveOpen && (
-        <div className="game__leave-backdrop" role="presentation">
-          <div
-            className="game__leave"
-            role="alertdialog"
-            aria-labelledby="leave-title"
-            aria-modal="true"
-          >
-            <h2 id="leave-title">Salvar o mundo antes de sair?</h2>
-            <p>
-              {persist.canSave
-                ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O salvamento que vale é o do último jogador a salvar.'
-                : 'Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.'}
-            </p>
-            {saveError && (
-              <p className="game__leave-error" role="alert">
-                {saveError}
-              </p>
+      {minigame &&
+        createPortal(
+          <Suspense fallback={null}>
+            {minigame === 'solar' ? (
+              <SolarCleaningPreview onClose={closeMinigame} />
+            ) : minigame === 'oxygen' ? (
+              <OxygenFilterPreview onClose={closeMinigame} />
+            ) : (
+              <GreenhousePreview onClose={closeMinigame} />
             )}
-            <div className="game__leave-actions">
-              <button type="button" onClick={() => setLeaveOpen(false)} disabled={saving}>
-                Continuar jogando
-              </button>
-              <button type="button" onClick={() => nav('/')} disabled={saving}>
-                Sair sem salvar
-              </button>
-              {persist.canSave && (
-                <button
-                  type="button"
-                  className="game__leave-save"
-                  onClick={() => void saveAndLeave()}
-                  disabled={saving}
-                >
-                  {saving ? 'Salvando…' : 'Salvar e sair'}
-                </button>
-              )}
-            </div>
+          </Suspense>,
+          document.body,
+        )}
+      {/* `display: contents` mantém o layout; `inert` bloqueia a base enquanto o minigame está aberto */}
+      <div className="game__interface" style={{ display: 'contents' }} inert={minigame !== null}>
+        <div className="game__canvas" ref={mount} />
+        <div className="game__vignette" />
+
+        {/* Nova HUD Modular Unificada (Barra Essencial, Doca e Painéis Recolhíveis) */}
+        {!loading && !error && (
+          <HudRoot
+            marsTime={marsTime}
+            stormActive={stormActive}
+            roomCode={roomCode}
+            players={players}
+            onCopyInvite={handleCopyInvite}
+            cameraMode={cameraMode}
+            onToggleCamera={toggleCamera}
+            roofsHidden={roofsHidden}
+            onToggleRoofs={toggleRoofs}
+            chat={chat}
+            onSendEmote={pickEmote}
+            info={info}
+            astronautName={name ?? 'Explorador'}
+            coords={coords}
+            viewer={viewer.current}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onRequestLeave={requestLeave}
+            rollBase={rollBase}
+            onOpenMinigame={setMinigame}
+          />
+        )}
+
+        {/* Indicador de Coordenadas Flutuante em Tempo Real */}
+        {showCoords && coords && !loading && (
+          <div className="game__coord-status">
+            <MapPin size={13} className="game__coord-icon" />
+            <span>
+              COORDENADAS: [X: {coords.gx >= 0 ? `+${coords.gx}` : coords.gx}, Y:{' '}
+              {coords.gy >= 0 ? `+${coords.gy}` : coords.gy}] ·{' '}
+              <strong className={coords.inside ? 'coord-inside' : 'coord-outside'}>
+                {coords.inside ? 'BASE INTERIOR' : 'TERRENO EXTERNO'}
+              </strong>
+            </span>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Sair do rover */}
-      {driving && (
-        <button
-          type="button"
-          className="game__vehicle-exit"
-          onClick={() => viewer.current?.exitRover()}
-        >
-          <Car size={18} />
-          <span>Sair do rover</span>
-          <kbd>E</kbd>
-        </button>
-      )}
+        {/* Chat: balões de emojis recentes transmitidos na sala */}
+        {chat.length > 0 && (
+          <ul className="game__chat" aria-live="polite" aria-label="Mensagens da sala">
+            {chat.map((m) => (
+              <li
+                key={m.id}
+                className={m.local ? 'game__chat-msg game__chat-msg--me' : 'game__chat-msg'}
+              >
+                <strong>{m.name}</strong>
+                <span className="game__chat-emoji">{m.emoji}</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
-      {/* Dicas de Controle */}
-      {!loading && !error && gameplay.showHints && (
-        <div className="game__hint" role="note">
-          <span className="game__hint-action">Clique no chão ou use WASD para andar</span>
-          <span className="game__hint-dot">·</span>
-          <span>Clique em painéis, plantas e máquinas para trabalhar</span>
-          <span className="game__hint-dot">·</span>
-          <span>Clique no rover (ou E) para dirigir</span>
-          <span className="game__hint-dot">·</span>
-          <span>Arraste para girar a câmera</span>
-        </div>
-      )}
+        {/* Tela de Fim de Missão: vitória (100% dos dados) ou evacuação */}
+        {!loading && !error && (
+          <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
+        )}
 
-      {/* Tela de Carregamento 3D */}
-      {loading && (
-        <div className="game__loading" role="status" aria-live="polite">
-          <div className="game__spinner">
-            <div className="game__spinner-ring" />
-            <img
-              src="/assets/branding/mars-outpost-logo.svg"
-              alt=""
-              className="game__spinner-logo"
-            />
-          </div>
-          <span className="game__loading-kicker">APROXIMAÇÃO ORBITAL</span>
-          <h2 className="game__loading-title">Pousando em Marte…</h2>
-          <p className="game__loading-sub">
-            Preparando astronauta personalizado, grade tática e propulsão de pouso
-          </p>
-        </div>
-      )}
-
-      {/* Estado de Erro */}
-      {error && (
-        <div className="game__error-dialog">
-          <div className="game__error-card" role="alert">
-            <TriangleAlert size={28} className="game__error-icon" />
-            <div>
-              <h3>Falha no carregamento</h3>
-              <p>{error}</p>
-            </div>
-            <button
-              type="button"
-              className="game__action-btn"
-              onClick={() => setBaseId((cur) => pickRandomBase(cur))}
+        {/* Sair: salvar o mundo? */}
+        {leaveOpen && (
+          <div className="game__leave-backdrop" role="presentation">
+            <div
+              className="game__leave"
+              role="alertdialog"
+              aria-labelledby="leave-title"
+              aria-modal="true"
             >
-              Tentar outra base
-            </button>
+              <h2 id="leave-title">Salvar o mundo antes de sair?</h2>
+              <p>
+                {persist.canSave
+                  ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O salvamento que vale é o do último jogador a salvar.'
+                  : 'Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.'}
+              </p>
+              {saveError && (
+                <p className="game__leave-error" role="alert">
+                  {saveError}
+                </p>
+              )}
+              <div className="game__leave-actions">
+                <button type="button" onClick={() => setLeaveOpen(false)} disabled={saving}>
+                  Continuar jogando
+                </button>
+                <button type="button" onClick={() => nav('/')} disabled={saving}>
+                  Sair sem salvar
+                </button>
+                {persist.canSave && (
+                  <button
+                    type="button"
+                    className="game__leave-save"
+                    onClick={() => void saveAndLeave()}
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando…' : 'Salvar e sair'}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Menu de Configurações avançado */}
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        video={video}
-        onVideoChange={setVideo}
-        audio={audio}
-        onAudioChange={setAudio}
-        gameplay={gameplay}
-        onGameplayChange={setGameplay}
-        inGame={true}
-        roomCode={roomCode}
-        onCopyRoomCode={handleCopyInvite}
-        onLeaveRoom={() => requestLeave()}
-      />
+        {/* Sair do rover */}
+        {driving && (
+          <button
+            type="button"
+            className="game__vehicle-exit"
+            onClick={() => viewer.current?.exitRover()}
+          >
+            <Car size={18} />
+            <span>Sair do rover</span>
+            <kbd>E</kbd>
+          </button>
+        )}
+
+        {/* Dicas de Controle */}
+        {!loading && !error && gameplay.showHints && (
+          <div className="game__hint" role="note">
+            <span className="game__hint-action">Clique no chão ou use WASD para andar</span>
+            <span className="game__hint-dot">·</span>
+            <span>Clique em painéis, plantas e máquinas para trabalhar</span>
+            <span className="game__hint-dot">·</span>
+            <span>Clique no rover (ou E) para dirigir</span>
+            <span className="game__hint-dot">·</span>
+            <span>Arraste para girar a câmera</span>
+          </div>
+        )}
+
+        {/* Tela de Carregamento 3D */}
+        {loading && (
+          <div className="game__loading" role="status" aria-live="polite">
+            <div className="game__spinner">
+              <div className="game__spinner-ring" />
+              <img
+                src="/assets/branding/mars-outpost-logo.svg"
+                alt=""
+                className="game__spinner-logo"
+              />
+            </div>
+            <span className="game__loading-kicker">APROXIMAÇÃO ORBITAL</span>
+            <h2 className="game__loading-title">Pousando em Marte…</h2>
+            <p className="game__loading-sub">
+              Preparando astronauta personalizado, grade tática e propulsão de pouso
+            </p>
+          </div>
+        )}
+
+        {/* Estado de Erro */}
+        {error && (
+          <div className="game__error-dialog">
+            <div className="game__error-card" role="alert">
+              <TriangleAlert size={28} className="game__error-icon" />
+              <div>
+                <h3>Falha no carregamento</h3>
+                <p>{error}</p>
+              </div>
+              <button
+                type="button"
+                className="game__action-btn"
+                onClick={() => setBaseId((cur) => pickRandomBase(cur))}
+              >
+                Tentar outra base
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Menu de Configurações avançado */}
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          video={video}
+          onVideoChange={setVideo}
+          audio={audio}
+          onAudioChange={setAudio}
+          gameplay={gameplay}
+          onGameplayChange={setGameplay}
+          inGame={true}
+          roomCode={roomCode}
+          onCopyRoomCode={handleCopyInvite}
+          onLeaveRoom={() => requestLeave()}
+        />
+      </div>
     </main>
   );
 }

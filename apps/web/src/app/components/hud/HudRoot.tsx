@@ -6,12 +6,13 @@
  * renderiza a EssentialBar no topo, o HudDock e a gaveta lateral HudPanelContainer.
  */
 
-import { Camera, Compass, MessageSquare, Settings, Users, Wrench, Zap } from 'lucide-react';
+import { Camera, Compass, Hammer, MessageSquare, Settings, Users, Wrench, Zap } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { EssentialBar } from './EssentialBar';
 import { HudContext, type HudContextValue } from './HudContext';
 import { HudDock } from './HudDock';
 import { HudPanelContainer } from './HudPanelContainer';
+import { ActivitiesPanel } from './panels/ActivitiesPanel';
 import { ChatPanel } from './panels/ChatPanel';
 import { DevPanel } from './panels/DevPanel';
 import { MissionPanel } from './panels/MissionPanel';
@@ -54,6 +55,7 @@ export function HudRoot(props: HudRootProps) {
     onOpenSettings,
     onRequestLeave,
     rollBase,
+    onOpenMinigame,
   } = props;
 
   // Detecta se a URL possui ?dev ou se está em ambiente de desenvolvimento Vite
@@ -79,6 +81,14 @@ export function HudRoot(props: HudRootProps) {
         title: 'Missão',
         icon: Compass,
         component: MissionPanel,
+      }),
+
+      registerPanel({
+        id: 'atividades',
+        group: 'missao',
+        title: 'Atividades',
+        icon: Hammer,
+        component: ActivitiesPanel,
       }),
 
       registerPanel({
@@ -168,6 +178,7 @@ export function HudRoot(props: HudRootProps) {
       onOpenSettings,
       onRequestLeave,
       rollBase,
+      onOpenMinigame,
     }),
     [
       roomCode,
@@ -186,6 +197,7 @@ export function HudRoot(props: HudRootProps) {
       onOpenSettings,
       onRequestLeave,
       rollBase,
+      onOpenMinigame,
     ],
   );
 

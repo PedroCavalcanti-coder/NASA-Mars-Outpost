@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { createFlightEarth } from './FlightEarth';
-import { MarsLanding } from './MarsLanding';
+import { type LandingAudioEvent, MarsLanding } from './MarsLanding';
 import { PALETTE } from './palette';
 import type { GameRuntime } from './runtime/expedition';
 
@@ -89,6 +89,7 @@ export class LaunchScene {
     private onComplete: () => void,
     private copyElement: HTMLElement | null = null,
     private onSpaceChange: (active: boolean) => void = () => {},
+    private onLandingAudio: (event: LandingAudioEvent) => void = () => {},
   ) {
     this.renderer = runtime.renderer;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
@@ -688,7 +689,8 @@ export class LaunchScene {
   skip() {
     if (this.finished) return;
     this.onSpaceChange(false);
-    if (!this.landing) this.landing = new MarsLanding(this.rocket, this.flames);
+    if (!this.landing)
+      this.landing = new MarsLanding(this.rocket, this.flames, this.onLandingAudio);
     this.landingStarted = this.elapsed - 12;
     this.container.dataset.flightScene = 'landing';
     if (this.copyElement) this.copyElement.style.visibility = 'hidden';
@@ -890,7 +892,7 @@ export class LaunchScene {
       this.renderer.render(this.spaceScene, this.camera);
       if (t >= duration) {
         this.onSpaceChange(false);
-        this.landing = new MarsLanding(this.rocket, this.flames);
+        this.landing = new MarsLanding(this.rocket, this.flames, this.onLandingAudio);
         this.landingStarted = this.elapsed;
         this.container.dataset.flightScene = 'landing';
       }
