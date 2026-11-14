@@ -23,7 +23,13 @@ import type { BaseViewer } from '../../game/BaseViewer';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
+import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
+import { ActionPanel } from '../components/mission/ActionPanel';
+import { MissionEnd } from '../components/mission/MissionEnd';
+import { MissionLog } from '../components/mission/MissionLog';
+import { ResearchBar } from '../components/mission/ResearchBar';
+import { ResourceHud } from '../components/mission/ResourceHud';
 import {
   type AudioSettings,
   type GameplaySettings,
@@ -31,6 +37,7 @@ import {
   type VideoSettings,
 } from '../components/SettingsModal';
 import '../../styles/game.css';
+import '../components/mission/mission.css';
 
 /**
  * Jogo (base marciana):
@@ -93,6 +100,17 @@ export default function Game() {
   const [gridVisible, setGridVisible] = useState(true);
   const [stormActive, setStormActive] = useState(false);
   const [driving, setDriving] = useState(false);
+  const startMission = useMission((m) => m.start);
+  const sol = useMission((m) => m.state.sol);
+  const blackout = useMission((m) => m.state.resources.energy.value <= 0);
+  const missionStarted = useMission((m) => m.state.log.length > 0 && m.state.status === 'playing');
+
+  // Cada base sorteada começa uma missão nova.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia a missão a cada base sorteada
+  useEffect(() => {
+    startMission();
+  }, [baseId, startMission]);
+
   const [wheelOpen, setWheelOpen] = useState(false);
   const [emoteCooling, setEmoteCooling] = useState(false);
   const [chat, setChat] = useState<
@@ -255,6 +273,12 @@ export default function Game() {
 
   if (!name) return <Navigate to="/" replace />;
 
+  function rollBase() {
+    if (missionStarted && !window.confirm('Sortear outra base reinicia a missão atual. Continuar?'))
+      return;
+    setBaseId((cur) => pickRandomBase(cur));
+  }
+
   function pickEmote(index: number) {
     if (emoteCooling) return;
     if (viewer.current?.sendEmote(index)) {
@@ -328,6 +352,12 @@ export default function Game() {
             />
           </Link>
           <span className="game__brand-divider" aria-hidden="true" />
+          <div className="game__mission-status">
+            <span className="game__status-dot" aria-hidden="true" />
+            <span>
+              SOL {sol} · {blackout ? 'APAGÃO NA BASE' : 'BASE MARCIANA ATIVA'}
+            </span>
+          </div>
 
           {/* Relógio Solar de Marte */}
           <div
@@ -458,6 +488,19 @@ export default function Game() {
         <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
         {info && <p className="game__card-desc">{info.description}</p>}
       </aside>
+
+      {/* Missão: recursos, pesquisa, diário e ações */}
+      {!loading && !error && (
+        <>
+          <aside className="mission-status" aria-label="Estado da missão">
+            <ResearchBar />
+            <ResourceHud />
+          </aside>
+          <MissionLog />
+          <ActionPanel />
+          <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
+        </>
+      )}
 
       {/* Indicador de Coordenadas em Tempo Real */}
       {coords && !loading && (
