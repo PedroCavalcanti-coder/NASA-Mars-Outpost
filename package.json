@@ -18,10 +18,15 @@
     "build": "npm run build -w @mars/web",
     "build:server": "npm run build -w @mars/server",
     "start": "npm run start -w @mars/server",
+    "db:generate": "npm run db:generate -w @mars/server",
+    "db:migrate": "npm run db:migrate -w @mars/server",
+    "db:check": "npm run db:check -w @mars/server",
+    "secret:jwt": "node scripts/gen-jwt-secret.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "lint": "biome check .",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "smoke": "node --env-file=.env scripts/smoke.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.6",
@@ -29,5 +34,10 @@
     "concurrently": "^10.0.7",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
   }
 }

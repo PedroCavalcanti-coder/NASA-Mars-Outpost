@@ -1,0 +1,45 @@
+@import "@fontsource/rajdhani/500.css";
+@import "@fontsource/rajdhani/600.css";
+@import "@fontsource/rajdhani/700.css";
+@import "@fontsource/barlow/400.css";
+@import "@fontsource/barlow/500.css";
+@import "@fontsource/barlow/600.css";
+
+:root {
+  color-scheme: dark;
+
+  /* superfícies (poeira marciana escura) */
+  --bg: #140a07;
+  --bg-2: #1b0f0a;
+  --surface: #231410;
+  --surface-2: #2d1b15;
+  --line: rgb(255 196 150 / 0.13);
+  --line-strong: rgb(255 196 150 / 0.26);
+
+  /* texto */
+  --text: #f7ebe1;
+  --text-dim: #cdb4a3;
+  --text-mute: #9d8474;
+
+  /* marca e estados */
+  --brand: #f07a2a;
+  --brand-hi: #ffb066;
+  --brand-lo: #a8400f;
+  --on-brand: #1a0a03;
+  --ok: #5ed39a;
+  --warn: #f5c04a;
+  --danger: #ff6b5e;
+  --info: #7cc4ff;
+
+  --font-display: "Rajdhani", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.25rem;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --gutter: clamp(16px, 4vw, 32px);
+  --shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+  --focus: 0 0 0 3px rgb(255 176 102 / 0.45);
+}
