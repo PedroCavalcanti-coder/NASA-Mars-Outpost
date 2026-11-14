@@ -416,6 +416,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           {launching ? 'EXPEDIÇÃO EM VOO' : 'TODOS OS SISTEMAS PRONTOS'}
         </span>
         <nav className="launch-footer-nav" aria-label="Links do projeto">
+          <Link to="/previa/rover">Prévia: rover</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>

@@ -24,6 +24,7 @@ const Center = lazy(() => import('./app/pages/Center'));
 const Support = lazy(() => import('./app/pages/Support'));
 const About = lazy(() => import('./app/pages/About'));
 const NotFound = lazy(() => import('./app/pages/NotFound'));
+const RoverRepairPreview = lazy(() => import('./app/minigames/rover-repair/RoverRepairPreview'));
 
 export function App() {
   const load = useAuth((s) => s.load);
@@ -46,6 +47,7 @@ export function App() {
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route index element={<Home />} />
+          <Route path="previa/rover" element={<RoverRepairPreview />} />
 
           {/* Páginas Públicas do Projeto */}
           <Route path="centro" element={<Center />} />
