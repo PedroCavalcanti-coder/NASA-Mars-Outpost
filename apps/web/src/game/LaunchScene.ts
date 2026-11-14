@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { createFlightEarth } from './FlightEarth';
+import { MarsLanding } from './MarsLanding';
 import { PALETTE } from './palette';
+import type { GameRuntime } from './runtime/expedition';
 
 // Original low-poly scene. Unlike the isometric game, this camera looks up from the pad.
 const mat = (color: number, emissive = 0) =>
@@ -13,12 +16,36 @@ const mat = (color: number, emissive = 0) =>
   });
 const smooth = (a: number, b: number, t: number) => THREE.MathUtils.smoothstep(t, a, b);
 type Puff = { age: number; life: number; x: number; z: number; angle: number; size: number };
+type ShootingStar = {
+  active: boolean;
+  x: number;
+  y: number;
+  z: number;
+  dx: number;
+  dy: number;
+  dz: number;
+  length: number;
+  speed: number;
+  life: number;
+  maxLife: number;
+  opacity: number;
+};
 
 export class LaunchScene {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
-  private camera = new THREE.PerspectiveCamera(36, 1, 0.1, 350);
+  private camera = new THREE.PerspectiveCamera(36, 1, 0.1, 450);
   private rocket = new THREE.Group();
+  private spaceScene: THREE.Scene | null = null;
+  private spaceStarted = 0;
+  private landing: MarsLanding | null = null;
+  private landingStarted = 0;
+  private earth: THREE.Group | null = null;
+  private leftBooster = new THREE.Group();
+  private rightBooster = new THREE.Group();
+  private boosterJets: THREE.Group[] = [];
+  private orbiterJets: THREE.Group[] = [];
+  private flightEarth = createFlightEarth();
   private flames = new THREE.Group();
   private glow = new THREE.PointLight(0xffa348, 0, 25, 1.5);
   private smoke: THREE.InstancedMesh;
@@ -37,14 +64,33 @@ export class LaunchScene {
   private finished = false;
   private elapsed = 0;
   private rng = 179;
+  private sun: THREE.DirectionalLight;
+  private hemi: THREE.HemisphereLight;
+  private stars: THREE.Points | null = null;
+  private starGeometry: THREE.BufferGeometry | null = null;
+  private starMaterial: THREE.PointsMaterial | null = null;
+  private baseStarPositions: Float32Array | null = null;
+  private mouseTarget = new THREE.Vector2();
+  private mouseCurrent = new THREE.Vector2();
+  private rocketFlamesGlow: THREE.PointLight | null = null;
+  private shootingStars: ShootingStar[] = [];
+  private shootingStarsLine: THREE.LineSegments | null = null;
+  private shootingStarsGeom: THREE.BufferGeometry | null = null;
+  private shootingStarsMat: THREE.LineBasicMaterial | null = null;
+  private textAnchor: THREE.Vector3 | null = null;
+  private textAnchorScreenX = 0;
+  private textAnchorScreenY = 0;
 
   constructor(
+    private runtime: GameRuntime,
     private container: HTMLElement,
     private target: HTMLButtonElement,
     private onFlight: (progress: number) => void,
     private onComplete: () => void,
+    private copyElement: HTMLElement | null = null,
+    private onSpaceChange: (active: boolean) => void = () => {},
   ) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = runtime.renderer;
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
@@ -53,8 +99,10 @@ export class LaunchScene {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     container.appendChild(this.renderer.domElement);
-    this.scene.fog = new THREE.FogExp2(0x8fb8c2, 0.006);
-    this.scene.add(new THREE.HemisphereLight(0xb4d6ff, 0x657957, 2.3));
+    // Linear fog (start, end) like Minecraft: clears the near pad while hiding the world boundary
+    this.scene.fog = new THREE.Fog(0x8fb8c2, 85, 230);
+    this.hemi = new THREE.HemisphereLight(0xb4d6ff, 0x657957, 2.3);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xffdfb9, 4);
     sun.position.set(-12, 14, 11);
     sun.castShadow = true;
@@ -62,6 +110,7 @@ export class LaunchScene {
     Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 18, bottom: -12, far: 70 });
     sun.shadow.bias = -0.001;
     this.scene.add(sun);
+    this.sun = sun;
     const rim = new THREE.DirectionalLight(0x8bb8ef, 2.7);
     rim.position.set(7, 9, -10);
     this.scene.add(rim);
@@ -77,7 +126,7 @@ export class LaunchScene {
     this.materials.push(ivory, gray, dark, orange, navy, metal, ground, concrete, lamp);
     const site = new THREE.Group();
     this.scene.add(site);
-    this.box(site, ground, [240, 0.8, 220], [0, -1.15, -35]);
+    this.box(site, ground, [420, 0.8, 380], [0, -1.15, -45]);
     this.makeLandscape(site);
     // Raised platform, hazard markings and blue guidance lights.
     const yellow = mat(0xffb829);
@@ -155,6 +204,13 @@ export class LaunchScene {
     this.box(this.rocket, orange, [0.34, 0.38, 0.08], [0, 5.8, 0.99]);
     this.box(this.rocket, ivory, [0.08, 0.24, 0.1], [0, 5.8, 1.045]);
     this.box(this.rocket, ivory, [0.2, 0.07, 0.1], [0, 5.8, 1.045]);
+    const leftBooster = this.leftBooster;
+    const rightBooster = this.rightBooster;
+    leftBooster.clear();
+    rightBooster.clear();
+    this.boosterJets = [];
+    this.orbiterJets = [];
+
     for (const side of [-1, 1]) {
       const wing = new THREE.Shape();
       wing.moveTo(side * 0.48, 5.4);
@@ -169,16 +225,22 @@ export class LaunchScene {
       ).position.z = 0.22;
       this.beam(this.rocket, dark, [side * 0.53, 5.3, 0.4], [side * 2.05, 2.65, 0.4], 0.095);
       this.box(this.rocket, orange, [0.36, 0.12, 0.2], [side * 1.5, 2.68, 0.4]);
-      this.cylinder(this.rocket, ivory, 0.31, 0.34, 4.9, [side * 1.23, 4.15, -0.65]);
-      this.cylinder(this.rocket, ivory, 0, 0.31, 1.05, [side * 1.23, 7.12, -0.65]);
+
+      const booster = side === -1 ? leftBooster : rightBooster;
+      this.cylinder(booster, ivory, 0.31, 0.34, 4.9, [side * 1.23, 4.15, -0.65]);
+      this.cylinder(booster, ivory, 0, 0.31, 1.05, [side * 1.23, 7.12, -0.65]);
       for (const y of [2.05, 3, 5.85])
-        this.cylinder(this.rocket, dark, 0.35, 0.35, 0.13, [side * 1.23, y, -0.65]);
-      this.cylinder(this.rocket, orange, 0.35, 0.35, 0.26, [side * 1.23, 1.8, -0.65]);
-      this.cylinder(this.rocket, dark, 0.23, 0.4, 0.55, [side * 1.23, 1.4, -0.65]);
+        this.cylinder(booster, dark, 0.35, 0.35, 0.13, [side * 1.23, y, -0.65]);
+      this.cylinder(booster, orange, 0.35, 0.35, 0.26, [side * 1.23, 1.8, -0.65]);
+      this.cylinder(booster, dark, 0.23, 0.4, 0.55, [side * 1.23, 1.4, -0.65]);
     }
     for (const x of [-0.32, 0.32])
       this.cylinder(this.rocket, dark, 0.19, 0.29, 0.5, [x, 2.15, 0.35]);
     this.batch(this.rocket);
+    this.batch(leftBooster);
+    this.batch(rightBooster);
+    this.rocket.add(leftBooster);
+    this.rocket.add(rightBooster);
     this.rocket.add(this.flames);
     const outer = new THREE.MeshBasicMaterial({
         color: 0xff7630,
@@ -204,11 +266,25 @@ export class LaunchScene {
         flame.rotation.z = Math.PI;
         flame.position.y = -length / 2;
       }
-      this.flames.add(jet);
+      if (position[0] === -1.23) {
+        leftBooster.add(jet);
+        jet.visible = false;
+        this.boosterJets.push(jet);
+      } else if (position[0] === 1.23) {
+        rightBooster.add(jet);
+        jet.visible = false;
+        this.boosterJets.push(jet);
+      } else {
+        this.flames.add(jet);
+        this.orbiterJets.push(jet);
+      }
     }
     this.flames.visible = false;
     this.glow.position.set(0, 1.4, 0);
     this.scene.add(this.glow);
+    this.rocketFlamesGlow = new THREE.PointLight(0xff2200, 0, 30, 2);
+    this.rocketFlamesGlow.position.set(0, 1.6, 0);
+    this.rocket.add(this.rocketFlamesGlow);
     const haloMat = new THREE.MeshBasicMaterial({
       color: 0xf8d3a0,
       side: THREE.DoubleSide,
@@ -228,7 +304,7 @@ export class LaunchScene {
       this.puffs.push({ age: -i * 0.035, life: 4.5, x: 0, z: 0, angle: 0, size: 0 });
       this.smoke.setColorAt(
         i,
-        new THREE.Color().setHSL(0.07 + this.random() * 0.04, 0.13, 0.53 + this.random() * 0.24),
+        new THREE.Color().setHSL(0.07 + Math.random() * 0.04, 0.13, 0.53 + Math.random() * 0.24),
       );
       this.dummy.scale.setScalar(0);
       this.dummy.updateMatrix();
@@ -243,13 +319,15 @@ export class LaunchScene {
     target.addEventListener('pointerleave', this.leave);
     target.addEventListener('focus', this.enter);
     target.addEventListener('blur', this.leave);
+    window.addEventListener('pointermove', this.onPointerMove, { passive: true });
     document.addEventListener('visibilitychange', this.visibility);
-    this.raf = requestAnimationFrame(this.frame);
+    this.raf = this.runtime.request(this.frame);
   }
   setReducedMotion(reduced: boolean) {
     if (this.launchAt === null) this.reduced = reduced;
   }
   setQuality(quality: 'low' | 'medium' | 'high' | 'standard') {
+    this.runtime.profileRevision++;
     const isLow = quality === 'low';
     const isHigh = quality === 'high';
     this.renderer.shadowMap.enabled = !isLow;
@@ -263,6 +341,7 @@ export class LaunchScene {
     this.resize();
   }
   setPostProcessing(enabled: boolean) {
+    this.runtime.profileRevision++;
     this.renderer.toneMapping = enabled ? THREE.ACESFilmicToneMapping : THREE.LinearToneMapping;
   }
   private makeLandscape(site: THREE.Group) {
@@ -295,40 +374,40 @@ export class LaunchScene {
       cloud,
     );
 
-    // A coastal spaceport on Earth. The pad and launch hardware keep their layout.
-    this.box(site, water, [240, 0.08, 48], [0, -0.69, -74]);
-    this.box(site, sand, [240, 0.04, 3], [0, -0.71, -49]);
-    for (let i = 0; i < 13; i++) {
+    // A coastal spaceport on Earth. Extended terrain reaching farther into the horizon.
+    this.box(site, water, [420, 0.08, 90], [0, -0.69, -95]);
+    this.box(site, sand, [420, 0.04, 6], [0, -0.71, -49]);
+    for (let i = 0; i < 28; i++) {
       const hill = this.mesh(
         site,
         new THREE.IcosahedronGeometry(1, 1),
         i % 3 ? hills : distantHills,
       );
-      const height = 3 + this.random() * 4;
-      hill.position.set((i - 6) * 16, -1.6, -42 - this.random() * 16);
-      hill.scale.set(10 + this.random() * 6, height, 6 + this.random() * 4);
+      const height = 3.5 + Math.random() * 5.5;
+      hill.position.set((i - 14) * 15, -1.6, -42 - Math.random() * 65);
+      hill.scale.set(12 + Math.random() * 8, height, 8 + Math.random() * 6);
       hill.rotation.y = i * 0.7;
     }
 
     // Faceted lawns and a service road keep the launch area clear.
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 40; i++) {
       const patch = this.mesh(
         site,
-        new THREE.CircleGeometry(2 + this.random() * 6, 6),
+        new THREE.CircleGeometry(2.5 + Math.random() * 8, 6),
         i % 2 ? grass : meadow,
       );
       patch.rotation.x = -Math.PI / 2;
-      patch.rotation.z = this.random() * Math.PI;
-      patch.position.set((this.random() - 0.5) * 90, -0.742, (this.random() - 0.5) * 65);
+      patch.rotation.z = Math.random() * Math.PI;
+      patch.position.set((Math.random() - 0.5) * 160, -0.742, (Math.random() - 0.5) * 120);
     }
-    this.box(site, asphalt, [4.8, 0.06, 40], [0, -0.69, 24]);
-    for (let i = 0; i < 9; i++) this.box(site, marking, [0.12, 0.015, 1.4], [0, -0.65, 7 + i * 4]);
+    this.box(site, asphalt, [4.8, 0.06, 60], [0, -0.69, 28]);
+    for (let i = 0; i < 14; i++) this.box(site, marking, [0.12, 0.015, 1.4], [0, -0.65, 5 + i * 4]);
 
-    // Small stands of rounded cartoon trees sit beyond the safety perimeter.
-    for (let i = 0; i < 34; i++) {
-      const x = (this.random() - 0.5) * 78,
-        z = -12 - this.random() * 23,
-        height = 1.6 + this.random() * 2;
+    // Stands of rounded cartoon trees sit beyond the safety perimeter.
+    for (let i = 0; i < 55; i++) {
+      const x = (Math.random() - 0.5) * 150,
+        z = -12 - Math.random() * 55,
+        height = 1.6 + Math.random() * 2.2;
       this.cylinder(site, bark, 0.11, 0.18, height * 0.55, [x, -0.75 + height * 0.275, z]);
       for (let crown = 0; crown < 2; crown++) {
         const canopy = this.mesh(
@@ -341,26 +420,28 @@ export class LaunchScene {
         canopy.rotation.y = i * 0.8;
       }
     }
-    for (let i = 0; i < 25; i++) {
-      const x = (this.random() - 0.5) * 85,
-        z = (this.random() - 0.5) * 65;
+    for (let i = 0; i < 40; i++) {
+      const x = (Math.random() - 0.5) * 160,
+        z = (Math.random() - 0.5) * 120;
       if (Math.abs(x) < 13 && z > -7) continue;
       const boulder = this.mesh(
         site,
-        new THREE.IcosahedronGeometry(0.2 + this.random() * 0.5, 0),
+        new THREE.IcosahedronGeometry(0.2 + Math.random() * 0.6, 0),
         rock,
       );
       boulder.position.set(x, -0.68, z);
       boulder.scale.set(1.4, 0.65, 1);
-      boulder.rotation.y = this.random() * Math.PI;
+      boulder.rotation.y = Math.random() * Math.PI;
     }
 
     // Puffy low-poly clouds share the scene's light and perspective.
     for (const [x, y, z, size] of [
+      [-55, 18, -85, 2.2],
       [-32, 14, -53, 1.6],
       [-9, 18, -62, 1.9],
       [17, 12, -47, 1.3],
       [40, 17, -60, 1.7],
+      [65, 20, -90, 2.4],
     ] as const) {
       for (let puff = 0; puff < 5; puff++) {
         const piece = this.mesh(site, new THREE.IcosahedronGeometry(1, 1), cloud);
@@ -446,29 +527,175 @@ export class LaunchScene {
     }
   }
   private makeStars() {
-    const positions = [],
-      colors = [];
-    for (let i = 0; i < 65; i++) {
-      positions.push(
-        (this.random() - 0.5) * 200,
-        15 + this.random() * 85,
-        -80 - this.random() * 35,
-      );
-      const l = 0.35 + this.random() * 0.5;
-      colors.push(l, l * 0.96, l * 0.87);
+    const count = 380;
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      positions[idx] = (Math.random() - 0.5) * 320;
+      positions[idx + 1] = 8 + Math.random() * 220;
+      positions[idx + 2] = -40 - Math.random() * 160;
+      const l = 0.45 + Math.random() * 0.55;
+      colors[idx] = l;
+      colors[idx + 1] = l * 0.96;
+      colors[idx + 2] = l * 0.92;
     }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    const material = new THREE.PointsMaterial({
-      size: 0.19,
+    this.baseStarPositions = new Float32Array(positions);
+    this.starGeometry = new THREE.BufferGeometry();
+    this.starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    this.starMaterial = new THREE.PointsMaterial({
+      size: 0.28,
       vertexColors: true,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.3,
       fog: false,
     });
-    this.materials.push(material);
-    this.scene.add(new THREE.Points(geometry, material));
+    this.materials.push(this.starMaterial);
+    this.stars = new THREE.Points(this.starGeometry, this.starMaterial);
+    this.scene.add(this.stars);
+
+    // Shooting stars
+    const maxShootingStars = 6;
+    for (let i = 0; i < maxShootingStars; i++) {
+      this.shootingStars.push({
+        active: false,
+        x: 0,
+        y: 0,
+        z: 0,
+        dx: -1,
+        dy: -0.6,
+        dz: -0.3,
+        length: 8,
+        speed: 45,
+        life: 0,
+        maxLife: 1.2,
+        opacity: 0,
+      });
+    }
+    const linePositions = new Float32Array(maxShootingStars * 6);
+    const lineColors = new Float32Array(maxShootingStars * 6);
+    this.shootingStarsGeom = new THREE.BufferGeometry();
+    this.shootingStarsGeom.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+    this.shootingStarsGeom.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+    this.shootingStarsMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: false,
+    });
+    this.materials.push(this.shootingStarsMat);
+    this.shootingStarsLine = new THREE.LineSegments(this.shootingStarsGeom, this.shootingStarsMat);
+    this.scene.add(this.shootingStarsLine);
+  }
+  private updateShootingStars(dt: number) {
+    if (!this.shootingStarsGeom) return;
+    const posAttr = this.shootingStarsGeom.getAttribute('position') as THREE.BufferAttribute;
+    const colAttr = this.shootingStarsGeom.getAttribute('color') as THREE.BufferAttribute;
+    const pos = posAttr.array as Float32Array;
+    const col = colAttr.array as Float32Array;
+
+    for (let i = 0; i < this.shootingStars.length; i++) {
+      const s = this.shootingStars[i];
+      if (!s) continue;
+      if (!s.active) {
+        // Random spawn chance
+        if (Math.random() < dt * 0.45) {
+          s.active = true;
+          s.x = 20 + Math.random() * 80;
+          s.y = 35 + Math.random() * 60;
+          s.z = -40 - Math.random() * 70;
+          const angle = -0.55 - Math.random() * 0.35;
+          s.dx = Math.cos(angle) * -1.2;
+          s.dy = Math.sin(angle);
+          s.dz = (Math.random() - 0.5) * 0.4;
+          s.length = 7 + Math.random() * 8;
+          s.speed = 55 + Math.random() * 40;
+          s.maxLife = 0.7 + Math.random() * 0.6;
+          s.life = s.maxLife;
+        }
+      }
+
+      const seg = i * 6;
+      if (s.active) {
+        s.life -= dt;
+        s.x += s.dx * s.speed * dt;
+        s.y += s.dy * s.speed * dt;
+        s.z += s.dz * s.speed * dt;
+
+        const progress = 1 - s.life / s.maxLife;
+        const fade = progress < 0.25 ? progress / 0.25 : Math.max(0, 1 - (progress - 0.25) / 0.75);
+
+        // Head
+        pos[seg] = s.x;
+        pos[seg + 1] = s.y;
+        pos[seg + 2] = s.z;
+        col[seg] = 1 * fade;
+        col[seg + 1] = 0.95 * fade;
+        col[seg + 2] = 0.85 * fade;
+
+        // Tail
+        pos[seg + 3] = s.x - s.dx * s.length;
+        pos[seg + 4] = s.y - s.dy * s.length;
+        pos[seg + 5] = s.z - s.dz * s.length;
+        col[seg + 3] = 0.3 * fade;
+        col[seg + 4] = 0.6 * fade;
+        col[seg + 5] = 1 * fade;
+
+        if (s.life <= 0) {
+          s.active = false;
+        }
+      } else {
+        pos[seg] = 0;
+        pos[seg + 1] = 0;
+        pos[seg + 2] = 0;
+        pos[seg + 3] = 0;
+        pos[seg + 4] = 0;
+        pos[seg + 5] = 0;
+        col[seg] = 0;
+        col[seg + 1] = 0;
+        col[seg + 2] = 0;
+        col[seg + 3] = 0;
+        col[seg + 4] = 0;
+        col[seg + 5] = 0;
+      }
+    }
+    posAttr.needsUpdate = true;
+    colAttr.needsUpdate = true;
+  }
+  private onPointerMove = (e: PointerEvent) => {
+    if (this.reduced || this.launchAt !== null) return;
+    const w = window.innerWidth || 1000;
+    const h = window.innerHeight || 800;
+    this.mouseTarget.set(((e.clientX / w) * 2 - 1) * 1.5, (-(e.clientY / h) * 2 + 1) * 0.85);
+  };
+  private cryoVenting(_dt: number) {
+    for (let i = 0; i < 8; i++) {
+      const cycle = ((this.elapsed * 0.85 + i * 0.35) % 2.4) / 2.4;
+      const size = (0.16 + cycle * 0.42) * (1 - smooth(0.65, 1, cycle));
+      const driftX = -0.6 + cycle * 1.8 + Math.sin(this.elapsed * 2 + i) * 0.15;
+      const driftY = 7.7 + cycle * 1.1;
+      const driftZ = -1.1 + Math.cos(this.elapsed * 1.6 + i) * 0.25;
+      this.dummy.position.set(driftX, driftY, driftZ);
+      this.dummy.scale.set(size, size * 0.8, size);
+      this.dummy.updateMatrix();
+      this.smoke.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.smoke.instanceMatrix.needsUpdate = true;
+  }
+  skip() {
+    if (this.finished) return;
+    this.onSpaceChange(false);
+    if (!this.landing) this.landing = new MarsLanding(this.rocket, this.flames);
+    this.landingStarted = this.elapsed - 12;
+    this.container.dataset.flightScene = 'landing';
+    if (this.copyElement) this.copyElement.style.visibility = 'hidden';
+    this.onFlight(1);
+  }
+  startArrival() {
+    this.skip();
   }
   private resize() {
     const w = this.container.clientWidth,
@@ -482,7 +709,8 @@ export class LaunchScene {
     this.camera.setViewOffset(w, h, mobile ? 0 : -w * 0.18, mobile ? h * 0.14 : 0, w, h);
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
-    if (this.finished) this.renderer.render(this.scene, this.camera);
+    if (this.finished)
+      this.renderer.render(this.landing?.scene ?? this.spaceScene ?? this.scene, this.camera);
   }
   private enter = () => {
     this.hovering = true;
@@ -494,14 +722,131 @@ export class LaunchScene {
     this.previous = 0;
     if (!document.hidden && !this.finished && !this.disposed) {
       cancelAnimationFrame(this.raf);
-      this.raf = requestAnimationFrame(this.frame);
+      this.raf = this.runtime.request(this.frame);
     }
   };
+  setCopyElement(element: HTMLElement | null) {
+    this.copyElement = element;
+  }
+  private initTextAnchor() {
+    if (!this.copyElement) return;
+    const containerRect = this.container.getBoundingClientRect();
+    const copyRect = this.copyElement.getBoundingClientRect();
+    const refX = copyRect.left - containerRect.left;
+    const refY = copyRect.top - containerRect.top;
+    this.textAnchorScreenX = refX;
+    this.textAnchorScreenY = refY;
+
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (!w || !h) return;
+
+    const ndcX = (refX / w) * 2 - 1;
+    const ndcY = -(refY / h) * 2 + 1;
+
+    this.camera.updateMatrixWorld(true);
+    const dir = new THREE.Vector3();
+    this.camera.getWorldDirection(dir);
+    const normal = dir.clone().negate();
+    const focalTarget = new THREE.Vector3(0, 4.6, 0);
+    const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, focalTarget);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), this.camera);
+    this.textAnchor = new THREE.Vector3();
+    raycaster.ray.intersectPlane(plane, this.textAnchor);
+  }
+  private updateTextPosition() {
+    if (!this.copyElement) return;
+    if (this.spaceScene) {
+      this.copyElement.style.visibility = 'hidden';
+      return;
+    }
+    if (this.launchAt === null || !this.textAnchor) return;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    if (!w || !h) return;
+
+    const projected = this.textAnchor.clone().project(this.camera);
+    const currentScreenX = ((projected.x + 1) / 2) * w;
+    const currentScreenY = ((1 - projected.y) / 2) * h;
+
+    const deltaX = currentScreenX - this.textAnchorScreenX;
+    const deltaY = currentScreenY - this.textAnchorScreenY;
+
+    this.copyElement.style.transform = `translate3d(${deltaX.toFixed(2)}px, ${deltaY.toFixed(2)}px, 0)`;
+  }
   launch() {
     if (this.launchAt === null) {
       this.launchAt = this.elapsed;
       this.target.disabled = true;
+      this.initTextAnchor();
     }
+  }
+  private beginSpace() {
+    this.onSpaceChange(true);
+    if (this.copyElement) {
+      this.copyElement.style.visibility = 'hidden';
+    }
+    const space = new THREE.Scene();
+    space.background = new THREE.Color(0x01030c);
+    space.add(new THREE.HemisphereLight(0x9bbdec, 0x11182e, 1.3));
+    const sun = new THREE.DirectionalLight(0xfff0db, 3.2);
+    sun.position.set(-18, 14, 24);
+    space.add(sun);
+    const rim = new THREE.DirectionalLight(0x5599ff, 2);
+    rim.position.set(12, -4, -18);
+    space.add(rim);
+    this.earth = this.flightEarth.earth;
+    this.earth.position.set(-8, 0, -24);
+    this.earth.rotation.set(0.14, 1.74, -0.22);
+    space.add(this.earth);
+    // Separate star populations give depth without a uniform dotted pattern.
+    for (let layer = 0; layer < 3; layer++) {
+      const points: number[] = [];
+      const colors: number[] = [];
+      for (let i = 0; i < ([2400, 650, 100][layer] ?? 65); i++) {
+        const direction = new THREE.Vector3(
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+          Math.random() - 0.5,
+        ).normalize();
+        direction.multiplyScalar(125 + Math.random() * 100);
+        points.push(direction.x, direction.y, direction.z);
+        const color = new THREE.Color().setHSL(
+          0.57 + Math.random() * 0.12,
+          0.1 + Math.random() * 0.3,
+          0.55 + Math.random() * 0.4,
+        );
+        colors.push(color.r, color.g, color.b);
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      const material = new THREE.PointsMaterial({
+        vertexColors: true,
+        size: [1.1, 1.7, 2.8][layer],
+        sizeAttenuation: false,
+        transparent: true,
+        opacity: [0.55, 0.8, 0.95][layer],
+        depthWrite: false,
+      });
+      this.materials.push(material);
+      space.add(new THREE.Points(geometry, material));
+    }
+    this.leftBooster.visible = false;
+    this.rightBooster.visible = false;
+    this.rocket.position.set(2, -3, -6);
+    this.rocket.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(0.1, 0.65, 0.76).normalize(),
+    );
+    space.add(this.rocket);
+    this.flames.visible = true;
+    this.flames.scale.y = 2.1;
+    this.container.dataset.flightScene = 'space';
+    this.spaceScene = space;
+    this.spaceStarted = this.elapsed;
   }
   private frame = (now: number) => {
     if (this.disposed) return;
@@ -509,6 +854,49 @@ export class LaunchScene {
     this.previous = now;
     if (document.hidden) return;
     this.elapsed += dt;
+    if (this.landing) {
+      const complete = this.landing.update(
+        this.elapsed - this.landingStarted,
+        this.camera,
+        this.reduced,
+      );
+      this.renderer.render(this.landing.scene, this.camera);
+      if (complete) {
+        if (!this.finished) {
+          this.finished = true;
+          this.onComplete();
+        }
+      }
+      this.raf = this.runtime.request(this.frame);
+      return;
+    }
+    if (this.spaceScene) {
+      const t = this.elapsed - this.spaceStarted;
+      const duration = this.reduced ? 2.5 : 8.5;
+      const p = Math.min(1, t / duration);
+      const approach = this.reduced ? 0 : p ** 1.65;
+      if (this.earth) {
+        this.earth.position.set(-8 - p * 3, -p * 1.5, -24 - p * 12);
+        this.earth.rotation.y = 1.74 + p * 0.15;
+      }
+      if (this.camera.view?.enabled) this.camera.clearViewOffset();
+      this.camera.fov = this.camera.aspect < 0.8 ? 56 : 43;
+      this.camera.updateProjectionMatrix();
+      this.camera.position.set(7, 12, 24);
+      this.camera.lookAt(-1, 3, -8);
+      this.rocket.position.set(2 + approach * 3, -3 + approach * 22, -6 + approach * 48);
+      if (!this.reduced) this.rocket.rotateY(Math.sin(t * 1.4) * 0.0008);
+      this.flames.scale.y = 2.1 + Math.sin(t * 35) * 0.12;
+      this.renderer.render(this.spaceScene, this.camera);
+      if (t >= duration) {
+        this.onSpaceChange(false);
+        this.landing = new MarsLanding(this.rocket, this.flames);
+        this.landingStarted = this.elapsed;
+        this.container.dataset.flightScene = 'landing';
+      }
+      this.raf = this.runtime.request(this.frame);
+      return;
+    }
     const flying = this.launchAt !== null,
       t = this.launchAt === null ? 0 : this.elapsed - this.launchAt;
     const duration = this.reduced ? 1.4 : 6.3,
@@ -516,29 +904,132 @@ export class LaunchScene {
     this.rocket.position.y = lift;
     this.rocket.rotation.z = flying && !this.reduced ? -smooth(2.5, 6, t) * 0.1 : 0;
     const follow = Math.max(0, lift - 2.5) * 0.62;
+
+    if (!flying && !this.reduced) {
+      this.mouseCurrent.lerp(this.mouseTarget, 0.05);
+      this.cryoVenting(dt);
+    } else {
+      this.mouseCurrent.lerp(new THREE.Vector2(0, 0), 0.08);
+    }
+
+    if (!this.reduced) {
+      this.updateShootingStars(dt);
+    }
+
     this.camera.position.copy(this.baseCamera);
-    this.camera.position.y += follow;
+    this.camera.position.x += this.mouseCurrent.x;
+    this.camera.position.y += follow + this.mouseCurrent.y;
+    this.camera.position.z += Math.abs(this.mouseCurrent.x) * 0.35;
+
+    // Screen Shake during ignition and liftoff
+    if (flying && !this.reduced) {
+      const shake = t < 0.9 ? smooth(0, 0.35, t) * 0.25 : Math.max(0, 1 - (t - 0.9) / 2.6) * 0.22;
+      if (shake > 0.001) {
+        this.camera.position.x += (Math.sin(t * 54) * 0.65 + Math.cos(t * 92) * 0.35) * shake;
+        this.camera.position.y += (Math.cos(t * 62) * 0.65 + Math.sin(t * 104) * 0.35) * shake;
+        this.camera.position.z += Math.sin(t * 76) * shake * 0.35;
+      }
+    }
+
     this.camera.lookAt(0, 4.6 + follow, 0);
     this.halo.visible = !flying;
     (this.halo.material as THREE.MeshBasicMaterial).opacity = this.hovering ? 0.85 : 0.28;
     this.halo.scale.setScalar(this.reduced ? 1 : 1 + Math.sin(this.elapsed * 1.6) * 0.035);
+
     if (flying) {
+      const p = Math.min(1, t / duration);
+
+      // Deep space atmosphere transition
+      if (this.scene.fog instanceof THREE.Fog) {
+        // Minecraft-style fog transitions into the dark expanse of space
+        this.scene.fog.near = THREE.MathUtils.lerp(85, 20, smooth(0.1, 0.8, p));
+        this.scene.fog.far = THREE.MathUtils.lerp(230, 450, smooth(0.1, 0.8, p));
+        this.scene.fog.color.lerpColors(
+          new THREE.Color(0x8fb8c2),
+          new THREE.Color(0x02040c),
+          smooth(0.15, 0.75, p),
+        );
+      } else if (this.scene.fog instanceof THREE.FogExp2) {
+        this.scene.fog.density = THREE.MathUtils.lerp(0.006, 0.00015, smooth(0.12, 0.75, p));
+        this.scene.fog.color.lerpColors(
+          new THREE.Color(0x8fb8c2),
+          new THREE.Color(0x02040c),
+          smooth(0.15, 0.75, p),
+        );
+      }
+      this.sun.intensity = THREE.MathUtils.lerp(4, 5.6, p);
+      this.hemi.intensity = THREE.MathUtils.lerp(2.3, 0.45, smooth(0.15, 0.8, p));
+
+      // Stars illumination & warp streak
+      if (this.starMaterial) {
+        this.starMaterial.opacity = THREE.MathUtils.lerp(0.3, 0.98, smooth(0.15, 0.7, p));
+      }
+      if (p > 0.65 && !this.reduced && this.starGeometry && this.baseStarPositions) {
+        const warp = smooth(0.65, 1, p);
+        const posAttr = this.starGeometry.getAttribute('position') as THREE.BufferAttribute;
+        const arr = posAttr.array as Float32Array;
+        const base = this.baseStarPositions;
+        const total = Math.floor(base.length / 3);
+        for (let i = 0; i < total; i++) {
+          const idx = i * 3;
+          const baseY = base[idx + 1] ?? 0;
+          const baseZ = base[idx + 2] ?? 0;
+          arr[idx + 1] = baseY - warp * ((i % 12) * 7 + 10);
+          arr[idx + 2] = baseZ + warp * ((i % 8) * 14 + 18);
+        }
+        posAttr.needsUpdate = true;
+        if (this.starMaterial) this.starMaterial.size = 0.28 + warp * 0.42;
+      }
+
       this.flames.visible = true;
       this.flames.scale.y = smooth(0, 0.6, t) * (this.reduced ? 1 : 0.94 + Math.sin(t * 25) * 0.06);
+
+      // Booster Staging (Separação dos propulsores laterais)
+      const sepStart = this.reduced ? 0.9 : 3.8;
+      if (t < sepStart) {
+        this.leftBooster.position.set(0, 0, 0);
+        this.leftBooster.rotation.set(0, 0, 0);
+        this.rightBooster.position.set(0, 0, 0);
+        this.rightBooster.rotation.set(0, 0, 0);
+        for (const jet of this.boosterJets) {
+          jet.visible = true;
+          jet.scale.set(1, this.flames.scale.y, 1);
+        }
+      } else {
+        const tSep = t - sepStart;
+        const flameFade = Math.max(0, 1 - tSep * 5);
+        for (const jet of this.boosterJets) {
+          jet.scale.set(flameFade, flameFade, flameFade);
+          if (flameFade <= 0.01) jet.visible = false;
+        }
+        const sepX = Math.min(18, tSep ** 1.85 * 1.3);
+        const sepY = -(tSep ** 2) * 1.15;
+        const rotZ = Math.min(0.65, tSep * 0.35);
+        this.leftBooster.position.set(-sepX, sepY, 0);
+        this.leftBooster.rotation.z = rotZ;
+        this.rightBooster.position.set(sepX, sepY, 0);
+        this.rightBooster.rotation.z = -rotZ;
+      }
+
       this.glow.intensity = 80 * smooth(0, 0.7, t);
       this.glow.position.y = 1 + lift;
+      if (this.rocketFlamesGlow) {
+        // Red glow increases significantly on the rocket during flight (re-entry/atmospheric friction heating)
+        const heat = smooth(0.2, 0.9, p);
+        this.rocketFlamesGlow.intensity = 60 * heat + Math.sin(t * 30) * 10 * heat;
+      }
       this.smokePuffs(Math.min(dt, 0.15), lift, t);
-      this.onFlight(Math.min(1, t / duration));
+      this.onFlight(p);
       if (t >= duration && !this.finished) {
-        this.finished = true;
-        this.onComplete();
+        this.beginSpace();
       }
     }
+    this.updateTextPosition();
     this.renderer.render(this.scene, this.camera);
     if (!flying) this.positionTarget();
     this.container.dataset.sceneReady = 'true';
     this.container.dataset.drawCalls = String(this.renderer.info.render.calls);
-    if (!this.finished) this.raf = requestAnimationFrame(this.frame);
+    if (!this.finished) this.raf = this.runtime.request(this.frame);
   };
   private smokePuffs(dt: number, lift: number, t: number) {
     for (let i = 0; i < this.puffs.length; i++) {
@@ -548,11 +1039,11 @@ export class LaunchScene {
       if (p.age < 0) continue;
       if (p.age > p.life || p.size === 0) {
         p.age = 0;
-        p.life = 3.4 + this.random() * 1.8;
-        p.angle = this.random() * Math.PI * 2;
-        p.x = (this.random() - 0.5) * 2;
-        p.z = (this.random() - 0.5) * 1.6;
-        p.size = 0.5 + this.random() * 0.7;
+        p.life = 3.4 + Math.random() * 1.8;
+        p.angle = Math.random() * Math.PI * 2;
+        p.x = (Math.random() - 0.5) * 2;
+        p.z = (Math.random() - 0.5) * 1.6;
+        p.size = 0.5 + Math.random() * 0.7;
       }
       const age = p.age,
         scale = p.size * (0.5 + age * 0.85) * (1 - smooth(0.72, 1, age / p.life));
@@ -586,20 +1077,30 @@ export class LaunchScene {
     this.disposed = true;
     cancelAnimationFrame(this.raf);
     this.resizeObserver.disconnect();
+    if (this.copyElement) {
+      this.copyElement.style.transform = '';
+      this.copyElement.style.visibility = '';
+    }
     document.removeEventListener('visibilitychange', this.visibility);
     this.target.removeEventListener('pointerenter', this.enter);
     this.target.removeEventListener('pointerleave', this.leave);
     this.target.removeEventListener('focus', this.enter);
     this.target.removeEventListener('blur', this.leave);
+    window.removeEventListener('pointermove', this.onPointerMove);
+    this.landing?.dispose();
+    this.scene.add(this.rocket);
+    this.flightEarth.dispose();
     const geometries = new Set<THREE.BufferGeometry>();
     this.scene.traverse((object) => {
       if (object instanceof THREE.Mesh || object instanceof THREE.Points)
         geometries.add(object.geometry);
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
+    this.spaceScene?.traverse((object) => {
+      if (object instanceof THREE.Mesh || object instanceof THREE.Points)
+        geometries.add(object.geometry);
+    });
     for (const geometry of geometries) geometry.dispose();
     for (const material of new Set(this.materials)) material.dispose();
-    this.renderer.dispose();
-    this.renderer.domElement.remove();
   }
 }

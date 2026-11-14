@@ -1,4 +1,12 @@
-import { BookOpen, Compass, Cpu, HeartHandshake, Rocket, ShieldCheck, Sparkles } from 'lucide-react';
+import {
+  BookOpen,
+  Compass,
+  Cpu,
+  HeartHandshake,
+  Rocket,
+  ShieldCheck,
+  Sparkles,
+} from 'lucide-react';
 import { Link } from 'react-router';
 import '../../styles/publicPages.css';
 

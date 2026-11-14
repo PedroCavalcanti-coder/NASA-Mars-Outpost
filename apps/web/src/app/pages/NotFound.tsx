@@ -6,7 +6,10 @@ export default function NotFound() {
   return (
     <div className="public-page" style={{ justifyContent: 'center', alignItems: 'center' }}>
       <div className="public-page-bg" />
-      <main className="public-card" style={{ maxWidth: 480, textAlign: 'center', margin: 24, padding: 36 }}>
+      <main
+        className="public-card"
+        style={{ maxWidth: 480, textAlign: 'center', margin: 24, padding: 36 }}
+      >
         <span className="public-eyebrow" style={{ justifyContent: 'center' }}>
           <Compass size={15} /> SINAL TELEMÉTRICO PERDIDO
         </span>

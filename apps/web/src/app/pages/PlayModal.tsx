@@ -65,7 +65,8 @@ export function PlayModal({ open, onClose, onStart }: PlayModalProps) {
 
         <h2 id="play-dialog-title">Como devemos te chamar?</h2>
         <p className="play-dialog__desc">
-          Escolha seu nome de astronauta para a missão. Você não precisa criar conta para explorar as bases de Marte.
+          Escolha seu nome de astronauta para a missão. Você não precisa criar conta para explorar
+          as bases de Marte.
         </p>
 
         <div className="play-dialog__field">

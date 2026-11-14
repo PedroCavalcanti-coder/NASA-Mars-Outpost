@@ -17,9 +17,9 @@ import {
   Users,
   Wind,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
-import type { BaseViewer } from '../../game/BaseViewer';
+import type { BaseViewer, BaseViewerOptions, BaseViewer as Viewer } from '../../game/BaseViewer';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
@@ -38,6 +38,13 @@ import {
 } from '../components/SettingsModal';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
+import {
+  expeditionSnapshot,
+  peekExpedition,
+  retainExpedition,
+  subscribeExpedition,
+} from '../../game/runtime/expedition';
+import Home from './Home';
 
 /**
  * Jogo (base marciana):
@@ -49,6 +56,13 @@ import '../components/mission/mission.css';
  * - Opção de alternar entre Câmera Seguir Astronauta e Câmera Livre.
  */
 export default function Game() {
+  useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
+  const session = peekExpedition();
+  if (!session?.entered || !session.ready) return <Home arrivalOnly />;
+  return <ReadyGame />;
+}
+
+function ReadyGame() {
   const user = useAuth((s) => s.user);
   const guestName = getGuestName();
   const name = user?.name ?? guestName;
@@ -80,7 +94,7 @@ export default function Game() {
   const [baseId, setBaseId] = useState<BaseId>(() => {
     if (queryBase) return queryBase;
     if (detectedBaseFromRoom) return detectedBaseFromRoom;
-    return pickRandomBase();
+    return peekExpedition()?.id ?? pickRandomBase();
   });
 
   const [roomCode] = useState(() => {
@@ -91,7 +105,7 @@ export default function Game() {
 
   const mount = useRef<HTMLDivElement>(null);
   const viewer = useRef<BaseViewer | null>(null);
-  const [info, setInfo] = useState<BaseInfo | null>(null);
+  const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** `false` = teto automático (some ao entrar na base); `true` = sempre oculto (visão de corte) */
@@ -160,98 +174,121 @@ export default function Game() {
     cameraSensitivity: 1,
   });
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: recria a cena a cada base sorteada
-  useEffect(() => {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: o viewer é ativado uma vez por base
+  useLayoutEffect(() => {
     const el = mount.current;
-    if (!el || !name) return;
+    if (!el) return;
+    const lease = retainExpedition();
+    const session = lease.session;
+    const releasePreview = setTimeout(() => {
+      session.preview?.dispose();
+      session.preview = null;
+    }, 0);
     let alive = true;
-    let v: BaseViewer | null = null;
+    let replacement: Viewer | null = null;
     setLoading(true);
     setError(null);
-    setInfo(null);
     setRoofsHidden(false);
     setCameraMode('follow');
     setStormActive(false);
     setPlayers({ count: 1, mode: 'online' });
     setDriving(false);
 
-    (async () => {
-      try {
-        const [meta, { BaseViewer }] = await Promise.all([
-          loadBaseInfo(baseId),
-          import('../../game/BaseViewer'),
-        ]);
+    // callbacks da interface e configurações (o viewer só começa a usá-los ao `activate`)
+    const options: BaseViewerOptions = {
+      roomCode,
+      videoSettings: video,
+      onTimeUpdate: (t) => {
+        if (alive) setMarsTime(t);
+      },
+      onCoordinateUpdate: (c) => {
+        if (alive) setCoords(c);
+      },
+      onStormAlert: (msg) => {
+        toast(msg, 'error');
+      },
+      onStormChange: (active, remote) => {
         if (!alive) return;
-        setInfo(meta);
-        v = new BaseViewer(el, meta, {
-          roomCode,
-          videoSettings: video,
-          onTimeUpdate: (t) => {
-            if (alive) setMarsTime(t);
-          },
-          onCoordinateUpdate: (c) => {
-            if (alive) setCoords(c);
-          },
-          onStormAlert: (msg) => {
-            toast(msg, 'error');
-          },
-          onStormChange: (active, remote) => {
-            if (!alive) return;
-            setStormActive((prev) => {
-              if (remote && prev !== active) {
-                toast(
-                  active
-                    ? '🌪️ Um colega iniciou uma tempestade de poeira marciana!'
-                    : '🌤️ A tempestade passou. Céu limpo.',
-                  active ? 'error' : 'ok',
-                );
-              }
-              return active;
-            });
-          },
-          onPlayersChange: (p) => {
-            if (alive) setPlayers(p);
-          },
-          onEmote: ({ name: who, emoji, local }) => {
-            if (!alive) return;
-            const id = ++chatId.current;
-            setChat((c) => [...c.slice(-5), { id, name: who, emoji, local }]);
-            window.setTimeout(() => setChat((c) => c.filter((m) => m.id !== id)), 9000);
-          },
-          onMessage: (msg, kind) => {
-            toast(msg, kind);
-          },
-          onVehicleChange: (d) => {
-            if (alive) setDriving(d);
-          },
-          onRoomError: (msg) => {
-            toast(msg, 'error');
-          },
-          onSolarCleaned: () => {
-            toast('✨ Painel solar limpo com sucesso! Eficiência energética a 100%.', 'ok');
-          },
-          onCameraModeChange: (m) => {
-            if (alive) setCameraMode(m);
-          },
+        setStormActive((prev) => {
+          if (remote && prev !== active) {
+            toast(
+              active
+                ? '🌪️ Um colega iniciou uma tempestade de poeira marciana!'
+                : '🌤️ A tempestade passou. Céu limpo.',
+              active ? 'error' : 'ok',
+            );
+          }
+          return active;
         });
-        viewer.current = v;
-        await v.ready;
-        if (alive) setLoading(false);
-      } catch (e) {
-        console.error(e);
-        if (alive) {
-          setError('Não foi possível carregar a base 3D neste dispositivo.');
-          setLoading(false);
-        }
-      }
-    })();
+      },
+      onPlayersChange: (p) => {
+        if (alive) setPlayers(p);
+      },
+      onEmote: ({ name: who, emoji, local }) => {
+        if (!alive) return;
+        const id = ++chatId.current;
+        setChat((c) => [...c.slice(-5), { id, name: who, emoji, local }]);
+        window.setTimeout(() => setChat((c) => c.filter((m) => m.id !== id)), 9000);
+      },
+      onMessage: (msg, kind) => {
+        toast(msg, kind);
+      },
+      onVehicleChange: (d) => {
+        if (alive) setDriving(d);
+      },
+      onRoomError: (msg) => {
+        toast(msg, 'error');
+      },
+      onSolarCleaned: () => {
+        toast('✨ Painel solar limpo com sucesso! Eficiência energética a 100%.', 'ok');
+      },
+      onCameraModeChange: (m) => {
+        if (alive) setCameraMode(m);
+      },
+    };
 
+    if (baseId === session.info?.id && session.viewer) {
+      session.viewer.activate(el, options);
+      viewer.current = session.viewer;
+      setInfo(session.info);
+      setLoading(false);
+    } else {
+      void loadBaseInfo(baseId)
+        .then(async (meta) => {
+          const { BaseViewer: Viewer } = await import('../../game/BaseViewer');
+          if (!alive) return;
+          replacement = new Viewer(el, meta, session.runtime, session.assets);
+          await replacement.ready;
+          if (!alive) return;
+          const previous = session.viewer;
+          session.viewer = replacement;
+          session.info = meta;
+          try {
+            sessionStorage.setItem('mo_base', meta.id);
+          } catch {
+            /* Private browsing. */
+          }
+          replacement.activate(el, options);
+          viewer.current = replacement;
+          previous?.dispose();
+          setInfo(meta);
+          setLoading(false);
+        })
+        .catch((e) => {
+          if (!alive) return;
+          replacement?.dispose();
+          console.error(e);
+          setError('Não foi possível preparar outra base.');
+          setLoading(false);
+        });
+    }
     return () => {
       alive = false;
-      v?.dispose();
-      viewer.current = null;
+      clearTimeout(releasePreview);
+      if (replacement && replacement !== session.viewer) replacement.dispose();
+      lease.release();
     };
-  }, [baseId, name]);
+  }, [baseId]);
 
   useEffect(() => {
     viewer.current?.setQualitySettings(video);
@@ -483,7 +520,7 @@ export default function Game() {
       <aside className="game__card" aria-label="Informações da base">
         <div className="game__card-eyebrow">
           <Compass size={14} />
-          <span>ASTRONAUTA {name.toUpperCase()}</span>
+          <span>ASTRONAUTA {(name ?? 'Explorador').toUpperCase()}</span>
         </div>
         <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
         {info && <p className="game__card-desc">{info.description}</p>}

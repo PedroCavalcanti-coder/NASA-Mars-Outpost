@@ -61,12 +61,7 @@ export function JoinWorldModal({ open, onClose, onJoin }: Props) {
             <span className="join-world-kicker">EXPLORAÇÃO COLETIVA</span>
             <h2 id="join-world-title">Entrar em um Mundo</h2>
           </div>
-          <button
-            type="button"
-            className="join-world-close"
-            onClick={onClose}
-            aria-label="Fechar"
-          >
+          <button type="button" className="join-world-close" onClick={onClose} aria-label="Fechar">
             <X size={20} />
           </button>
         </header>

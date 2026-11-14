@@ -40,6 +40,17 @@
     radial-gradient(ellipse at 68% 65%, #a2d2dc55, transparent 60%),
     linear-gradient(180deg, #0b1746 0%, #214876 43%, #6595ae 73%, #b4d2c9 100%);
 }
+.launch-sky::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 75% 25%, #d14d2844, transparent 48%),
+    linear-gradient(180deg, #020409 0%, #060e20 48%, #160a08 100%);
+  opacity: calc(var(--flight-p, 0) * 1.15);
+  transition: opacity 0.15s ease-out;
+  pointer-events: none;
+}
 .launch-moon {
   position: absolute;
   top: 14%;
@@ -55,6 +66,8 @@
     inset 8px 4px 12px #fff9df40,
     inset -16px -8px 24px #57769560;
   transform: rotate(-18deg);
+  opacity: calc(1 - var(--flight-p, 0) * 0.9);
+  transition: opacity 0.3s;
 }
 .launch-moon > span {
   position: absolute;
@@ -204,9 +217,7 @@
   top: 22%;
   left: 5.5%;
   width: min(540px, 43%);
-  transition:
-    opacity 0.5s,
-    transform 0.6s;
+  transition: opacity 0.5s;
 }
 .launch-eyebrow {
   display: flex;
@@ -252,28 +263,28 @@
   line-height: 1.4;
   text-shadow: 0 2px 10px #0c1a4160;
 }
+/* A solid, tactile control that echoes the launch pad's yellow markings. */
 .launch-cta {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 21px;
-  width: 362px;
+  justify-content: space-between;
+  gap: 30px;
+  width: 248px;
   max-width: 100%;
-  min-height: 91px;
+  min-height: 64px;
   margin-top: 27px;
-  padding: 5px 22px 5px 6px;
-  border: 3px solid #8db9e5;
-  border-radius: 60px;
-  background: linear-gradient(120deg, #273b75e6, #152851df);
-  color: #fff;
+  padding: 14px 22px;
+  border: 2px solid #172c43;
+  border-radius: 10px;
+  background: #ffbd32;
+  color: #172c43;
   text-align: left;
-  box-shadow:
-    0 5px 0 #17224650,
-    inset 0 1px 0 #ffffff17;
+  box-shadow: 0 5px 0 #172c43;
   cursor: pointer;
   transition:
-    transform 0.2s,
-    background 0.2s,
-    box-shadow 0.2s;
+    transform 0.15s,
+    background-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .launch-cta-row {
@@ -332,7 +343,9 @@
 .launch-join-cta-label {
   display: flex;
   flex-direction: column;
-  font: 700 20px / 1.1 "Barlow", sans-serif;
+  font:
+    700 20px / 1.1 "Barlow",
+    sans-serif;
   color: #ffffff;
 }
 
@@ -343,45 +356,32 @@
   color: #a4c9f5;
 }
 .launch-cta:hover:not(:disabled) {
-  transform: translateY(-3px);
-  background: linear-gradient(120deg, #344d8af5, #213b70e6);
-  box-shadow:
-    0 8px 0 #17224640,
-    0 0 25px #81b8ff20;
+  transform: translateY(-2px);
+  background: #ffcc57;
+  box-shadow: 0 7px 0 #172c43;
 }
 .launch-cta:active:not(:disabled) {
-  transform: translateY(1px);
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #172c43;
+}
+.launch-cta:disabled {
+  cursor: default;
 }
 .launch-cta-icon {
   display: grid;
   place-items: center;
-  flex: 0 0 72px;
-  height: 72px;
-  border: 1px solid #ffd357;
-  border-radius: 50%;
-  color: #1a2b56;
-  background: linear-gradient(145deg, #ffd63c, #ffae00 68%);
-  box-shadow:
-    0 3px 0 #b96700,
-    inset 0 2px 0 #fff19a70;
+  flex: 0 0 26px;
 }
 .launch-cta-icon > svg {
-  width: 40px;
-  height: 40px;
-  stroke-width: 3;
+  width: 26px;
+  height: 26px;
+  stroke-width: 2.5;
 }
 .launch-cta-label {
   font:
-    700 29px / 1.1 "Barlow",
+    700 25px / 1.1 "Barlow",
     sans-serif;
   white-space: nowrap;
-}
-.launch-cta-label > small {
-  display: block;
-  margin-top: 6px;
-  color: #b8d4fc;
-  font-size: 17px;
-  font-weight: 500;
 }
 .rocket-hit-target {
   position: absolute;
@@ -395,36 +395,6 @@
 }
 .rocket-hit-target:disabled {
   pointer-events: none;
-}
-.launch-flight-status {
-  position: absolute;
-  z-index: 3;
-  top: 39%;
-  left: 5.5%;
-  pointer-events: none;
-}
-.launch-flight-status > strong {
-  display: block;
-  margin-top: 10px;
-  font:
-    800 clamp(42px, 5vw, 76px) / 1.1 "Barlow",
-    sans-serif;
-  text-shadow: 0 4px 0 #0c194970;
-}
-.launch-flight-line {
-  width: 210px;
-  height: 4px;
-  margin-top: 25px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #8ab6ee40;
-}
-.launch-flight-line > span {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: var(--launch-gold);
-  transform-origin: left;
 }
 .launch-footer {
   position: absolute;
@@ -478,9 +448,14 @@
   color: #fff;
 }
 .is-launching .launch-copy {
-  opacity: 0;
-  transform: translateY(15px);
   pointer-events: none;
+  transition: none;
+}
+.is-launching .launch-copy > p,
+.is-launching .launch-cta {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
 }
 .launch-home button:focus-visible,
 .launch-home a:focus-visible,
@@ -605,21 +580,6 @@
   .launch-desktop-break {
     display: none;
   }
-  .launch-cta {
-    min-height: 80px;
-    width: 320px;
-    gap: 15px;
-  }
-  .launch-cta-icon {
-    flex-basis: 62px;
-    height: 62px;
-  }
-  .launch-cta-label {
-    font-size: 25px;
-  }
-  .launch-cta-label > small {
-    font-size: 15px;
-  }
   .launch-brand-mark {
     width: 60px;
     height: 60px;
@@ -713,32 +673,9 @@
   }
   .launch-cta {
     margin-top: 20px;
-    min-height: 74px;
-    width: 310px;
-    gap: 17px;
-    border-width: 2px;
-  }
-  .launch-cta-icon {
-    flex-basis: 59px;
-    height: 59px;
-  }
-  .launch-cta-icon > svg {
-    width: 32px;
-    height: 32px;
-  }
-  .launch-cta-label {
-    font-size: 25px;
-  }
-  .launch-cta-label > small {
-    font-size: 14px;
-  }
-  .launch-flight-status {
-    top: auto;
-    bottom: 210px;
-    left: 24px;
-  }
-  .launch-flight-status > strong {
-    font-size: 44px;
+    min-height: 58px;
+    width: 232px;
+    padding: 12px 20px;
   }
   .launch-footer {
     left: 20px;
@@ -835,6 +772,20 @@
 }
 
 /* ---------- Ações de voo e pular animação ---------- */
+.launch-flight-status {
+  position: fixed;
+  z-index: 5;
+  right: 24px;
+  bottom: calc(85px + env(safe-area-inset-bottom, 0px));
+  max-width: calc(100vw - 48px);
+  pointer-events: none;
+}
+@media (max-width: 759px) {
+  .launch-flight-status {
+    right: 16px;
+    max-width: calc(100vw - 32px);
+  }
+}
 .launch-flight-actions {
   margin-top: 18px;
   pointer-events: auto;
@@ -849,7 +800,9 @@
   background: rgba(20, 45, 96, 0.75);
   backdrop-filter: blur(10px);
   color: #e6f0ff;
-  font: 600 14px "Barlow", sans-serif;
+  font:
+    600 14px "Barlow",
+    sans-serif;
   letter-spacing: 0.05em;
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
@@ -904,9 +857,13 @@
   border-radius: 14px;
   background: #13264b;
   color: #f6f8ff;
-  font: 600 17px "Barlow", sans-serif;
+  font:
+    600 17px "Barlow",
+    sans-serif;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 .play-dialog__input:focus {
   border-color: var(--launch-gold);
@@ -918,3 +875,24 @@
   margin-top: 8px;
 }
 
+.launch-home:has(.launch-canvas[data-flight-scene]) .launch-vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, #00030a30);
+}
+.expedition-error {
+  position: fixed;
+  z-index: 200;
+  inset: auto 16px 80px;
+  margin: auto;
+  max-width: 480px;
+  padding: 20px;
+  border: 1px solid #ffb511;
+  border-radius: 12px;
+  background: #101c32;
+}
+.expedition-error button {
+  margin: 8px 12px 0 0;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}

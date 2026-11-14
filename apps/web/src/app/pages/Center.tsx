@@ -1,6 +1,6 @@
-import { BASE_IDS, baseThumbUrl } from '../../lib/bases';
 import { Compass, Dices, Globe, Rocket, Shield, Users, Zap } from 'lucide-react';
 import { Link } from 'react-router';
+import { BASE_IDS, baseThumbUrl } from '../../lib/bases';
 import '../../styles/publicPages.css';
 
 const BASE_NAMES: Record<string, { title: string; region: string; desc: string }> = {
@@ -101,8 +101,8 @@ export default function Center() {
           </span>
           <h1>Comando da Expedição Ares</h1>
           <p>
-            Monitore os assentamentos humanos na superfície de Marte, conheça os 8 postos
-            avançados modelados em 3D e prepare sua tripulação para a sobrevivência planetária.
+            Monitore os assentamentos humanos na superfície de Marte, conheça os 8 postos avançados
+            modelados em 3D e prepare sua tripulação para a sobrevivência planetária.
           </p>
         </section>
 
@@ -148,7 +148,9 @@ export default function Center() {
             <span className="public-eyebrow">
               <Compass size={14} /> TOPOGRAFIA RECONHECIDA
             </span>
-            <h2 style={{ fontSize: 32, margin: '4px 0 8px', color: '#fff' }}>As 8 Bases Marcianas em 3D</h2>
+            <h2 style={{ fontSize: 32, margin: '4px 0 8px', color: '#fff' }}>
+              As 8 Bases Marcianas em 3D
+            </h2>
             <p style={{ color: '#c5dcf7', maxWidth: 600, margin: '0 auto' }}>
               Cada partida sorteia uma das regiões reais mapeadas por sondas e rovers da NASA.
             </p>
@@ -185,7 +187,14 @@ export default function Center() {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
-                  <div style={{ padding: '20px 22px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <div
+                    style={{
+                      padding: '20px 22px',
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
                     <span
                       style={{
                         color: '#ffb511',
@@ -199,7 +208,15 @@ export default function Center() {
                       {meta.region}
                     </span>
                     <h3 style={{ margin: '0 0 8px', fontSize: 20 }}>{meta.title}</h3>
-                    <p style={{ color: '#c5dcf7', fontSize: 13, lineHeight: 1.45, flex: 1, margin: '0 0 16px' }}>
+                    <p
+                      style={{
+                        color: '#c5dcf7',
+                        fontSize: 13,
+                        lineHeight: 1.45,
+                        flex: 1,
+                        margin: '0 0 16px',
+                      }}
+                    >
                       {meta.desc}
                     </p>
                     <Link

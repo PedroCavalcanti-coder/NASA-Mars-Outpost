@@ -8,7 +8,10 @@ export function AuthLayout() {
     <div className="auth">
       <aside className="auth__art" aria-hidden>
         <div className="auth__art-copy">
-          <span className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ffb511' }}>
+          <span
+            className="eyebrow"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ffb511' }}
+          >
             <Sparkles size={14} /> Diário de Missão · Sol 1
           </span>
           <p>
@@ -23,7 +26,9 @@ export function AuthLayout() {
               height={38}
               style={{ objectFit: 'contain' }}
             />
-            <span style={{ fontSize: 13, color: '#8fbbe9', letterSpacing: '0.12em', fontWeight: 700 }}>
+            <span
+              style={{ fontSize: 13, color: '#8fbbe9', letterSpacing: '0.12em', fontWeight: 700 }}
+            >
               MARS OUTPOST · EXPEDIÇÃO ARES
             </span>
           </div>

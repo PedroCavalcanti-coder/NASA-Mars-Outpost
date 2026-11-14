@@ -29,6 +29,8 @@ import {
 } from './MultiplayerRoom';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
+import type { AssetPool } from './runtime/assets';
+import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
 import { Rover } from './Vehicle';
 
@@ -151,10 +153,11 @@ export class BaseViewer {
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 900);
   private readonly controls: OrbitControls;
   private readonly resizeObserver: ResizeObserver;
+  private options?: BaseViewerOptions;
   private mixer: THREE.AnimationMixer | null = null;
   private frame = 0;
   private disposed = false;
-  private readonly stopTicker: () => void;
+  private stopTicker: (() => void) | null = null;
   private lastStep = performance.now();
   private lastRender = performance.now();
   /** último quadro desenhado pelo requestAnimationFrame (se parar, o relógio de apoio assume) */
@@ -165,7 +168,11 @@ export class BaseViewer {
   // Clima e atmosfera
   private readonly skyDome: SkyDome;
   private readonly dustStorm = new DustStorm();
-  private readonly dustOverlay: DustStormOverlay;
+  private dustOverlay: DustStormOverlay | null = null;
+  /** raízes vindas do AssetPool (compartilhadas): quem as libera é o pool, não nós */
+  private pooledRoots: THREE.Object3D[] = [];
+  private urls: string[] = [];
+  private started = false;
   private readonly hemiLight: THREE.HemisphereLight;
   private readonly sun: THREE.DirectionalLight;
   private readonly groundSkirt: THREE.Mesh;
@@ -254,14 +261,18 @@ export class BaseViewer {
 
   readonly ready: Promise<void>;
 
+  /**
+   * O mundo é montado (e pode ficar escondido, preparado durante a viagem) pelo construtor;
+   * `activate` o coloca na tela, entra na sala e começa o jogo. Com `runtime`, o renderer é o
+   * compartilhado da expedição e os modelos vêm do `AssetPool`.
+   */
   constructor(
-    private readonly container: HTMLElement,
+    private container: HTMLElement,
     private readonly info: BaseInfo,
-    private readonly options?: BaseViewerOptions,
+    private readonly runtime?: GameRuntime,
+    private readonly assets?: AssetPool,
   ) {
     const self = this;
-    this.currentHour = options?.initialHour ?? 9;
-    this.currentSol = options?.initialSol ?? 1;
     const farAway = new THREE.Vector3(0, 0, 9999);
     this.roverCollider = {
       get position() {
@@ -274,23 +285,10 @@ export class BaseViewer {
     };
 
     const coarse = matchMedia('(pointer: coarse)').matches;
-    this.renderer = new THREE.WebGLRenderer({
-      antialias: options?.videoSettings?.antialiasing ?? !coarse,
-      powerPreference: 'high-performance',
-    });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.4 : 1.8));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.autoUpdate = false; // refeito sob demanda (ver `render`)
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
-    this.renderer.domElement.setAttribute(
-      'aria-label',
-      `Base marciana ${info.name} em 3D. Clique no solo para andar, em painéis solares e canteiros para trabalhar, no rover para dirigir. Setas ou WASD também movem.`,
-    );
-    this.renderer.domElement.style.touchAction = 'none';
-    container.appendChild(this.renderer.domElement);
-    this.dustOverlay = new DustStormOverlay(container);
+    this.renderer =
+      runtime?.renderer ??
+      new THREE.WebGLRenderer({ antialias: !coarse, powerPreference: 'high-performance' });
+    if (!runtime) this.configureRenderer(coarse);
 
     this.skyDome = new SkyDome(380, true);
     this.scene.add(this.skyDome.mesh);
@@ -348,6 +346,7 @@ export class BaseViewer {
     this.controls.maxPolarAngle = 1.12;
     this.controls.screenSpacePanning = false;
     this.controls.target.set(0, 0, 0);
+    this.controls.enabled = false; // só responde depois de `activate`
 
     const ringGeo = new THREE.RingGeometry(0.3, 0.45, 24);
     ringGeo.rotateX(-Math.PI / 2);
@@ -364,25 +363,109 @@ export class BaseViewer {
     this.destinationRing.renderOrder = 3;
     this.scene.add(this.destinationRing);
 
-    this.bindEvents();
-
     this.resizeObserver = new ResizeObserver(() => this.resize());
-    this.resizeObserver.observe(container);
-    this.resize();
-
-    if (options?.videoSettings) this.setQualitySettings(options.videoSettings);
     this.updateAtmosphere(true);
+
+    this.ready = this.load();
+  }
+
+  /** Ajustes do renderer (sombras sob demanda, tom, densidade de pixels). */
+  private configureRenderer(coarse = matchMedia('(pointer: coarse)').matches) {
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, coarse ? 1.4 : 1.8));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.autoUpdate = false; // refeito sob demanda (ver `render`)
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.domElement.style.touchAction = 'none';
+  }
+
+  /** Coloca o mundo já montado na tela e começa o jogo (sala, astronauta, chegada da nave). */
+  activate(container: HTMLElement, options?: BaseViewerOptions) {
+    if (this.disposed) return;
+    if (this.started) {
+      // reativação (React StrictMode / retorno à tela): só renova os callbacks
+      this.options = options;
+      return;
+    }
+    this.started = true;
+    this.container = container;
+    this.options = options;
+    this.currentHour = options?.initialHour ?? 9;
+    this.currentSol = options?.initialSol ?? 1;
+
+    this.runtime?.stop();
+    if (this.runtime) this.configureRenderer();
+    this.renderer.domElement.setAttribute(
+      'aria-label',
+      `Base marciana ${this.info.name} em 3D. Clique no solo para andar, em painéis solares e canteiros para trabalhar, no rover para dirigir. Setas ou WASD também movem.`,
+    );
+    this.renderer.domElement.removeAttribute('aria-hidden');
+    this.renderer.domElement.style.touchAction = 'none';
+    container.appendChild(this.renderer.domElement);
+    this.dustOverlay = new DustStormOverlay(container);
+    this.controls.enabled = true;
+
+    this.bindEvents();
+    this.resizeObserver.observe(container);
+    if (options?.videoSettings) this.setQualitySettings(options.videoSettings);
+    this.resize();
 
     // Não depende de `document.hidden`: janela coberta/minimizada também pára o rAF sem avisar.
     this.stopTicker = createBackgroundTicker(() => {
       if (performance.now() - this.lastFrame > 250) this.step(false);
     });
-
     if (import.meta.env.DEV) {
       (window as unknown as { __marsViewer?: BaseViewer }).__marsViewer = this;
     }
-    this.ready = this.load();
-    this.frame = requestAnimationFrame(this.tick);
+    this.lastStep = performance.now();
+    this.lastFrame = performance.now();
+    this.frame = this.schedule(this.tick);
+    void this.begin();
+  }
+
+  private schedule(cb: FrameRequestCallback) {
+    return this.runtime ? this.runtime.request(cb) : requestAnimationFrame(cb);
+  }
+
+  /** Reaquece os shaders (por exemplo, depois de mudar a qualidade gráfica). */
+  prepareGraphics() {
+    return this.runtime ? this.runtime.warm(this.scene, this.camera) : Promise.resolve();
+  }
+
+  get diagnostics() {
+    return {
+      drawCalls: this.renderer.info.render.calls,
+      ...this.renderer.info.memory,
+      programs: this.renderer.info.programs?.length ?? 0,
+    };
+  }
+
+  private async begin() {
+    await this.joinRoom();
+    if (this.disposed) return;
+    await this.spawnLocalAstronaut();
+    if (this.disposed) return;
+
+    // A chegada começa com o jogador olhando para a plataforma
+    this.cameraFocus.copy(this.shipRestWorld);
+    this.controls.target.set(this.shipRestWorld.x, 0, this.shipRestWorld.z);
+    this.queueArrival(this.localAstronaut!, this.room?.self.slot ?? 0);
+  }
+
+  /** Modelo do pool (clonado: a cena do cache continua intacta) ou do cache de modelos local. */
+  private async fetchModel(url: string, optional = false) {
+    this.urls.push(url);
+    try {
+      if (this.assets) {
+        const g = await this.assets.load(url);
+        return { scene: g.scene.clone(true), animations: g.animations };
+      }
+      return await loadGLB(url);
+    } catch (err) {
+      if (optional) return null;
+      throw err;
+    }
   }
 
   // ====================================================================== carregamento
@@ -397,14 +480,16 @@ export class BaseViewer {
     this.rover = rover;
 
     const [base, land, plants] = await Promise.all([
-      loadGLB(baseModelUrl(id as BaseId)),
-      loadGLB('/assets/bases/terreno.glb').catch(() => null),
-      loadGLB('/assets/bases/plantas.glb').catch(() => null),
+      this.fetchModel(baseModelUrl(id as BaseId)),
+      this.fetchModel('/assets/bases/terreno.glb', true),
+      this.fetchModel('/assets/bases/plantas.glb', true),
       rover.ready.catch(() => {}),
     ]);
+    if (!base) throw new Error('Modelo da base ausente');
+    this.pooledRoots = [base.scene, ...(land ? [land.scene] : [])];
     if (this.disposed) return;
 
-    const aniso = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    const aniso = Math.min(8, this.renderer.capabilities?.getMaxAnisotropy?.() ?? 4);
     const sharpen = (root: THREE.Object3D) =>
       root.traverse((o) => {
         const m = o as THREE.Mesh;
@@ -521,15 +606,9 @@ export class BaseViewer {
     // Poeira/tempestade: aplicada depois de todas as trocas de material
     applyBoundaryFog(this.scene);
 
-    await this.joinRoom();
     if (this.disposed) return;
-    await this.spawnLocalAstronaut();
-    if (this.disposed) return;
-
-    // A chegada começa com o jogador olhando para a plataforma
-    this.cameraFocus.copy(this.shipRestWorld);
-    this.controls.target.set(this.shipRestWorld.x, 0, this.shipRestWorld.z);
-    this.queueArrival(this.localAstronaut!, this.room?.self.slot ?? 0);
+    // shaders e texturas na GPU antes de mostrar (sem engasgo na primeira imagem)
+    await this.runtime?.warm(this.scene, this.camera);
   }
 
   private setupSolarPanels(model: THREE.Object3D) {
@@ -1827,21 +1906,21 @@ export class BaseViewer {
   private resize() {
     const w = this.container.clientWidth || 1;
     const h = this.container.clientHeight || 1;
-    this.renderer.setSize(w, h, false);
+    if (this.controls.enabled || !this.runtime) this.renderer.setSize(w, h, false);
     const aspect = w / h;
     this.camera.left = -this.view * aspect;
     this.camera.right = this.view * aspect;
     this.camera.top = this.view;
     this.camera.bottom = -this.view;
     this.camera.updateProjectionMatrix();
-    this.dustOverlay.resize();
+    this.dustOverlay?.resize();
   }
 
   // ====================================================================== quadro
 
   private tick = () => {
     if (this.disposed) return;
-    this.frame = requestAnimationFrame(this.tick);
+    this.frame = this.schedule(this.tick);
     this.lastFrame = performance.now();
     this.step(true);
     this.render();
@@ -1861,7 +1940,7 @@ export class BaseViewer {
       this.currentReducedMotion,
       inside,
     );
-    this.dustOverlay.update(dt, this.stormCurrent * outside, this.currentReducedMotion);
+    this.dustOverlay?.update(dt, this.stormCurrent * outside, this.currentReducedMotion);
     this.updateAtmosphere();
     {
       const focus = this.localAstronaut?.isRevealed
@@ -1906,16 +1985,17 @@ export class BaseViewer {
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.frame);
-    this.stopTicker();
+    this.stopTicker?.();
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.onBlur);
     this.resizeObserver.disconnect();
     this.controls.dispose();
     this.skyDome.dispose();
-    this.dustOverlay.dispose();
+    this.dustOverlay?.dispose();
     this.groundSkirt.geometry.dispose();
     (this.groundSkirt.material as THREE.Material).dispose();
     this.localAstronaut?.dispose();
@@ -1926,9 +2006,23 @@ export class BaseViewer {
     this.room?.dispose();
     this.shipFx.dispose();
     this.grid?.dispose();
-    disposeTree(this.scene);
-    this.renderer.dispose();
-    this.renderer.domElement.remove();
+
+    // sombras: o mapa e o passe são nossos mesmo com o renderer compartilhado
+    this.sun.shadow.map?.dispose();
+    this.sun.shadow.mapPass?.dispose();
+
+    if (this.assets) {
+      // modelos do pool: o pool libera (contagem de referências); só soltamos o que criamos
+      for (const root of this.pooledRoots) this.scene.remove(root);
+      disposeTree(this.scene);
+      for (const url of this.urls) this.assets.release(url);
+    } else {
+      disposeTree(this.scene);
+    }
+    if (!this.runtime) {
+      this.renderer.dispose();
+      this.renderer.domElement.remove();
+    }
     if (import.meta.env.DEV) {
       const w = window as unknown as { __marsViewer?: BaseViewer };
       if (w.__marsViewer === this) w.__marsViewer = undefined;

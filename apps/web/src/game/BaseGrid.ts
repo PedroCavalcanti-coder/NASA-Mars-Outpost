@@ -164,19 +164,25 @@ export class BaseGrid {
   private readonly heap = new MinHeap();
 
   constructor(layout: BaseFullLayout) {
-    this.layout = layout;
+    // layouts parciais (testes, bases sem corredores) ganham listas vazias
+    this.layout = {
+      ...layout,
+      rooms: layout.rooms ?? [],
+      corridors: layout.corridors ?? [],
+      pad: layout.pad ?? [0, 0],
+    };
     const b = layout.bounds;
     this.cx = (b.x0 + b.x1) / 2;
     this.cy = (b.y0 + b.y1) / 2;
 
-    for (const r of layout.rooms) {
+    for (const r of layout.rooms ?? []) {
       for (let i = 0; i < r.size[0]; i++) {
         for (let j = 0; j < r.size[1]; j++) {
           this.tiles.set(this.key(r.tile[0] + i, r.tile[1] + j), { kind: 'room', roomId: r.id });
         }
       }
     }
-    for (const c of layout.corridors) {
+    for (const c of layout.corridors ?? []) {
       this.tiles.set(this.key(c.tile[0], c.tile[1]), { kind: 'corridor' });
     }
 
@@ -249,7 +255,10 @@ export class BaseGrid {
 
   /** Centro do heliponto no mundo. */
   getPadWorldPosition(): THREE.Vector3 {
-    const { wx, wz } = this.modelMetersToWorld(this.layout.pad[0], this.layout.pad[1]);
+    const { wx, wz } = this.modelMetersToWorld(
+      this.layout.pad?.[0] ?? 0,
+      this.layout.pad?.[1] ?? 0,
+    );
     return new THREE.Vector3(wx, PAD_Y, wz);
   }
 

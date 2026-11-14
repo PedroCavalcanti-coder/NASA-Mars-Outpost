@@ -39,7 +39,9 @@
 
 .join-world-brand h2 {
   margin: 3px 0 0;
-  font: 800 24px / 1.1 "Barlow", sans-serif;
+  font:
+    800 24px / 1.1 "Barlow",
+    sans-serif;
   color: #ffffff;
 }
 
@@ -100,7 +102,9 @@
   border-radius: 12px;
   background: rgba(10, 22, 54, 0.65);
   color: #ffffff;
-  font: 600 16px "Barlow", sans-serif;
+  font:
+    600 16px "Barlow",
+    sans-serif;
   outline: none;
   transition: all 0.2s;
 }
@@ -150,7 +154,9 @@
   border-radius: 30px;
   background: transparent;
   color: #c5dcf7;
-  font: 600 14px "Barlow", sans-serif;
+  font:
+    600 14px "Barlow",
+    sans-serif;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -170,7 +176,9 @@
   border-radius: 30px;
   background: linear-gradient(180deg, #ffca28, #f57f17);
   color: #0b1a38;
-  font: 800 15px "Barlow", sans-serif;
+  font:
+    800 15px "Barlow",
+    sans-serif;
   cursor: pointer;
   box-shadow: 0 4px 18px rgba(255, 202, 40, 0.35);
   transition: all 0.2s;

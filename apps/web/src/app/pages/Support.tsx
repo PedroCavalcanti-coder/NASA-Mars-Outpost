@@ -101,21 +101,39 @@ export default function Support() {
         <div className="public-grid-2">
           {/* FAQs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h2 style={{ fontSize: 24, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2
+              style={{
+                fontSize: 24,
+                margin: '0 0 4px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
               <HelpCircle size={22} color="#ffb511" /> Perguntas Frequentes
             </h2>
 
             {FAQS.map((faq) => (
               <div key={faq.q} className="public-card" style={{ padding: '20px 24px' }}>
                 <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#ffb511' }}>{faq.q}</h3>
-                <p style={{ margin: 0, color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>{faq.a}</p>
+                <p style={{ margin: 0, color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>
+                  {faq.a}
+                </p>
               </div>
             ))}
           </div>
 
           {/* Form de Contato */}
           <div>
-            <h2 style={{ fontSize: 24, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h2
+              style={{
+                fontSize: 24,
+                margin: '0 0 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}
+            >
               <MessageSquare size={22} color="#78ace1" /> Relatar Problema ou Dúvida
             </h2>
 
@@ -149,7 +167,10 @@ export default function Support() {
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <form
+                  onSubmit={handleSubmit}
+                  style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+                >
                   <div>
                     <label
                       htmlFor="support-subject"
