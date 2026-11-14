@@ -1,0 +1,296 @@
+/**
+ * Estilos do Módulo de Controle de Tempo e Pausa (Conversa 3).
+ *
+ * Visual NASA / Mars Outpost com glassmorphism, tipografia Barlow e
+ * destaque visual em alta fidelidade para velocidade e estado de pausa.
+ */
+
+.time-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(13, 19, 33, 0.82);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 4px 10px;
+  color: #f1f5f9;
+  font-family: var(--font-game, 'Barlow', system-ui, sans-serif);
+  font-size: 13px;
+  user-select: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.time-controls:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.time-controls--paused {
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.25);
+}
+
+/* Indicador de relógio solar e horário */
+.time-controls__time-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 6px;
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.time-controls__icon-sun {
+  color: #facc15;
+  filter: drop-shadow(0 0 4px rgba(250, 204, 21, 0.5));
+}
+
+.time-controls__icon-moon {
+  color: #93c5fd;
+  filter: drop-shadow(0 0 4px rgba(147, 197, 253, 0.4));
+}
+
+.time-controls__sol {
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.time-controls__lmst {
+  color: #38bdf8;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selo "PAUSADO" */
+.time-controls__paused-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(245, 158, 11, 0.22);
+  border: 1px solid rgba(245, 158, 11, 0.6);
+  color: #fbbf24;
+  font-weight: 800;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: time-pulse 1.8s ease-in-out infinite;
+}
+
+.time-controls__paused-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px #f59e0b;
+  animation: time-blink 1s infinite alternate;
+}
+
+@keyframes time-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(245, 158, 11, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+  }
+}
+
+@keyframes time-blink {
+  0% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Grupo de botões de controle */
+.time-controls__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Botão principal de Pausa / Retomar */
+.time-controls__btn-pause {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.8);
+  color: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.time-controls__btn-pause:hover:not(:disabled) {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: #38bdf8;
+  color: #38bdf8;
+  transform: scale(1.04);
+}
+
+.time-controls__btn-pause:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.time-controls__btn-pause--active {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.time-controls__btn-pause--active:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.35);
+  border-color: #fbbf24;
+  color: #fef08a;
+}
+
+.time-controls__btn-pause:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Grupo de botões de velocidade (1x, 2x, 3x) */
+.time-controls__speed-group {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.time-controls__speed-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.time-controls__speed-btn:hover:not(:disabled) {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.time-controls__speed-btn--active {
+  background: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.5);
+}
+
+.time-controls__speed-btn--active:hover:not(:disabled) {
+  background: #0ea5e9;
+  color: #ffffff;
+}
+
+.time-controls__speed-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Indicador de Coordenador / Autoridade */
+.time-controls__role-tag {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  white-space: nowrap;
+}
+
+.time-controls__role-tag--restricted {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+/* Banner de tela cheia exibido quando o jogo está pausado */
+.time-controls__screen-paused-banner {
+  position: fixed;
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(245, 158, 11, 0.7);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.3);
+  border-radius: 9999px;
+  color: #f8fafc;
+  font-family: var(--font-game, 'Barlow', system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  z-index: 9999;
+  pointer-events: none;
+  animation: time-banner-drop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.time-controls__screen-paused-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: #f59e0b;
+  color: #0f172a;
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+.time-controls__screen-paused-hint {
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+@keyframes time-banner-drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* Responsividade móvel */
+@media (max-width: 640px) {
+  .time-controls {
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+
+  .time-controls__time-display {
+    display: none;
+  }
+
+  .time-controls__screen-paused-banner {
+    top: 56px;
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+}

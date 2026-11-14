@@ -33,6 +33,10 @@ import type { AssetPool } from './runtime/assets';
 import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
 import { Rover } from './Vehicle';
+// [seam:survival]
+import type { SystemContext } from './systems/context';
+import { GameSystemRegistry } from './systems/registry';
+import './survival';
 
 const SCALE = 0.75;
 export const MARS_SOL_DURATION_SECONDS = 600;
@@ -222,6 +226,14 @@ export class BaseViewer {
   private readonly remoteList: AstronautActor[] = [];
   private pending: PendingTask | null = null;
   private repathCount = 0;
+
+  // [seam:survival] subsistemas de simulação e controle de estado
+  readonly systems = new GameSystemRegistry();
+  private exitBlocked = false;
+  private playerSleeping = false;
+  private playerSpeedScale = 1;
+  private fadeOverlay: HTMLDivElement | null = null;
+  private systemContext: SystemContext | null = null;
 
   // Teclado
   private readonly keys = new Set<string>();
@@ -991,7 +1003,8 @@ export class BaseViewer {
     const colliders: Collider[] = [];
     for (const a of this.remoteList) colliders.push(a);
     if (this.rover) colliders.push(this.roverCollider);
-    const ctx: MoveContext = { grid: this.grid, others: colliders };
+    // [seam:survival]
+    const ctx: MoveContext = { grid: this.grid, others: colliders, blockExit: this.exitBlocked };
 
     const dir = this.keyboardDirection();
 
@@ -1041,6 +1054,9 @@ export class BaseViewer {
     this.checkStormAlert(local);
 
     if (this.mixer && animate) this.mixer.update(dt);
+
+    // [seam:survival] execução dos sistemas de jogo plugáveis com SystemContext
+    this.systems.update(dt, this.getSystemContext());
   }
 
   /** Dirige o rover (jogador local). */
@@ -1815,6 +1831,11 @@ export class BaseViewer {
 
   setGridVisible(visible: boolean) {
     if (this.grid) this.grid.gridMesh.visible = visible;
+  }
+
+  // [seam:hud-paineis]
+  setNavDebug(visible: boolean) {
+    if (this.grid) this.grid.setNavDebug(visible, this.scene);
   }
 
   /** `true`: os tetos ficam sempre ocultos (visão de corte). Padrão: somem sozinhos ao entrar. */

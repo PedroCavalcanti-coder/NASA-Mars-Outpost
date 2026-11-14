@@ -1,35 +1,22 @@
-import { GAME_EMOTES, WORLD_AUTOSAVE_MS } from '@mars/shared';
-import {
-  Camera,
-  Car,
-  Compass,
-  Dices,
-  Eye,
-  EyeOff,
-  Grid,
-  MapPin,
-  Moon,
-  Settings,
-  Share2,
-  Smile,
-  Sun,
-  TriangleAlert,
-  Users,
-  Wind,
-} from 'lucide-react';
+import { WORLD_AUTOSAVE_MS } from '@mars/shared';
+import { Car, MapPin, TriangleAlert } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
+import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import type { BaseViewer, BaseViewerOptions, BaseViewer as Viewer } from '../../game/BaseViewer';
+import { registerDevAction } from '../../game/dev/devActions';
+import {
+  expeditionSnapshot,
+  peekExpedition,
+  retainExpedition,
+  subscribeExpedition,
+} from '../../game/runtime/expedition';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
-import { ActionPanel } from '../components/mission/ActionPanel';
+import { HudRoot } from '../components/hud/HudRoot';
 import { MissionEnd } from '../components/mission/MissionEnd';
-import { MissionLog } from '../components/mission/MissionLog';
-import { ResearchBar } from '../components/mission/ResearchBar';
-import { ResourceHud } from '../components/mission/ResourceHud';
 import {
   type AudioSettings,
   type GameplaySettings,
@@ -38,12 +25,6 @@ import {
 } from '../components/SettingsModal';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
-import {
-  expeditionSnapshot,
-  peekExpedition,
-  retainExpedition,
-  subscribeExpedition,
-} from '../../game/runtime/expedition';
 import Home from './Home';
 
 /**
@@ -53,7 +34,7 @@ import Home from './Home';
  * - Multiplayer para até 4 jogadores por sala com sincronização em tempo real;
  * - Sujeira progressiva nos painéis solares durante tempestades de areia e limpeza interativa;
  * - Névoa atmosférica de borda que não invade o interior da base quando os tetos estão ocultos;
- * - Opção de alternar entre Câmera Seguir Astronauta e Câmera Livre.
+ * - HUD modular organizada em painéis recolhíveis, doca acessível e barra essencial.
  */
 export default function Game() {
   useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
@@ -119,8 +100,6 @@ function ReadyGame() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const startMission = useMission((m) => m.start);
-  const sol = useMission((m) => m.state.sol);
-  const blackout = useMission((m) => m.state.resources.energy.value <= 0);
   const missionStarted = useMission((m) => m.state.log.length > 0 && m.state.status === 'playing');
 
   // Cada base sorteada começa uma missão nova.
@@ -129,7 +108,6 @@ function ReadyGame() {
     startMission();
   }, [baseId, startMission]);
 
-  const [wheelOpen, setWheelOpen] = useState(false);
   const [emoteCooling, setEmoteCooling] = useState(false);
   const [chat, setChat] = useState<
     Array<{ id: number; name: string; emoji: string; local: boolean }>
@@ -140,6 +118,8 @@ function ReadyGame() {
     mode: 'online',
   });
   const [coords, setCoords] = useState<{ gx: number; gy: number; inside: boolean } | null>(null);
+  const [showCoords, setShowCoords] = useState(true);
+  const [navDebug, setNavDebug] = useState(false);
 
   // Clima marciano e ciclo de 10 minutos
   const [marsTime, setMarsTime] = useState({
@@ -320,20 +300,6 @@ function ReadyGame() {
     viewer.current?.setQualitySettings(video);
   }, [video]);
 
-  // Q abre/fecha o painel de emojis; Esc fecha
-  // biome-ignore lint/correctness/useExhaustiveDependencies: registra uma vez
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const t = e.target as HTMLElement | null;
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key.toLowerCase() === 'q') setWheelOpen((o) => !o);
-      else if (e.key === 'Escape') setWheelOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
   // Salvamento automático a cada 5 minutos, depois que o mundo foi salvo/vinculado a este jogador
   // biome-ignore lint/correctness/useExhaustiveDependencies: o intervalo só depende do vínculo
   useEffect(() => {
@@ -341,8 +307,6 @@ function ReadyGame() {
     const id = window.setInterval(() => void saveWorld(true), WORLD_AUTOSAVE_MS);
     return () => window.clearInterval(id);
   }, [persist.linked, persist.canSave]);
-
-  if (!name) return <Navigate to="/" replace />;
 
   /** Mission sem o histórico longo: cabe no limite do salvamento. */
   function missionSnapshot() {
@@ -388,7 +352,6 @@ function ReadyGame() {
       setEmoteCooling(true);
       window.setTimeout(() => setEmoteCooling(false), 1000);
     }
-    setWheelOpen(false);
   }
 
   function toggleRoofs() {
@@ -422,6 +385,28 @@ function ReadyGame() {
     }
   }
 
+  function toggleNavDebug() {
+    setNavDebug((prev) => {
+      const next = !prev;
+      viewer.current?.setNavDebug(next);
+      toast(
+        next
+          ? '🗺️ Debug de navegação ativado (células caminháveis visíveis).'
+          : '🗺️ Debug de navegação desativado.',
+        'ok',
+      );
+      return next;
+    });
+  }
+
+  function toggleCoords() {
+    setShowCoords((prev) => {
+      const next = !prev;
+      toast(next ? '📌 Coordenadas visíveis na tela.' : '📌 Coordenadas ocultas.', 'ok');
+      return next;
+    });
+  }
+
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(roomCode);
     toast(
@@ -430,191 +415,88 @@ function ReadyGame() {
     );
   };
 
+  // Registra as ferramentas e comandos de teste como devActions para o DevPanel
+  // biome-ignore lint/correctness/useExhaustiveDependencies: atualiza rótulos ao mudar estados
+  useEffect(() => {
+    const unregs = [
+      registerDevAction({
+        id: 'dev:storm',
+        label: stormActive ? 'Parar Tempestade' : 'Simular Tempestade',
+        group: 'Ambiente & Clima',
+        run: () => toggleStorm(),
+      }),
+      registerDevAction({
+        id: 'dev:grid',
+        label: gridVisible ? 'Ocultar Grade' : 'Exibir Grade',
+        group: 'Visualização & Terreno',
+        run: () => toggleGrid(),
+      }),
+      registerDevAction({
+        id: 'dev:nav',
+        label: navDebug ? 'Ocultar Células (?nav)' : 'Exibir Células (?nav)',
+        group: 'Visualização & Terreno',
+        run: () => toggleNavDebug(),
+      }),
+      registerDevAction({
+        id: 'dev:coords',
+        label: showCoords ? 'Ocultar Coordenadas' : 'Exibir Coordenadas',
+        group: 'Visualização & Terreno',
+        run: () => toggleCoords(),
+      }),
+      registerDevAction({
+        id: 'dev:roofs',
+        label: roofsHidden ? 'Teto Automático' : 'Teto Sempre Oculto (Corte)',
+        group: 'Visualização & Terreno',
+        run: () => toggleRoofs(),
+      }),
+      registerDevAction({
+        id: 'dev:roll-base',
+        label: 'Sortear Outra Base Marciana',
+        group: 'Mundo & Missão',
+        run: () => rollBase(),
+      }),
+    ];
+
+    return () => {
+      for (const unreg of unregs) {
+        unreg();
+      }
+    };
+  }, [stormActive, gridVisible, navDebug, showCoords, roofsHidden]);
+
+  if (!name) return <Navigate to="/" replace />;
+
   return (
     <main className="game">
       <div className="game__canvas" ref={mount} />
       <div className="game__vignette" />
 
-      {/* Cabeçalho HUD Superior */}
-      <header className="game__header">
-        <div className="game__header-brands">
-          <Link
-            to="/"
-            className="game__brand"
-            aria-label="Mars Outpost — Início"
-            onClick={(e) => {
-              e.preventDefault();
-              requestLeave();
-            }}
-          >
-            <img
-              className="game__brand-logo"
-              src="/assets/branding/mars-outpost-logo.svg"
-              alt=""
-              width={46}
-              height={46}
-            />
-            <img
-              className="game__brand-wordmark"
-              src="/assets/branding/mars-outpost-wordmark.svg"
-              alt="Mars Outpost"
-              width={160}
-              height={70}
-            />
-          </Link>
-          <span className="game__brand-divider" aria-hidden="true" />
-          <div className="game__mission-status">
-            <span className="game__status-dot" aria-hidden="true" />
-            <span>
-              SOL {sol} · {blackout ? 'APAGÃO NA BASE' : 'BASE MARCIANA ATIVA'}
-            </span>
-          </div>
-
-          {/* Relógio Solar de Marte */}
-          <div
-            className="game__weather-status"
-            title="Ciclo Dia/Noite marciano: cada 10 minutos terrestres equivale a 1 Sol (24h) completo"
-          >
-            {marsTime.isDay ? (
-              <Sun size={16} className="weather-icon-sun" />
-            ) : (
-              <Moon size={16} className="weather-icon-moon" />
-            )}
-            <span>
-              SOL {marsTime.sol} · {marsTime.formatted} LMST · {marsTime.isDay ? 'DIA' : 'NOITE'}
-            </span>
-          </div>
-
-          {/* Badge da Sala Exclusiva */}
-          <button
-            type="button"
-            className="game__room-status"
-            onClick={handleCopyInvite}
-            title={`Clique para copiar o código da sala (máx 4 jogadores). ${
-              players.mode === 'online'
-                ? 'Sala online: qualquer dispositivo com o código entra.'
-                : 'Servidor indisponível: só abas deste navegador sincronizam.'
-            }`}
-          >
-            <Users size={14} />
-            <span>
-              SALA: {roomCode} · {players.count}/4
-              {players.mode === 'local' ? ' (local)' : ''}
-            </span>
-          </button>
-        </div>
-
-        <nav className="game__actions" aria-label="Ações da base">
-          {/* Câmera: Seguir Astronauta vs Livre */}
-          <button
-            type="button"
-            className={`game__action-btn ${cameraMode === 'free' ? 'game__action-btn--active' : ''}`}
-            onClick={toggleCamera}
-            disabled={loading}
-            title="Alternar entre Seguir o Astronauta e Câmera Livre"
-          >
-            <Camera size={17} />
-            <span>{cameraMode === 'follow' ? 'Seguir' : 'Câmera Livre'}</span>
-          </button>
-
-          {/* Grade e Coordenadas */}
-          <button
-            type="button"
-            className={`game__action-btn ${gridVisible ? 'game__action-btn--active' : ''}`}
-            onClick={toggleGrid}
-            disabled={loading}
-            title="Exibir ou ocultar a grade do terreno"
-          >
-            <Grid size={17} />
-            <span>{gridVisible ? 'Grade ON' : 'Grade OFF'}</span>
-          </button>
-
-          {/* Simulador de Tempestade de Areia */}
-          <button
-            type="button"
-            className={`game__action-btn ${stormActive ? 'game__action-btn--storm-active' : ''}`}
-            onClick={toggleStorm}
-            disabled={loading}
-            title="Simular Tempestade de Areia para sujar painéis solares"
-          >
-            <Wind size={17} />
-            <span>{stormActive ? 'Tempestade ON' : 'Tempestade'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="game__action-btn game__action-btn--invite"
-            onClick={handleCopyInvite}
-            title="Copiar código de convite da sala"
-          >
-            <Share2 size={17} />
-            <span>Convidar</span>
-          </button>
-
-          <button
-            type="button"
-            className="game__action-btn"
-            onClick={() => setBaseId((cur) => pickRandomBase(cur))}
-            disabled={loading}
-            title="Sortear outra das 8 bases marcianas"
-          >
-            <Dices size={18} />
-            <span>Sortear base</span>
-          </button>
-
-          <button
-            type="button"
-            className="game__action-btn"
-            onClick={toggleRoofs}
-            disabled={loading}
-            title={
-              roofsHidden
-                ? 'Teto sempre oculto (visão de corte). Clique para voltar ao automático'
-                : 'Teto automático: some quando você entra na base. Clique para mantê-lo sempre oculto'
-            }
-          >
-            {roofsHidden ? <EyeOff size={18} /> : <Eye size={18} />}
-            <span>{roofsHidden ? 'Teto oculto' : 'Teto auto'}</span>
-          </button>
-
-          {/* Engrenagem de Configurações no Canto da Tela */}
-          <button
-            type="button"
-            className="game__settings-btn"
-            onClick={() => setSettingsOpen(true)}
-            title="Configurações e Sala"
-            aria-label="Configurações da simulação"
-          >
-            <Settings size={20} />
-          </button>
-        </nav>
-      </header>
-
-      {/* Cartão de Informações da Base Marciana */}
-      <aside className="game__card" aria-label="Informações da base">
-        <div className="game__card-eyebrow">
-          <Compass size={14} />
-          <span>ASTRONAUTA {(name ?? 'Explorador').toUpperCase()}</span>
-        </div>
-        <h1 className="game__card-title">{info?.name ?? 'Sorteando a base…'}</h1>
-        {info && <p className="game__card-desc">{info.description}</p>}
-      </aside>
-
-      {/* Missão: recursos, pesquisa, diário e ações */}
+      {/* Nova HUD Modular Unificada (Barra Essencial, Doca e Painéis Recolhíveis) */}
       {!loading && !error && (
-        <>
-          <aside className="mission-status" aria-label="Estado da missão">
-            <ResearchBar />
-            <ResourceHud />
-          </aside>
-          <MissionLog />
-          <ActionPanel />
-          <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
-        </>
+        <HudRoot
+          marsTime={marsTime}
+          stormActive={stormActive}
+          roomCode={roomCode}
+          players={players}
+          onCopyInvite={handleCopyInvite}
+          cameraMode={cameraMode}
+          onToggleCamera={toggleCamera}
+          roofsHidden={roofsHidden}
+          onToggleRoofs={toggleRoofs}
+          chat={chat}
+          onSendEmote={pickEmote}
+          info={info}
+          astronautName={name ?? 'Explorador'}
+          coords={coords}
+          viewer={viewer.current}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onRequestLeave={requestLeave}
+          rollBase={rollBase}
+        />
       )}
 
-      {/* Indicador de Coordenadas em Tempo Real */}
-      {coords && !loading && (
+      {/* Indicador de Coordenadas Flutuante em Tempo Real */}
+      {showCoords && coords && !loading && (
         <div className="game__coord-status">
           <MapPin size={13} className="game__coord-icon" />
           <span>
@@ -627,7 +509,7 @@ function ReadyGame() {
         </div>
       )}
 
-      {/* Chat: emojis enviados pelos astronautas */}
+      {/* Chat: balões de emojis recentes transmitidos na sala */}
       {chat.length > 0 && (
         <ul className="game__chat" aria-live="polite" aria-label="Mensagens da sala">
           {chat.map((m) => (
@@ -642,46 +524,9 @@ function ReadyGame() {
         </ul>
       )}
 
-      {/* Painel circular de emojis */}
+      {/* Tela de Fim de Missão: vitória (100% dos dados) ou evacuação */}
       {!loading && !error && (
-        <div className="game__emote">
-          {wheelOpen && (
-            <div className="game__emote-wheel" role="menu" aria-label="Emojis">
-              {GAME_EMOTES.map((emoji, i) => {
-                const angle = (i / GAME_EMOTES.length) * Math.PI * 2 - Math.PI / 2;
-                const x = Math.cos(angle) * 82;
-                const y = Math.sin(angle) * 82;
-                return (
-                  <button
-                    key={emoji}
-                    type="button"
-                    role="menuitem"
-                    className="game__emote-item"
-                    style={{
-                      transform: `translate(${x}px, ${y}px)`,
-                      animationDelay: `${i * 22}ms`,
-                    }}
-                    onClick={() => pickEmote(i)}
-                    disabled={emoteCooling}
-                    aria-label={`Enviar ${emoji}`}
-                  >
-                    {emoji}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <button
-            type="button"
-            className={`game__emote-btn ${wheelOpen ? 'game__emote-btn--open' : ''}`}
-            onClick={() => setWheelOpen((o) => !o)}
-            title="Emojis (Q)"
-            aria-expanded={wheelOpen}
-            aria-label="Abrir painel de emojis"
-          >
-            <Smile size={24} />
-          </button>
-        </div>
+        <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
       )}
 
       {/* Sair: salvar o mundo? */}
@@ -740,7 +585,7 @@ function ReadyGame() {
       )}
 
       {/* Dicas de Controle */}
-      {!loading && !error && (
+      {!loading && !error && gameplay.showHints && (
         <div className="game__hint" role="note">
           <span className="game__hint-action">Clique no chão ou use WASD para andar</span>
           <span className="game__hint-dot">·</span>
@@ -749,12 +594,6 @@ function ReadyGame() {
           <span>Clique no rover (ou E) para dirigir</span>
           <span className="game__hint-dot">·</span>
           <span>Arraste para girar a câmera</span>
-          {gameplay.showHints && (
-            <>
-              <span className="game__hint-dot">·</span>
-              <span className="game__hint-highlight">Dia/Noite: 10 min por Sol</span>
-            </>
-          )}
         </div>
       )}
 

@@ -1,0 +1,1187 @@
+/* ==========================================================================
+   HUD Modular Mars Outpost (Conversa 1 - feat/hud-paineis)
+   Estilização da HUD com Painéis, Subpainéis, Barra Essencial e Dock Acessível
+   ========================================================================== */
+
+.hud-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+  font-family: "Barlow", sans-serif;
+  color: #f7f8ff;
+  user-select: none;
+}
+
+.hud-root * {
+  box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
+   Barra Essencial Superior (Compacta e sempre visível)
+   -------------------------------------------------------------------------- */
+.hud-essential-bar {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  background: rgba(9, 18, 42, 0.82);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(120, 172, 225, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(4, 9, 28, 0.45);
+  pointer-events: auto;
+}
+
+.hud-essential-bar__left,
+.hud-essential-bar__center,
+.hud-essential-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hud-essential-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s;
+}
+
+.hud-essential-bar__brand:hover {
+  opacity: 0.85;
+}
+
+.hud-essential-bar__logo {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.hud-essential-bar__wordmark {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #a9d6ff;
+  white-space: nowrap;
+}
+
+/* Slots Essenciais */
+.hud-essential-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(16, 32, 68, 0.65);
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Oxigênio */
+.hud-essential-ox {
+  min-width: 130px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-essential-ox__label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hud-essential-ox__icon {
+  color: #78c6ff;
+  font-weight: 800;
+}
+
+.hud-essential-ox__value {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-essential-ox__bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.hud-essential-ox__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition:
+    width 0.3s ease,
+    background 0.3s ease;
+}
+
+.hud-essential-ox--ok .hud-essential-ox__fill {
+  background: #6ee7b7;
+}
+
+.hud-essential-ox--warning .hud-essential-ox__fill {
+  background: #ffd63c;
+}
+
+.hud-essential-ox--critical .hud-essential-ox__fill {
+  background: #ff7b7b;
+  animation: hudPulse 1.2s infinite;
+}
+
+/* Relógio Marciano */
+.hud-essential-clock {
+  color: #e2e8f0;
+}
+
+.hud-essential-clock__icon .hud-icon-sun {
+  color: #ffb511;
+}
+
+.hud-essential-clock__icon .hud-icon-moon {
+  color: #a9d6ff;
+}
+
+.hud-essential-clock__sol {
+  font-weight: 800;
+  color: #ffd63c;
+}
+
+.hud-essential-clock__divider {
+  color: rgba(146, 184, 229, 0.4);
+}
+
+.hud-essential-clock__badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  letter-spacing: 0.08em;
+}
+
+/* Alertas Essenciais */
+.hud-essential-alert {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hud-essential-alert--nominal {
+  background: rgba(16, 55, 45, 0.65);
+  border-color: rgba(110, 231, 183, 0.4);
+  color: #6ee7b7;
+}
+
+.hud-essential-alert--storm {
+  background: rgba(85, 30, 20, 0.85);
+  border-color: rgba(255, 120, 60, 0.7);
+  color: #ff9d6b;
+  animation: hudAlertFlash 1.5s infinite;
+}
+
+.hud-essential-alert--danger {
+  background: rgba(90, 20, 25, 0.9);
+  border-color: rgba(255, 80, 80, 0.8);
+  color: #ff7b7b;
+  animation: hudAlertFlash 1s infinite;
+}
+
+.hud-essential-alert--night {
+  background: rgba(18, 38, 80, 0.7);
+  border-color: rgba(120, 198, 255, 0.4);
+  color: #a9d6ff;
+}
+
+@keyframes hudAlertFlash {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.82;
+    transform: scale(0.98);
+  }
+}
+
+@keyframes hudPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Botão de Menu Superior */
+.hud-essential-bar__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 172, 225, 0.35);
+  background: rgba(20, 42, 86, 0.75);
+  color: #f7f8ff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hud-essential-bar__menu-btn:hover {
+  background: rgba(30, 62, 120, 0.9);
+  border-color: #78c6ff;
+  transform: translateY(-1px);
+}
+
+/* --------------------------------------------------------------------------
+   Doca Lateral de Ícones (Desktop) / Barra Inferior (Mobile)
+   -------------------------------------------------------------------------- */
+.hud-dock {
+  position: fixed;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  pointer-events: auto;
+}
+
+.hud-dock__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  background: rgba(9, 18, 42, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(120, 172, 225, 0.35);
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(4, 9, 28, 0.55);
+}
+
+.hud-dock__item {
+  display: flex;
+}
+
+.hud-dock__btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 54px;
+  height: 52px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #c4d7ec;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.hud-dock__btn:hover {
+  background: rgba(45, 90, 160, 0.3);
+  border-color: rgba(120, 172, 225, 0.5);
+  color: #ffffff;
+  transform: scale(1.04);
+}
+
+.hud-dock__btn:focus-visible {
+  outline: 2px solid #78c6ff;
+  outline-offset: 2px;
+}
+
+.hud-dock__btn.is-active {
+  background: linear-gradient(135deg, rgba(30, 75, 145, 0.85), rgba(15, 45, 95, 0.95));
+  border-color: #78c6ff;
+  color: #ffffff;
+  box-shadow: 0 0 14px rgba(120, 198, 255, 0.45);
+}
+
+.hud-dock__icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-dock__badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  border-radius: 8px;
+  background: #ff5533;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.hud-dock__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: inherit;
+  line-height: 1;
+}
+
+.hud-dock__shortcut {
+  display: none; /* Mantido no aria-label e tooltip */
+}
+
+/* --------------------------------------------------------------------------
+   Gaveta Retrátil de Conteúdo (HudPanelContainer)
+   -------------------------------------------------------------------------- */
+.hud-panel-container {
+  position: fixed;
+  right: 88px;
+  top: 68px;
+  bottom: 24px;
+  width: 380px;
+  max-width: calc(100vw - 110px);
+  z-index: 34;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(165deg, rgba(14, 28, 62, 0.94), rgba(8, 16, 38, 0.97));
+  backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(120, 172, 225, 0.4);
+  border-radius: 16px;
+  box-shadow: -8px 12px 40px rgba(4, 9, 28, 0.7);
+  pointer-events: auto;
+  animation: hudSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+@keyframes hudSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.hud-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(120, 172, 225, 0.25);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hud-panel-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-panel-header-icon {
+  color: #78c6ff;
+}
+
+.hud-panel-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.hud-panel-shortcut {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 10px;
+  font-weight: 700;
+  color: #a9d6ff;
+}
+
+.hud-panel-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #a9d6ff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hud-panel-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.hud-panel-close-btn:focus-visible {
+  outline: 2px solid #78c6ff;
+}
+
+.hud-panel-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+}
+
+.hud-panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hud-panel-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.hud-panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 172, 225, 0.35);
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   Subpainéis e Abas (Tabs)
+   -------------------------------------------------------------------------- */
+.hud-subtabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 16px;
+  background: rgba(5, 12, 28, 0.4);
+  border-bottom: 1px solid rgba(120, 172, 225, 0.2);
+}
+
+.hud-subtab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #9cb9da;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hud-subtab:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.hud-subtab.is-active {
+  background: rgba(30, 65, 125, 0.7);
+  border-color: rgba(120, 172, 225, 0.4);
+  color: #78c6ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.hud-subtab:focus-visible {
+  outline: 2px solid #78c6ff;
+}
+
+/* --------------------------------------------------------------------------
+   Estilização Interna de Painéis e Reset de Posição
+   -------------------------------------------------------------------------- */
+.hud-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.hud-panel-intro {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(20, 40, 80, 0.45);
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c4d7ec;
+}
+
+.hud-panel-intro-icon {
+  flex-shrink: 0;
+  color: #78c6ff;
+  margin-top: 1px;
+}
+
+.hud-panel-intro p {
+  margin: 0;
+}
+
+/* Reset dos blocos de missão dentro do painel para caberem perfeitamente */
+.hud-root .hud-panel-container .mission-status,
+.hud-root .hud-panel-container .mission-log,
+.hud-root .hud-panel-container .mission-actions {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.hud-root .hud-panel-container .mission-actions {
+  margin-top: 8px;
+}
+
+/* Botões utilitários */
+.hud-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hud-btn--primary {
+  background: linear-gradient(135deg, #1f6fd9, #134aa8);
+  border: 1px solid #78c6ff;
+  color: #fff;
+}
+
+.hud-btn--primary:hover {
+  background: linear-gradient(135deg, #2b7ce6, #1858c4);
+  transform: translateY(-1px);
+}
+
+.hud-btn--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(120, 172, 225, 0.3);
+  color: #c4d7ec;
+}
+
+.hud-btn--secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.hud-btn--active {
+  background: rgba(30, 80, 150, 0.7);
+  border: 1px solid #78c6ff;
+  color: #78c6ff;
+}
+
+/* Card de Sala */
+.hud-room-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(8, 16, 38, 0.6);
+  border: 1px solid rgba(120, 172, 225, 0.3);
+}
+
+.hud-room-kicker {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #8fbbe9;
+  text-transform: uppercase;
+}
+
+.hud-room-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.hud-room-code {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #ffd63c;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 214, 60, 0.3);
+}
+
+.hud-room-details {
+  display: grid;
+  gap: 8px;
+}
+
+.hud-room-stat {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(120, 172, 225, 0.2);
+  font-size: 12px;
+}
+
+.hud-room-stat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #9cb9da;
+}
+
+.hud-badge-online {
+  color: #6ee7b7;
+  font-weight: 700;
+}
+
+.hud-badge-local {
+  color: #ffd63c;
+  font-weight: 700;
+}
+
+.hud-room-instructions {
+  font-size: 12px;
+  color: #9cb9da;
+  line-height: 1.45;
+}
+
+.hud-room-instructions h4 {
+  margin: 0 0 4px;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.hud-room-instructions ol {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.hud-room-instructions li {
+  margin-bottom: 4px;
+}
+
+.hud-room-share-btn {
+  width: 100%;
+}
+
+/* Painel de Visualização / Câmera */
+.hud-view-options {
+  display: grid;
+  gap: 10px;
+}
+
+.hud-option-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(120, 172, 225, 0.2);
+}
+
+.hud-option-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-option-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.hud-option-desc {
+  font-size: 11px;
+  color: #8fbbe9;
+  line-height: 1.35;
+}
+
+.hud-coords-card {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(14, 30, 65, 0.5);
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  font-size: 12px;
+}
+
+.hud-coords-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.hud-coords-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hud-coords-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.hud-coords-tag.is-inside {
+  background: rgba(110, 231, 183, 0.2);
+  color: #6ee7b7;
+  border: 1px solid rgba(110, 231, 183, 0.4);
+}
+
+.hud-coords-tag.is-outside {
+  background: rgba(255, 181, 17, 0.2);
+  color: #ffb511;
+  border: 1px solid rgba(255, 181, 17, 0.4);
+}
+
+.hud-view-hints {
+  font-size: 12px;
+  color: #9cb9da;
+  line-height: 1.45;
+}
+
+.hud-view-hints h4 {
+  margin: 0 0 6px;
+  color: #fff;
+  font-size: 12px;
+}
+
+.hud-view-hints ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Painel de Chat / Emojis */
+.hud-chat-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-chat-heading,
+.hud-chat-header h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8fbbe9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hud-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #8fbbe9;
+}
+
+.hud-emote-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.hud-emote-item {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hud-emote-item:hover {
+  background: rgba(120, 198, 255, 0.25);
+  border-color: #78c6ff;
+  transform: scale(1.1);
+}
+
+.hud-chat-empty {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(120, 172, 225, 0.25);
+  font-size: 12px;
+  color: #8fbbe9;
+  text-align: center;
+}
+
+.hud-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hud-chat-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(120, 172, 225, 0.2);
+}
+
+.hud-chat-bubble.is-local {
+  background: rgba(30, 65, 125, 0.4);
+  border-color: rgba(120, 172, 225, 0.4);
+}
+
+.hud-chat-author {
+  font-weight: 700;
+  color: #ffd63c;
+}
+
+.hud-chat-msg-emoji {
+  font-size: 16px;
+}
+
+/* Painel de Sistema */
+.hud-base-card {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(16, 32, 68, 0.5);
+  border: 1px solid rgba(120, 172, 225, 0.3);
+}
+
+.hud-base-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffd63c;
+  letter-spacing: 0.08em;
+}
+
+.hud-base-title {
+  margin: 6px 0 4px;
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.hud-base-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #c4d7ec;
+  line-height: 1.45;
+}
+
+.hud-system-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hud-system-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 172, 225, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.hud-system-btn:hover {
+  background: rgba(45, 90, 160, 0.3);
+  border-color: #78c6ff;
+  transform: translateY(-1px);
+}
+
+.hud-system-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hud-system-btn-text strong {
+  font-size: 13px;
+  color: #fff;
+}
+
+.hud-system-btn-text small {
+  font-size: 11px;
+  color: #8fbbe9;
+}
+
+.hud-system-btn--leave:hover {
+  background: rgba(90, 25, 30, 0.45);
+  border-color: #ff7b7b;
+}
+
+.hud-system-about {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(120, 172, 225, 0.15);
+  font-size: 11px;
+  color: #8fbbe9;
+  line-height: 1.4;
+}
+
+.hud-system-about-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #c4d7ec;
+  margin-bottom: 4px;
+}
+
+.hud-system-about p {
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Painel Dev (Ferramentas de Teste)
+   -------------------------------------------------------------------------- */
+.hud-dev-banner {
+  background: rgba(45, 25, 65, 0.6);
+  border-color: rgba(185, 120, 255, 0.4);
+}
+
+.hud-dev-banner strong {
+  color: #d8b4fe;
+  font-size: 12px;
+}
+
+.hud-dev-empty {
+  padding: 24px;
+  text-align: center;
+  color: #8fbbe9;
+  font-size: 12px;
+}
+
+.hud-dev-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hud-dev-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hud-dev-group-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #d8b4fe;
+}
+
+.hud-dev-actions-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.hud-dev-action-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 172, 225, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f7f8ff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.hud-dev-action-btn:hover {
+  background: rgba(185, 120, 255, 0.15);
+  border-color: #d8b4fe;
+}
+
+.hud-dev-action-btn.is-active {
+  background: rgba(147, 51, 234, 0.25);
+  border-color: #a855f7;
+}
+
+.hud-dev-action-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-dev-play-icon {
+  color: #a855f7;
+  flex-shrink: 0;
+}
+
+.hud-dev-action-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hud-dev-status-pill {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+
+.hud-dev-status-pill.is-on {
+  background: #22c55e;
+  color: #000;
+}
+
+.hud-dev-status-pill.is-off {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ccc;
+}
+
+.hud-dev-action-desc {
+  margin: 0;
+  font-size: 10px;
+  color: #8fbbe9;
+  line-height: 1.35;
+}
+
+/* --------------------------------------------------------------------------
+   Responsividade: Telas menores (<768px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .hud-essential-bar {
+    top: 6px;
+    left: 8px;
+    right: 8px;
+    height: 42px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .hud-essential-bar__wordmark {
+    display: none;
+  }
+
+  .hud-essential-slot {
+    padding: 2px 6px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .hud-essential-ox {
+    min-width: 90px;
+  }
+
+  /* Doca vira barra inferior fixa */
+  .hud-dock {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    transform: none;
+    z-index: 40;
+    padding: 0;
+  }
+
+  .hud-dock__list {
+    flex-direction: row;
+    justify-content: space-around;
+    border-radius: 14px 14px 0 0;
+    border-bottom: none;
+    padding: 6px 4px;
+  }
+
+  .hud-dock__btn {
+    width: 48px;
+    height: 46px;
+  }
+
+  .hud-dock__label {
+    font-size: 8px;
+  }
+
+  /* Gaveta vira bottom sheet */
+  .hud-panel-container {
+    top: auto;
+    bottom: 58px;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: 16px 16px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+}
