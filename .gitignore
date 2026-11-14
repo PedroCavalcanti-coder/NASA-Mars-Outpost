@@ -20,6 +20,9 @@ database/
 *.blend
 *.blend1
 *.glb
+!Assets/bases/*.glb
+!Assets/modelos/*.glb
+!Assets/modelos-brutos/*.glb
 *.gltf
 *.fbx
 assets-src/
