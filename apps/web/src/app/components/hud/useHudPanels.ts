@@ -10,8 +10,21 @@ import {
   subscribeHudPanels,
 } from './registry';
 
+// Snapshot estável em cache para cumprir o contrato do useSyncExternalStore
+let cachedSnapshot: readonly HudPanelDefinition[] = getRegisteredPanels();
+let lastRawPanels: readonly HudPanelDefinition[] = cachedSnapshot;
+
+function getSnapshot(): readonly HudPanelDefinition[] {
+  const current = getRegisteredPanels();
+  if (current.length !== lastRawPanels.length || current.some((p, i) => p !== lastRawPanels[i])) {
+    lastRawPanels = current;
+    cachedSnapshot = current;
+  }
+  return cachedSnapshot;
+}
+
 export function useHudPanels(): readonly HudPanelDefinition[] {
-  return useSyncExternalStore(subscribeHudPanels, getRegisteredPanels, getRegisteredPanels);
+  return useSyncExternalStore(subscribeHudPanels, getSnapshot, getSnapshot);
 }
 
 export function useGroupPanels(group: HudGroup): HudPanelDefinition[] {

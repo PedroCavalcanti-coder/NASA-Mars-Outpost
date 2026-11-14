@@ -1,7 +1,7 @@
 import { ACTIONS_PER_SOL, INITIAL, LOG_LIMIT, RESEARCH_GOAL } from './balance';
 import type { Crisis, DeltaKey, Deltas, LogEntry, MissionState, ResourceId } from './types';
 
-export const RESOURCE_IDS: readonly ResourceId[] = ['energy', 'supplies', 'materials'];
+export const RESOURCE_IDS: readonly ResourceId[] = ['energy', 'supplies', 'materials', 'oxygen'];
 
 export function createMission(seed: number = Date.now()): MissionState {
   const s = seed >>> 0;
@@ -11,6 +11,7 @@ export function createMission(seed: number = Date.now()): MissionState {
     sol: 1,
     actionsLeft: ACTIONS_PER_SOL,
     resources: {
+      oxygen: { ...INITIAL.resources.oxygen },
       energy: { ...INITIAL.resources.energy },
       supplies: { ...INITIAL.resources.supplies },
       materials: { ...INITIAL.resources.materials },
@@ -31,6 +32,7 @@ export function cloneState(s: MissionState): MissionState {
   return {
     ...s,
     resources: {
+      oxygen: { ...s.resources.oxygen },
       energy: { ...s.resources.energy },
       supplies: { ...s.resources.supplies },
       materials: { ...s.resources.materials },

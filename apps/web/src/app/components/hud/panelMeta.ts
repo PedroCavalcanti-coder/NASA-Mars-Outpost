@@ -1,3 +1,6 @@
+import React from 'react';
+import type { HudPanelDefinition } from './registry';
+
 /**
  * Metadados complementares dos painéis conhecidos da HUD.
  *
@@ -23,4 +26,20 @@ export const KNOWN_PANEL_META: Record<string, PanelMeta> = {
 
 export function getPanelMeta(id: string): PanelMeta {
   return KNOWN_PANEL_META[id] ?? { order: 50 };
+}
+
+/**
+ * Renderiza de forma segura qualquer ícone registrado no painel (Lucide Icon,
+ * componente React, forwardRef ou elemento React pré-renderizado).
+ */
+export function renderHudIcon(
+  icon: HudPanelDefinition['icon'],
+  props: { size?: number; className?: string } = {},
+): React.ReactNode {
+  if (!icon) return null;
+  if (React.isValidElement(icon)) {
+    return icon;
+  }
+  const Comp = icon as React.ComponentType<{ size?: number; className?: string }>;
+  return React.createElement(Comp, props);
 }

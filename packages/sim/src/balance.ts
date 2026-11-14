@@ -9,6 +9,7 @@ export const LOG_LIMIT = 30;
 
 export const INITIAL = {
   resources: {
+    oxygen: { value: 100, max: 100 },
     energy: { value: 70, max: 120 },
     supplies: { value: 60, max: 100 },
     materials: { value: 60, max: 150 },

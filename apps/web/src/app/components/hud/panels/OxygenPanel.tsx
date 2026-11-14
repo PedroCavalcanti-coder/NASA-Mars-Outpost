@@ -61,7 +61,7 @@ export function OxygenPanel() {
         />
       </div>
 
-      {isCritical && (
+      {isLow && (
         <span title="Alerta: Oxigênio Crítico! Retorne imediatamente para a base.">
           <AlertTriangle
             size={14}

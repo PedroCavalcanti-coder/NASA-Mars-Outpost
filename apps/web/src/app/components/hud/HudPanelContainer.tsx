@@ -7,7 +7,7 @@
 
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { getPanelMeta } from './panelMeta';
+import { getPanelMeta, renderHudIcon } from './panelMeta';
 import type { HudPanelDefinition } from './registry';
 
 interface HudPanelContainerProps {
@@ -29,7 +29,6 @@ export function HudPanelContainer({ panel, onClose }: HudPanelContainerProps) {
   if (!panel) return null;
 
   const PanelComponent = panel.component;
-  const IconComponent = panel.icon;
   const meta = getPanelMeta(panel.id);
 
   return (
@@ -37,12 +36,7 @@ export function HudPanelContainer({ panel, onClose }: HudPanelContainerProps) {
       {/* Cabeçalho da Gaveta */}
       <header className="hud-panel-header">
         <div className="hud-panel-title-wrapper">
-          {IconComponent &&
-            (typeof IconComponent === 'function' ? (
-              <IconComponent size={20} className="hud-panel-header-icon" />
-            ) : (
-              IconComponent
-            ))}
+          {renderHudIcon(panel.icon, { size: 20, className: 'hud-panel-header-icon' })}
           <h2 className="hud-panel-title">{panel.title}</h2>
           {meta.shortcut && <kbd className="hud-panel-shortcut">{meta.shortcut}</kbd>}
         </div>

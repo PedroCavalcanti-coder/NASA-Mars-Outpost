@@ -30,6 +30,7 @@ const RESOURCE_NAMES: Record<ResourceId, string> = {
   energy: 'energia',
   supplies: 'mantimentos',
   materials: 'materiais',
+  oxygen: 'oxigênio',
 };
 
 /** A ação pode ser feita agora? Se não, devolve o motivo para a interface mostrar. */

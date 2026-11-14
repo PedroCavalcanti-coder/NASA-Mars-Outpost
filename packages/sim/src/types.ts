@@ -1,6 +1,6 @@
 /** Tipos do estado da missão. Tudo é serializável (JSON) para poder ir ao servidor depois. */
 
-export type ResourceId = 'energy' | 'supplies' | 'materials';
+export type ResourceId = 'energy' | 'supplies' | 'materials' | 'oxygen';
 
 export interface Resource {
   value: number;

@@ -1003,8 +1003,7 @@ export class BaseViewer {
     const colliders: Collider[] = [];
     for (const a of this.remoteList) colliders.push(a);
     if (this.rover) colliders.push(this.roverCollider);
-    // [seam:survival]
-    const ctx: MoveContext = { grid: this.grid, others: colliders, blockExit: this.exitBlocked };
+    const ctx: MoveContext = { grid: this.grid, others: colliders };
 
     const dir = this.keyboardDirection();
 
@@ -1014,7 +1013,7 @@ export class BaseViewer {
       } else {
         // teclado: só atualiza quando muda (cancela o caminho do clique uma vez)
         local.setInput(local.isRevealed ? dir : null);
-        local.update(dt, ctx, animate);
+        local.update(dt * this.playerSpeedScale, ctx, animate);
         this.handleRepath(local);
         this.handlePending(local);
       }
@@ -1514,7 +1513,8 @@ export class BaseViewer {
 
   /** Setas/WASD -> direção no mundo, relativa à câmera (cima = para o fundo da tela). */
   private keyboardDirection(): { x: number; z: number } | null {
-    if (this.keys.size === 0) return null;
+    // [seam:survival] jogador dormindo não se move
+    if (this.playerSleeping || this.keys.size === 0) return null;
     const up = (this.keys.has('up') ? 1 : 0) - (this.keys.has('down') ? 1 : 0);
     const right = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
     if (up === 0 && right === 0) return null;
@@ -1796,6 +1796,16 @@ export class BaseViewer {
   private walkTo(target: THREE.Vector3, task: PendingTask | null): boolean {
     const local = this.localAstronaut;
     if (!local || !this.grid) return false;
+    // [seam:survival] não permite traçar caminho para fora da base se bloqueado por frio noturno
+    if (
+      this.exitBlocked &&
+      this.grid.isInsideBase(local.position.x, local.position.z) &&
+      !this.grid.isInsideBase(target.x, target.z)
+    ) {
+      this.flashRing(target, false);
+      this.options?.onMessage?.('Frio extremo lá fora', 'error');
+      return false;
+    }
     const { path, clampedByStorm } = this.grid.findPath(
       local.position,
       target,
@@ -2022,6 +2032,12 @@ export class BaseViewer {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    // [seam:survival]
+    if (this.fadeOverlay) {
+      this.fadeOverlay.remove();
+      this.fadeOverlay = null;
+    }
+    this.systems.dispose();
     cancelAnimationFrame(this.frame);
     this.stopTicker?.();
     window.removeEventListener('keydown', this.onKeyDown);
@@ -2062,5 +2078,107 @@ export class BaseViewer {
       const w = window as unknown as { __marsViewer?: BaseViewer };
       if (w.__marsViewer === this) w.__marsViewer = undefined;
     }
+  }
+
+  // [seam:survival] métodos de suporte ao SystemContext
+  private fadeScreen(opacity: number, ms: number): void {
+    if (!this.container) return;
+    if (!this.fadeOverlay) {
+      const el = document.createElement('div');
+      el.setAttribute('data-seam', 'survival-fade');
+      Object.assign(el.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#000000',
+        pointerEvents: 'none',
+        opacity: '0',
+        transition: 'opacity 0ms ease',
+        zIndex: '85',
+      });
+      this.container.appendChild(el);
+      this.fadeOverlay = el;
+    }
+    const clamped = Math.max(0, Math.min(1, opacity));
+    const duration = Math.max(0, ms);
+    this.fadeOverlay.style.transition = `opacity ${duration}ms ease`;
+    this.fadeOverlay.style.opacity = String(clamped);
+  }
+
+  private teleportPlayerTo(point: { x: number; y?: number; z: number }): void {
+    if (this.roverDriver === 'local') {
+      this.exitRover();
+    }
+    const local = this.localAstronaut;
+    if (!local) return;
+    const fx = point.x;
+    const fz = point.z;
+    const fy = point.y ?? (this.grid?.groundY(fx, fz) ?? FLOOR_Y);
+    local.stopMoving();
+    local.root.position.set(fx, fy, fz);
+  }
+
+  getInfirmaryPoint(): THREE.Vector3 {
+    const grid = this.grid;
+    if (!grid) return new THREE.Vector3(0, FLOOR_Y, 0);
+    const rooms = grid.layout.rooms ?? [];
+    let room = rooms.find((r) => r.kind?.toLowerCase().includes('medicina'));
+    if (!room) {
+      room = rooms.find((r) => r.kind?.toLowerCase().includes('habitacao'));
+    }
+    if (!room && rooms.length > 0) {
+      room = rooms[0];
+    }
+    if (!room) return new THREE.Vector3(0, FLOOR_Y, 0);
+
+    const a = grid.tileToWorld(room.tile[0], room.tile[1]);
+    const b = grid.tileToWorld(room.tile[0] + room.size[0] - 1, room.tile[1] + room.size[1] - 1);
+    const cx = (a.wx + b.wx) / 2;
+    const cz = (a.wz + b.wz) / 2;
+    const cy = grid.groundY(cx, cz);
+    return new THREE.Vector3(cx, cy, cz);
+  }
+
+  private getSystemContext(): SystemContext {
+    if (!this.systemContext) {
+      const viewer = this;
+      this.systemContext = {
+        get playerPosition() {
+          const p = viewer.localAstronaut?.position;
+          return p ? { x: p.x, y: p.y, z: p.z } : { x: 0, y: 0, z: 0 };
+        },
+        get insideBase() {
+          const p = viewer.localAstronaut?.position;
+          return Boolean(p && viewer.grid?.isInsideBase(p.x, p.z));
+        },
+        get driving() {
+          return viewer.roverDriver === 'local';
+        },
+        get night() {
+          return viewer.nightFactor;
+        },
+        get storm() {
+          return viewer.stormCurrent;
+        },
+        get cameraMode() {
+          return viewer.cameraMode;
+        },
+        teleportPlayerTo: (point) => viewer.teleportPlayerTo(point),
+        setPlayerSpeedScale: (scale) => {
+          viewer.playerSpeedScale = scale;
+        },
+        blockExitFromBase: (on) => {
+          viewer.exitBlocked = on;
+        },
+        setPlayerSleeping: (on) => {
+          viewer.playerSleeping = on;
+          if (on) viewer.localAstronaut?.stopMoving();
+        },
+        fadeScreen: (opacity, ms) => viewer.fadeScreen(opacity, ms),
+        getInfirmaryPoint: () => viewer.getInfirmaryPoint(),
+      };
+    }
+    return this.systemContext;
   }
 }

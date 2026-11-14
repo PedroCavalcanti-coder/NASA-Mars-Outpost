@@ -18,7 +18,7 @@ const GROUPS: { title: string; actions: ActionId[] }[] = [
   { title: 'Construir', actions: ['build_solar', 'build_greenhouse', 'build_lab'] },
 ];
 
-const COST_LABEL: Record<ResourceId, string> = { energy: 'E', supplies: 'M', materials: 'Mt' };
+const COST_LABEL: Record<ResourceId, string> = { energy: 'E', supplies: 'M', materials: 'Mt', oxygen: 'O₂' };
 
 /** Ações do sol (cada uma gasta 1 das 3 ações) e o botão de encerrar o sol. */
 export function ActionPanel() {

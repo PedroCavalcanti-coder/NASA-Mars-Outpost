@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { getPanelMeta } from './panelMeta';
+import { getPanelMeta, renderHudIcon } from './panelMeta';
 import type { HudPanelDefinition } from './registry';
 
 interface HudDockProps {
@@ -42,7 +42,6 @@ export function HudDock({
           const isOpen = activePanelId === panel.id;
           const meta = getPanelMeta(panel.id);
           const badgeVal = badges[panel.id];
-          const IconComponent = panel.icon;
 
           return (
             <li key={panel.id} className="hud-dock__item">
@@ -55,12 +54,7 @@ export function HudDock({
                 aria-label={`${panel.title}${meta.shortcut ? ` (atalho: ${meta.shortcut})` : ''}`}
               >
                 <div className="hud-dock__icon-wrapper">
-                  {IconComponent &&
-                    (typeof IconComponent === 'function' ? (
-                      <IconComponent size={20} className="hud-dock__icon" />
-                    ) : (
-                      IconComponent
-                    ))}
+                  {renderHudIcon(panel.icon, { size: 20, className: 'hud-dock__icon' })}
                   {badgeVal != null && badgeVal !== '' && (
                     <span className="hud-dock__badge" aria-hidden="true">
                       {badgeVal}
