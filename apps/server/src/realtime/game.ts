@@ -74,6 +74,15 @@ export function isNicknameTaken(code: string, name: string): boolean {
   return [...room.players.values()].some((p) => normalizeNickname(p.info.name) === n);
 }
 
+function computeVirtualElapsed(world: GameWorldState, now: number): number {
+  const base =
+    world.virtualElapsedMs ?? Math.max(0, (world.timeUpdatedAt ?? now) - world.clockStart);
+  if (world.paused) return base;
+  const scale = world.timeScale === 2 || world.timeScale === 3 ? world.timeScale : 1;
+  const delta = Math.max(0, now - (world.timeUpdatedAt ?? now));
+  return base + delta * scale;
+}
+
 function worldFromSave(save: WorldSave | null): GameWorldState {
   const now = Date.now();
   if (!save) {
@@ -83,19 +92,30 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
       storm: 0,
       solar: new Array<number>(GAME_MAX_SOLAR).fill(0),
       crops: [],
+      timeScale: 1,
+      paused: false,
+      timeUpdatedAt: now,
+      virtualElapsedMs: 0,
     };
   }
   const solar = new Array<number>(GAME_MAX_SOLAR).fill(0);
   save.solar.forEach((v, i) => {
     if (i < GAME_MAX_SOLAR) solar[i] = v;
   });
+  const timeScale = save.timeScale === 2 || save.timeScale === 3 ? save.timeScale : 1;
+  const paused = Boolean(save.paused);
+  const elapsedMs = Math.max(0, save.elapsedMs ?? 0);
   return {
     // o relógio retoma de onde o mundo parou
-    clockStart: now - save.elapsedMs,
+    clockStart: now - elapsedMs,
     storm: 0,
     solar,
     crops: save.crops,
     vehicle: save.vehicle,
+    timeScale,
+    paused,
+    timeUpdatedAt: now,
+    virtualElapsedMs: elapsedMs,
   };
 }
 
@@ -129,11 +149,14 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
 
 /** Estado do mundo no formato do banco. */
 function snapshot(room: Room, mission: unknown): WorldSave | null {
+  const elapsed = computeVirtualElapsed(room.world, Date.now());
   return sanitizeSave({
-    elapsedMs: Date.now() - room.world.clockStart,
+    elapsedMs: elapsed,
     solar: room.world.solar,
     crops: room.world.crops,
     vehicle: room.world.vehicle,
+    timeScale: room.world.timeScale ?? 1,
+    paused: room.world.paused ?? false,
     mission,
   });
 }
@@ -356,6 +379,37 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!finite(v.x, WORLD_LIMIT) || !finite(v.z, WORLD_LIMIT) || !finite(v.h, 20)) return;
       room.world.vehicle = { x: v.x, z: v.z, h: v.h };
       socket.to(room.code).emit('world:vehicle', room.world.vehicle);
+    });
+
+    // [seam:tempo-pausa-aceleracao] controle de velocidade e pausa pelo coordenador
+    socket.on('world:time', (raw) => {
+      const code = socket.data.room;
+      const room = code ? rooms.get(code) : undefined;
+      if (!room || !takeToken(socket.data, 2) || !raw || typeof raw !== 'object') return;
+      const payload = raw as { paused?: unknown; scale?: unknown };
+      const paused = Boolean(payload.paused);
+      const scale = payload.scale === 2 || payload.scale === 3 ? payload.scale : 1;
+
+      // Validação de autoridade: se houver mais de um astronauta, só o menor slot (coordenador) pode alterar
+      if (room.players.size > 1) {
+        let minSlot = 999;
+        for (const p of room.players.values()) {
+          if (p.info.slot < minSlot) minSlot = p.info.slot;
+        }
+        if (socket.data.info?.slot !== minSlot) {
+          return; // ignora quem não é coordenador da sala
+        }
+      }
+
+      const now = Date.now();
+      const elapsed = computeVirtualElapsed(room.world, now);
+      room.world.virtualElapsedMs = elapsed;
+      room.world.timeUpdatedAt = now;
+      room.world.timeScale = scale;
+      room.world.paused = paused;
+      room.world.clockStart = now - elapsed;
+
+      ns.to(room.code).emit('world:time', { paused, scale });
     });
 
     socket.on('player:emote', (raw) => {

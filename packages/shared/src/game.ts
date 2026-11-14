@@ -13,11 +13,36 @@ export const GAME_MAX_SOLAR = 32;
 /** Quantidade de canteiros sincronizados. */
 export const GAME_MAX_CROPS = 64;
 
+/** Opções adicionais para cálculo do relógio em tempo acelerado ou pausado. */
+export interface GameClockOptions {
+  /** Escala de velocidade (1 | 2 | 3). Padrão = 1 */
+  scale?: 1 | 2 | 3;
+  /** Se a simulação da sala está pausada */
+  paused?: boolean;
+  /** Instante (ms) da última alteração de velocidade/pausa */
+  timeUpdatedAt?: number;
+  /** Tempo virtual acumulado (ms) até a última alteração */
+  virtualElapsedMs?: number;
+}
+
 /** Hora do dia (0..24) e Sol a partir do relógio compartilhado da sala. */
-export function gameClock(clockStart: number, now: number) {
-  const elapsed = Math.max(0, (now - clockStart) / 1000);
-  const hours = GAME_START_HOUR + (elapsed * 24) / GAME_SOL_SECONDS;
-  return { hour: hours % 24, sol: 1 + Math.floor(hours / 24) };
+export function gameClock(clockStart: number, now: number, opts?: GameClockOptions) {
+  let elapsedMs: number;
+  if (opts && (opts.paused || opts.scale || opts.virtualElapsedMs !== undefined)) {
+    const baseElapsed =
+      opts.virtualElapsedMs ?? Math.max(0, (opts.timeUpdatedAt ?? now) - clockStart);
+    if (opts.paused) {
+      elapsedMs = baseElapsed;
+    } else {
+      const scale = opts.scale === 2 || opts.scale === 3 ? opts.scale : 1;
+      const sinceUpdate = Math.max(0, now - (opts.timeUpdatedAt ?? clockStart));
+      elapsedMs = baseElapsed + sinceUpdate * scale;
+    }
+  } else {
+    elapsedMs = Math.max(0, now - clockStart);
+  }
+  const hours = GAME_START_HOUR + (elapsedMs * 24) / (GAME_SOL_SECONDS * 1000);
+  return { hour: hours % 24, sol: 1 + Math.floor(hours / 24), elapsedMs };
 }
 
 /** `drive`: o jogador está dentro do rover (x, z, h passam a ser os do veículo). */
@@ -65,6 +90,11 @@ export interface GameWorldState {
   crops: number[];
   /** onde o rover está parado; ausente = ponto de partida da base */
   vehicle?: GameVehicleState;
+  // [seam:tempo-pausa-aceleracao] escala e pausa compartilhadas do mundo
+  timeScale?: 1 | 2 | 3;
+  paused?: boolean;
+  timeUpdatedAt?: number;
+  virtualElapsedMs?: number;
 }
 
 /** Dias sem entrar no mundo até o vínculo com o jogador expirar (sem vínculos o mundo é apagado). */
@@ -92,6 +122,9 @@ export interface WorldSave {
   solar: number[];
   crops: number[];
   vehicle?: GameVehicleState;
+  // [seam:tempo-pausa-aceleracao] escala e pausa persistidas no save
+  timeScale?: 1 | 2 | 3;
+  paused?: boolean;
   /** estado da missão do ÚLTIMO jogador que salvou */
   mission?: unknown;
 }
@@ -138,6 +171,8 @@ export interface GameServerToClient {
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
   'player:emote': (id: string, emote: number) => void;
+  // [seam:tempo-pausa-aceleracao] sincronização de velocidade e pausa
+  'world:time': (payload: { paused: boolean; scale: 1 | 2 | 3 }) => void;
 }
 
 export interface GameClientToServer {
@@ -148,6 +183,8 @@ export interface GameClientToServer {
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
   'player:emote': (emote: number) => void;
+  // [seam:tempo-pausa-aceleracao] alteração de velocidade e pausa (restrita ao coordenador se > 1 jogador)
+  'world:time': (payload: { paused: boolean; scale: 1 | 2 | 3 }) => void;
   /** Grava o mundo no banco e vincula o jogador a ele. */
   'world:save': (
     payload: { mission?: unknown },

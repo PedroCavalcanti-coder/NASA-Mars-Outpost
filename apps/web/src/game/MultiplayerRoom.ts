@@ -14,6 +14,7 @@ import {
   type SuitConfig,
 } from '@mars/shared';
 import { io, type Socket } from 'socket.io-client';
+import { gameClock as gameClockInstance } from './sim/clock';
 
 /** Onde a sala está rodando: no servidor (qualquer dispositivo) ou só entre abas deste navegador. */
 export type RoomMode = 'online' | 'local';
@@ -65,6 +66,8 @@ export class MultiplayerRoom {
   onEmote?: (id: string, emote: number) => void;
   onVehicle?: (v: GameVehicleState) => void;
   onStatus?: (status: 'connected' | 'reconnecting') => void;
+  // [seam:tempo-pausa-aceleracao] notificação de alteração de tempo na sala
+  onTime?: (paused: boolean, scale: 1 | 2 | 3) => void;
 
   private socket: GameSocket | null = null;
   private channel: BroadcastChannel | null = null;
@@ -96,7 +99,12 @@ export class MultiplayerRoom {
 
   /** Hora do dia e Sol atuais, iguais para todos na sala. */
   clock() {
-    return gameClock(this.world.clockStart, Date.now() + this.clockOffset);
+    return gameClock(this.world.clockStart, Date.now() + this.clockOffset, {
+      scale: this.world.timeScale,
+      paused: this.world.paused,
+      timeUpdatedAt: this.world.timeUpdatedAt,
+      virtualElapsedMs: this.world.virtualElapsedMs,
+    });
   }
 
   // ------------------------------------------------------------------ online (Socket.IO)
@@ -132,6 +140,11 @@ export class MultiplayerRoom {
             }
             this.self = r.self;
             this.world = r.world;
+            // [seam:tempo-pausa-aceleracao] sincroniza relógio inicial e associa a sala
+            if (r.world.timeScale || r.world.paused !== undefined) {
+              gameClockInstance.setFromRemote(Boolean(r.world.paused), r.world.timeScale ?? 1);
+            }
+            gameClockInstance.attachRoom(this);
             this.clockOffset = r.serverNow - Date.now();
             this.persistence = r.persistence;
             this.applyRoster(r.players);
@@ -173,6 +186,14 @@ export class MultiplayerRoom {
       socket.on('world:solar', (stages) => {
         this.world.solar = stages;
         this.onSolar?.(stages);
+      });
+      // [seam:tempo-pausa-aceleracao] recebe alteração de tempo na sala
+      socket.on('world:time', (payload) => {
+        this.world.paused = payload.paused;
+        this.world.timeScale = payload.scale;
+        this.world.timeUpdatedAt = Date.now();
+        this.onTime?.(payload.paused, payload.scale);
+        gameClockInstance.setFromRemote(payload.paused, payload.scale);
       });
     });
   }
@@ -292,6 +313,14 @@ export class MultiplayerRoom {
           this.world.solar = m.stages;
           this.onSolar?.(m.stages);
           break;
+        // [seam:tempo-pausa-aceleracao] recebimento de tempo no modo local
+        case 'time':
+          this.world.paused = m.paused;
+          this.world.timeScale = m.scale;
+          this.world.timeUpdatedAt = Date.now();
+          this.onTime?.(m.paused, m.scale);
+          gameClockInstance.setFromRemote(m.paused, m.scale);
+          break;
       }
     };
 
@@ -307,6 +336,8 @@ export class MultiplayerRoom {
     let slot = 0;
     while (used.has(slot)) slot++;
     this.self = { ...provisional, slot };
+    // [seam:tempo-pausa-aceleracao] associa a sala local ao relógio
+    gameClockInstance.attachRoom(this);
     this.applyRoster(known);
     this.post({ t: 'joined', from: id, info: this.self });
   }
@@ -386,6 +417,19 @@ export class MultiplayerRoom {
     else this.post({ t: 'solar', from: this.self.id, stages });
   }
 
+  // [seam:tempo-pausa-aceleracao] Transmissão de velocidade e pausa pelo coordenador
+  sendTime(paused: boolean, scale: 1 | 2 | 3) {
+    this.world.paused = paused;
+    this.world.timeScale = scale;
+    this.world.timeUpdatedAt = Date.now();
+    if (this.mode === 'online') this.socket?.emit('world:time', { paused, scale });
+    else this.post({ t: 'time', from: this.self.id, paused, scale });
+  }
+
+  playerCount(): number {
+    return 1 + this.remotes.size;
+  }
+
   /** Quem coordena a poeira dos painéis: o astronauta de menor vaga entre os presentes. */
   get isCoordinator() {
     let min = this.self.slot;
@@ -396,6 +440,8 @@ export class MultiplayerRoom {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    // [seam:tempo-pausa-aceleracao] desassocia a sala do relógio ao sair
+    gameClockInstance.detachRoom();
     if (this.mode === 'local') {
       this.post({ t: 'bye', from: this.self.id });
       this.disposeLocal();
@@ -429,4 +475,5 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
-  | { t: 'vehicle'; from: string; v: GameVehicleState };
+  | { t: 'vehicle'; from: string; v: GameVehicleState }
+  | { t: 'time'; from: string; paused: boolean; scale: 1 | 2 | 3 };

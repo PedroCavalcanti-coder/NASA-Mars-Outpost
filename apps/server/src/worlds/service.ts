@@ -58,14 +58,19 @@ export function sanitizeSave(raw: {
   crops: number[];
   vehicle?: { x: number; z: number; h: number };
   mission?: unknown;
+  timeScale?: 1 | 2 | 3;
+  paused?: boolean;
 }): WorldSave | null {
   const clampList = (l: number[], max: number, top: number) =>
     l.slice(0, max).map((n) => Math.max(0, Math.min(top, Math.round(Number(n) || 0))));
+  const timeScale = raw.timeScale === 2 || raw.timeScale === 3 ? raw.timeScale : 1;
   const save: WorldSave = {
     v: 1,
     elapsedMs: Math.max(0, Math.min(1e12, Math.round(raw.elapsedMs))),
     solar: clampList(raw.solar, GAME_MAX_SOLAR, 4),
     crops: clampList(raw.crops, GAME_MAX_CROPS, 3),
+    timeScale,
+    paused: Boolean(raw.paused),
   };
   if (raw.vehicle) save.vehicle = raw.vehicle;
   if (raw.mission !== undefined) {

@@ -45,6 +45,8 @@ import {
   subscribeExpedition,
 } from '../../game/runtime/expedition';
 import Home from './Home';
+// [seam:tempo-pausa-aceleracao]
+import { TimeControls } from '../components/hud/panels/TimeControls';
 
 /**
  * Jogo (base marciana):
@@ -484,6 +486,9 @@ function ReadyGame() {
               SOL {marsTime.sol} · {marsTime.formatted} LMST · {marsTime.isDay ? 'DIA' : 'NOITE'}
             </span>
           </div>
+
+          {/* [seam:tempo-pausa-aceleracao] Controles de tempo e velocidade */}
+          <TimeControls marsTime={marsTime} />
 
           {/* Badge da Sala Exclusiva */}
           <button

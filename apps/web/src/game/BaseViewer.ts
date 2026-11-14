@@ -33,6 +33,8 @@ import type { AssetPool } from './runtime/assets';
 import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
 import { Rover } from './Vehicle';
+// [seam:tempo-pausa-aceleracao] relógio do jogo
+import { GameClock } from './sim/clock';
 
 const SCALE = 0.75;
 export const MARS_SOL_DURATION_SECONDS = 600;
@@ -196,6 +198,8 @@ export class BaseViewer {
   private view = 28;
   private cameraMode: 'follow' | 'free' = 'follow';
   private readonly cameraFocus = new THREE.Vector3();
+  // [seam:tempo-pausa-aceleracao] relógio da simulação
+  readonly clock = new GameClock();
 
   // Grade, colisões e navegação
   private grid: BaseGrid | null = null;
@@ -414,6 +418,8 @@ export class BaseViewer {
     this.resizeObserver.observe(container);
     if (options?.videoSettings) this.setQualitySettings(options.videoSettings);
     this.resize();
+    // [seam:tempo-pausa-aceleracao] conecta o relógio global para dev actions de tempo
+    GameClock.setTimeSkipper((h) => this.skipToHour(h), () => this.skipSol());
 
     // Não depende de `document.hidden`: janela coberta/minimizada também pára o rAF sem avisar.
     this.stopTicker = createBackgroundTicker(() => {
@@ -962,7 +968,8 @@ export class BaseViewer {
     while (elapsed > 0) {
       const dt = Math.min(SIM_STEP, elapsed);
       elapsed -= dt;
-      this.simulate(dt, visible);
+      // [seam:tempo-pausa-aceleracao] escala de tempo aplicada à simulação
+      this.simulate(dt * this.clock.effectiveScale(), visible);
     }
   }
 
@@ -1037,7 +1044,8 @@ export class BaseViewer {
 
     this.accumulateSolarDust(dt);
     this.growCrops(dt);
-    this.broadcastState(dt, local);
+    // [seam:tempo-pausa-aceleracao] garante envio de presença na rede mesmo pausado
+    this.broadcastState(dt > 0 ? dt : SIM_STEP, local);
     this.checkStormAlert(local);
 
     if (this.mixer && animate) this.mixer.update(dt);
@@ -1829,6 +1837,33 @@ export class BaseViewer {
     this.options?.onStormChange?.(this.stormTarget > 0, false);
   }
 
+  // [seam:tempo-pausa-aceleracao] avanço de tempo para dev actions
+  skipToHour(targetHour: number) {
+    const normTarget = ((targetHour % 24) + 24) % 24;
+    const diff = (normTarget - this.currentHour + 24) % 24;
+    const hoursToAdd = diff === 0 ? 24 : diff;
+    const prevHour = this.currentHour;
+    this.currentHour = normTarget;
+    if (this.currentHour < prevHour) this.currentSol += 1;
+    if (this.room) {
+      const addedSec = (hoursToAdd * MARS_SOL_DURATION_SECONDS) / 24;
+      this.room.world.clockStart -= addedSec * 1000;
+      if (this.room.world.virtualElapsedMs !== undefined) {
+        this.room.world.virtualElapsedMs += addedSec * 1000;
+      }
+    }
+  }
+
+  skipSol() {
+    this.currentSol += 1;
+    if (this.room) {
+      this.room.world.clockStart -= MARS_SOL_DURATION_SECONDS * 1000;
+      if (this.room.world.virtualElapsedMs !== undefined) {
+        this.room.world.virtualElapsedMs += MARS_SOL_DURATION_SECONDS * 1000;
+      }
+    }
+  }
+
   setQualitySettings(video: VideoSettings) {
     this.currentReducedMotion = video.reducedMotion;
     this.controls.enableDamping = !video.reducedMotion;
@@ -2001,6 +2036,8 @@ export class BaseViewer {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    // [seam:tempo-pausa-aceleracao] limpa referência do skipper de tempo
+    GameClock.setTimeSkipper(null);
     cancelAnimationFrame(this.frame);
     this.stopTicker?.();
     window.removeEventListener('keydown', this.onKeyDown);
