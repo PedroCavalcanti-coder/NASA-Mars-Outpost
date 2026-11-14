@@ -19,6 +19,9 @@ const Friends = lazy(() => import('./app/pages/Friends'));
 const Messages = lazy(() => import('./app/pages/Messages'));
 const Profile = lazy(() => import('./app/pages/Profile'));
 const Game = lazy(() => import('./app/pages/Game'));
+const Center = lazy(() => import('./app/pages/Center'));
+const Support = lazy(() => import('./app/pages/Support'));
+const About = lazy(() => import('./app/pages/About'));
 const NotFound = lazy(() => import('./app/pages/NotFound'));
 
 export function App() {
@@ -42,6 +45,11 @@ export function App() {
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route index element={<Home />} />
+
+          {/* Páginas Públicas do Projeto */}
+          <Route path="centro" element={<Center />} />
+          <Route path="suporte" element={<Support />} />
+          <Route path="sobre" element={<About />} />
 
           <Route element={<AuthLayout />}>
             <Route

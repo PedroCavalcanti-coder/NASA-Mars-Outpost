@@ -20,6 +20,20 @@
   inset: 0;
   pointer-events: none;
 }
+/* ---------- Flash Branco de Decolagem ---------- */
+.launch-whiteout {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.launch-whiteout.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
 .launch-sky {
   overflow: hidden;
   background:

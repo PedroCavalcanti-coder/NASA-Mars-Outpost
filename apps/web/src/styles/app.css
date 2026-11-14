@@ -112,8 +112,8 @@
   padding: 48px;
   overflow: hidden;
   background:
-    radial-gradient(800px 420px at 70% 15%, rgb(255 176 102 / 0.35), transparent 62%),
-    linear-gradient(180deg, #2a1209 0%, #4a2312 60%, #7a3a1c 100%);
+    radial-gradient(ellipse at 70% 25%, rgba(120, 172, 225, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #071026 0%, #102450 60%, #18336a 100%);
 }
 @media (min-width: 960px) {
   .auth__art {
@@ -136,12 +136,14 @@
 .auth__art-copy p {
   font-size: 1.25rem;
   line-height: 1.4;
+  color: #dceafc;
 }
 .auth__side {
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 24px;
   padding: 20px var(--gutter);
+  background: #08122c;
 }
 .auth__top {
   display: flex;
@@ -152,19 +154,29 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-dim);
+  color: #8fbbe9;
   text-decoration: none;
   font-size: 0.95rem;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+.auth__back:hover {
+  color: #ffffff;
 }
 .auth__card {
   align-self: center;
   justify-self: center;
   width: min(440px, 100%);
-  padding: clamp(20px, 4vw, 32px);
+  padding: clamp(24px, 4vw, 36px);
+  border: 2px solid #78ace1;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(22, 45, 90, 0.85), rgba(10, 20, 48, 0.95));
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px rgba(4, 9, 28, 0.8);
 }
 .auth__legal {
   text-align: center;
-  color: var(--text-mute);
+  color: #8fbbe9;
   font-size: var(--fs-sm);
 }
 .auth-form {
@@ -172,7 +184,7 @@
   gap: 16px;
 }
 .auth-form__lead {
-  color: var(--text-dim);
+  color: #c5daf7;
   margin-top: -6px;
 }
 .auth-form__row {
@@ -182,7 +194,7 @@
 }
 .auth-form__alt {
   text-align: center;
-  color: var(--text-dim);
+  color: #c5daf7;
   font-size: 0.95rem;
 }
 
@@ -192,6 +204,7 @@
   min-height: 100vh;
   grid-template-columns: 1fr;
   grid-template-rows: auto 1fr auto;
+  background: #08122c;
 }
 .app-topbar,
 .app-tabbar {
@@ -206,10 +219,10 @@
   z-index: 20;
   align-items: center;
   justify-content: space-between;
-  padding: 10px var(--gutter);
-  background: rgb(20 10 7 / 0.92);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
+  padding: 12px var(--gutter);
+  background: rgba(9, 21, 52, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(120, 172, 225, 0.2);
 }
 .app-main {
   padding: 24px var(--gutter) 32px;
@@ -223,8 +236,9 @@
   z-index: 20;
   justify-content: space-around;
   padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-  background: rgb(20 10 7 / 0.96);
-  border-top: 1px solid var(--line);
+  background: rgba(9, 21, 52, 0.95);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(120, 172, 225, 0.2);
 }
 .app-tabbar a,
 .app-tabbar button {
@@ -236,8 +250,8 @@
   padding: 6px 8px;
   border: 0;
   background: transparent;
-  color: var(--text-mute);
-  font: 600 0.78rem var(--font-display);
+  color: #8fbbe9;
+  font: 700 0.78rem var(--font-display);
   letter-spacing: 0.06em;
   text-decoration: none;
   text-transform: uppercase;
@@ -248,7 +262,7 @@
   height: 22px;
 }
 .app-tabbar a.active {
-  color: var(--brand-hi);
+  color: #ffb511;
 }
 .app-tabbar .badge {
   position: absolute;
@@ -260,7 +274,7 @@
 }
 @media (min-width: 761px) {
   .app-shell {
-    grid-template-columns: 250px 1fr;
+    grid-template-columns: 260px 1fr;
     grid-template-rows: 1fr;
   }
   .app-topbar,
@@ -274,9 +288,9 @@
     flex-direction: column;
     gap: 24px;
     height: 100vh;
-    padding: 20px 14px;
-    background: var(--bg-2);
-    border-right: 1px solid var(--line);
+    padding: 24px 16px;
+    background: #091534;
+    border-right: 1px solid rgba(120, 172, 225, 0.2);
   }
   .app-main {
     padding: 36px var(--gutter) 48px;
@@ -284,31 +298,33 @@
 }
 .side-nav {
   display: grid;
-  gap: 4px;
+  gap: 6px;
 }
 .side-nav a {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-height: 44px;
-  padding: 0 12px;
-  border-radius: var(--radius-sm);
-  color: var(--text-dim);
-  font: 600 1.05rem var(--font-display);
+  padding: 0 14px;
+  border-radius: 12px;
+  color: #c5daf7;
+  font: 700 1rem var(--font-display);
   letter-spacing: 0.04em;
   text-decoration: none;
+  transition: all 0.2s;
 }
 .side-nav a svg {
   width: 20px;
   height: 20px;
 }
 .side-nav a:hover {
-  background: var(--surface);
-  color: var(--text);
+  background: rgba(40, 80, 160, 0.35);
+  color: #ffffff;
 }
 .side-nav a.active {
-  background: var(--surface-2);
-  color: var(--brand-hi);
+  background: linear-gradient(90deg, rgba(40, 85, 170, 0.8), rgba(28, 62, 130, 0.6));
+  border: 1px solid rgba(120, 172, 225, 0.4);
+  color: #ffffff;
 }
 .side-nav .badge {
   margin-left: auto;
@@ -318,9 +334,10 @@
   align-items: center;
   gap: 10px;
   margin-top: auto;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(16, 33, 70, 0.6);
+  border: 1px solid rgba(120, 172, 225, 0.25);
 }
 .side-user__info {
   min-width: 0;

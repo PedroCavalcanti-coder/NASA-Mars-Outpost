@@ -249,10 +249,19 @@ export class LaunchScene {
   setReducedMotion(reduced: boolean) {
     if (this.launchAt === null) this.reduced = reduced;
   }
-  setQuality(quality: 'standard' | 'low') {
-    this.renderer.shadowMap.enabled = quality !== 'low';
-    this.renderer.setPixelRatio(quality === 'low' ? 1 : Math.min(devicePixelRatio, 1.75));
+  setQuality(quality: 'low' | 'medium' | 'high' | 'standard') {
+    const isLow = quality === 'low';
+    const isHigh = quality === 'high';
+    this.renderer.shadowMap.enabled = !isLow;
+    this.renderer.setPixelRatio(isLow ? 1 : isHigh ? Math.min(devicePixelRatio, 2) : Math.min(devicePixelRatio, 1.5));
     this.resize();
+  }
+  setAntialiasing(enabled: boolean) {
+    this.renderer.setPixelRatio(enabled ? Math.min(devicePixelRatio, 1.75) : 1);
+    this.resize();
+  }
+  setPostProcessing(enabled: boolean) {
+    this.renderer.toneMapping = enabled ? THREE.ACESFilmicToneMapping : THREE.LinearToneMapping;
   }
   private makeLandscape(site: THREE.Group) {
     const grass = mat(0x679153),

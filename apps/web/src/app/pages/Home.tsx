@@ -1,10 +1,16 @@
-import { ArrowRight, LogIn, LogOut, Settings, X } from 'lucide-react';
+import { ArrowRight, LogIn, LogOut, Settings } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
-import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
-import { PlayModal } from './PlayModal';
+import { LoadingScreen } from '../components/LoadingScreen';
+import {
+  type AudioSettings,
+  type GameplaySettings,
+  SettingsModal,
+  type VideoSettings,
+} from '../components/SettingsModal';
+import { SuitModal } from '../components/astronaut/SuitModal';
 import './home.css';
 
 export default function Home() {
@@ -13,18 +19,53 @@ export default function Home() {
   const nav = useNavigate();
   const canvas = useRef<HTMLDivElement>(null);
   const target = useRef<HTMLButtonElement>(null);
-  const dialog = useRef<HTMLDialogElement>(null);
   const scene = useRef<LaunchScene | null>(null);
   const started = useRef(false);
+
   const [phase, setPhase] = useState<'ready' | 'ignition' | 'flight' | 'complete'>('ready');
   const [fallback, setFallback] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [panel, setPanel] = useState<'settings' | 'about'>('settings');
-  const [playModalOpen, setPlayModalOpen] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(
-    () => matchMedia('(prefers-reduced-motion: reduce)').matches,
-  );
-  const [quality, setQuality] = useState<'standard' | 'low'>('standard');
+
+  // Efeito de tela branca ao se aproximar do fim do lançamento
+  const [whiteout, setWhiteout] = useState(false);
+
+  // Popup de apelido e personalização do astronauta
+  const [suitModalOpen, setSuitModalOpen] = useState(false);
+  const [astronautName, setAstronautName] = useState('');
+
+  // Tela de Loading antes de entrar no jogo
+  const [showLoading, setShowLoading] = useState(false);
+
+  // Menu de Configurações com sub-painéis
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Detecção de tela pequena: baixo por padrão em mobile, médio em desktop
+  const isSmallScreen =
+    typeof window !== 'undefined' &&
+    (window.innerWidth < 768 || matchMedia('(pointer: coarse)').matches);
+
+  const [video, setVideo] = useState<VideoSettings>({
+    quality: isSmallScreen ? 'low' : 'medium',
+    postProcessing: true,
+    antialiasing: true,
+    reducedMotion:
+      typeof window !== 'undefined'
+        ? matchMedia('(prefers-reduced-motion: reduce)').matches
+        : false,
+  });
+
+  const [audio, setAudio] = useState<AudioSettings>({
+    masterVolume: 80,
+    sfxVolume: 85,
+    musicVolume: 70,
+    muted: false,
+  });
+
+  const [gameplay, setGameplay] = useState<GameplaySettings>({
+    showHints: true,
+    highContrast: false,
+    cameraSensitivity: 1,
+  });
 
   useEffect(() => {
     if (!canvas.current || !target.current) return;
@@ -35,8 +76,21 @@ export default function Home() {
         (p) => {
           setProgress(p);
           setPhase(p > 0.14 ? 'flight' : 'ignition');
+
+          // Quando chegar perto de terminar a animação (aprox 78%), a tela fica toda branca
+          if (p >= 0.78) {
+            setWhiteout(true);
+          }
         },
-        () => setPhase('complete'),
+        () => {
+          setPhase('complete');
+          // Ao completar a decolagem, abre o popup de apelido e personalização
+          setSuitModalOpen(true);
+          // Dissipa suavemente o flash branco revelando a personalização
+          setTimeout(() => {
+            setWhiteout(false);
+          }, 350);
+        },
       );
     } catch {
       canvas.current.replaceChildren();
@@ -49,47 +103,36 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    scene.current?.setReducedMotion(reducedMotion);
-  }, [reducedMotion]);
+    scene.current?.setReducedMotion(video.reducedMotion);
+  }, [video.reducedMotion]);
 
   useEffect(() => {
-    scene.current?.setQuality(quality);
-  }, [quality]);
+    scene.current?.setQuality(video.quality);
+  }, [video.quality]);
 
-  // Ao completar a decolagem, aterra automaticamente na base em Marte após breve transição
   useEffect(() => {
-    if (phase === 'complete') {
-      const timer = setTimeout(() => {
-        nav('/jogar');
-      }, 1200);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, nav]);
+    scene.current?.setAntialiasing(video.antialiasing);
+  }, [video.antialiasing]);
+
+  useEffect(() => {
+    scene.current?.setPostProcessing(video.postProcessing);
+  }, [video.postProcessing]);
 
   const launch = () => {
-    if (started.current || !scene.current || fallback) return;
+    if (started.current) return;
+    if (fallback) {
+      setSuitModalOpen(true);
+      return;
+    }
+    if (!scene.current) return;
     started.current = true;
     setPhase('ignition');
     scene.current.launch();
   };
 
-  const handlePlay = () => {
-    if (phase !== 'ready') return;
-    const currentName = user?.name ?? getGuestName();
-    if (!currentName) {
-      setPlayModalOpen(true);
-      return;
-    }
-    if (fallback) {
-      nav('/jogar');
-      return;
-    }
-    launch();
-  };
-
-  const openPanel = (next: 'settings' | 'about') => {
-    setPanel(next);
-    dialog.current?.showModal();
+  const handleSuitLaunch = (name: string) => {
+    setAstronautName(name);
+    setShowLoading(true);
   };
 
   const launching = phase !== 'ready';
@@ -98,8 +141,11 @@ export default function Home() {
     <main
       className={`launch-home ${launching ? 'is-launching' : ''}`}
       data-phase={phase}
-      data-reduced-motion={reducedMotion}
+      data-reduced-motion={video.reducedMotion}
     >
+      {/* Efeito de flash/tela branca ao final do lançamento */}
+      <div className={`launch-whiteout ${whiteout ? 'is-active' : ''}`} aria-hidden="true" />
+
       <div className="launch-sky" aria-hidden="true">
         <div className="launch-moon">
           <span />
@@ -148,7 +194,7 @@ export default function Home() {
             className="launch-nav-button"
             type="button"
             aria-label="Configurações"
-            onClick={() => openPanel('settings')}
+            onClick={() => setSettingsOpen(true)}
           >
             <Settings size={21} aria-hidden="true" />
             <span>Configurações</span>
@@ -189,25 +235,14 @@ export default function Home() {
           Construa e mantenha uma base em Marte
           <br className="launch-desktop-break" /> com um clima de exploração e descoberta.
         </p>
-        {fallback ? (
-          <button className="launch-cta" type="button" onClick={handlePlay}>
-            <span className="launch-cta-icon" aria-hidden="true">
-              <ArrowRight />
-            </span>
-            <span className="launch-cta-label">
-              Jogar Agora<small>Entrar direto na base marciana</small>
-            </span>
-          </button>
-        ) : (
-          <button className="launch-cta" type="button" onClick={handlePlay} disabled={launching}>
-            <span className="launch-cta-icon" aria-hidden="true">
-              <ArrowRight />
-            </span>
-            <span className="launch-cta-label">
-              Jogar Agora<small>Sua missão começa aqui!</small>
-            </span>
-          </button>
-        )}
+        <button className="launch-cta" type="button" onClick={launch} disabled={launching}>
+          <span className="launch-cta-icon" aria-hidden="true">
+            <ArrowRight />
+          </span>
+          <span className="launch-cta-label">
+            Jogar Agora<small>Sua missão começa aqui!</small>
+          </span>
+        </button>
       </section>
 
       {!fallback && (
@@ -217,7 +252,7 @@ export default function Home() {
           className="rocket-hit-target"
           aria-label="Lançar foguete"
           title="Lançar foguete"
-          onClick={handlePlay}
+          onClick={launch}
           disabled={launching}
         />
       )}
@@ -240,9 +275,12 @@ export default function Home() {
               <button
                 type="button"
                 className="launch-skip-button"
-                onClick={() => nav('/jogar')}
+                onClick={() => {
+                  setWhiteout(false);
+                  setSuitModalOpen(true);
+                }}
               >
-                Pular viagem e aterrissar na base →
+                Personalizar astronauta e aterrissar →
               </button>
             </div>
           </>
@@ -255,80 +293,38 @@ export default function Home() {
           {launching ? 'EXPEDIÇÃO EM VOO' : 'TODOS OS SISTEMAS PRONTOS'}
         </span>
         <nav className="launch-footer-nav" aria-label="Links do projeto">
-          <Link to="/central">Centro</Link>
-          <a
-            href="https://github.com/PedroCavalcanti-coder/NASA-Mars-Outpost/issues"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Suporte
-          </a>
-          <button type="button" onClick={() => openPanel('about')}>
-            Sobre
-          </button>
+          <Link to="/centro">Centro</Link>
+          <Link to="/suporte">Suporte</Link>
+          <Link to="/sobre">Sobre</Link>
         </nav>
       </footer>
 
-      {/* Modal de apelido/jogar */}
-      <PlayModal
-        open={playModalOpen}
-        onClose={() => setPlayModalOpen(false)}
-        onStart={launch}
+      {/* Popup de Personalização do Astronauta e Apelido */}
+      <SuitModal
+        open={suitModalOpen}
+        onClose={() => setSuitModalOpen(false)}
+        onLaunch={handleSuitLaunch}
       />
 
-      <dialog className="launch-dialog" ref={dialog} aria-labelledby="launch-dialog-title">
-        <div className="launch-dialog-head">
-          <span className="launch-dialog-kicker">MARS OUTPOST</span>
-          <button
-            className="launch-dialog-close"
-            type="button"
-            aria-label="Fechar"
-            onClick={() => dialog.current?.close()}
-          >
-            <X size={22} />
-          </button>
-        </div>
-        <h2 id="launch-dialog-title">{panel === 'settings' ? 'Configurações' : 'Nossa missão'}</h2>
-        {panel === 'settings' ? (
-          <div className="launch-preferences">
-            <label className="launch-preference">
-              <span>
-                Reduzir movimentos<small>Uma decolagem mais suave, sem movimento de câmera.</small>
-              </span>
-              <input
-                type="checkbox"
-                checked={reducedMotion}
-                disabled={launching}
-                onChange={(e) => setReducedMotion(e.target.checked)}
-              />
-            </label>
-            <label className="launch-preference">
-              <span>
-                Qualidade gráfica<small>Ajuste o cenário para o seu dispositivo.</small>
-              </span>
-              <select
-                value={quality}
-                onChange={(e) => setQuality(e.target.value as 'standard' | 'low')}
-              >
-                <option value="standard">Padrão</option>
-                <option value="low">Econômica</option>
-              </select>
-            </label>
-          </div>
-        ) : (
-          <div className="launch-about">
-            <p>
-              Explore Marte, reúna sua tripulação e descubra a ciência por trás de uma base
-              espacial.
-            </p>
-            <p>
-              Mars Outpost é um projeto educativo criado para o NASA Space Apps Challenge de
-              Fortaleza.
-            </p>
-            <small>Projeto independente, sem endosso ou parceria oficial da NASA.</small>
-          </div>
-        )}
-      </dialog>
+      {/* Tela de Loading que leva para o game */}
+      {showLoading && (
+        <LoadingScreen
+          astronautName={astronautName}
+          onComplete={() => nav('/jogar')}
+        />
+      )}
+
+      {/* Menu de Configurações avançado com Sub-Painéis */}
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        video={video}
+        onVideoChange={setVideo}
+        audio={audio}
+        onAudioChange={setAudio}
+        gameplay={gameplay}
+        onGameplayChange={setGameplay}
+      />
     </main>
   );
 }

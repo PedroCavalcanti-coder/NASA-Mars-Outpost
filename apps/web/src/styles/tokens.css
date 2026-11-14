@@ -1,45 +1,44 @@
-@import "@fontsource/rajdhani/500.css";
-@import "@fontsource/rajdhani/600.css";
-@import "@fontsource/rajdhani/700.css";
 @import "@fontsource/barlow/400.css";
 @import "@fontsource/barlow/500.css";
 @import "@fontsource/barlow/600.css";
+@import "@fontsource/barlow/700.css";
+@import "@fontsource/barlow/800.css";
 
 :root {
   color-scheme: dark;
 
-  /* superfícies (poeira marciana escura) */
-  --bg: #140a07;
-  --bg-2: #1b0f0a;
-  --surface: #231410;
-  --surface-2: #2d1b15;
-  --line: rgb(255 196 150 / 0.13);
-  --line-strong: rgb(255 196 150 / 0.26);
+  /* Superfícies cósmicas e espaço profundo */
+  --bg: #071026;
+  --bg-2: #0b183a;
+  --surface: #10234c;
+  --surface-2: #18336a;
+  --line: rgba(120, 172, 225, 0.22);
+  --line-strong: rgba(120, 172, 225, 0.48);
 
-  /* texto */
-  --text: #f7ebe1;
-  --text-dim: #cdb4a3;
-  --text-mute: #9d8474;
+  /* Texto */
+  --text: #f7f8ff;
+  --text-dim: #c5daf7;
+  --text-mute: #8fbbe9;
 
-  /* marca e estados */
-  --brand: #f07a2a;
-  --brand-hi: #ffb066;
-  --brand-lo: #a8400f;
-  --on-brand: #1a0a03;
-  --ok: #5ed39a;
-  --warn: #f5c04a;
-  --danger: #ff6b5e;
-  --info: #7cc4ff;
+  /* Marca e Destaques (Ouro Solar e Azul Gelo) */
+  --brand: #ffb511;
+  --brand-hi: #ffd63c;
+  --brand-lo: #c68600;
+  --on-brand: #0b1736;
+  --ok: #6ee7b7;
+  --warn: #ffb511;
+  --danger: #ff7b7b;
+  --info: #78ace1;
 
-  --font-display: "Rajdhani", system-ui, sans-serif;
-  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Barlow", sans-serif;
+  --font-body: "Barlow", sans-serif;
 
   --fs-sm: 0.875rem;
   --fs-md: 1rem;
   --fs-lg: 1.25rem;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 18px;
+  --radius-sm: 10px;
   --gutter: clamp(16px, 4vw, 32px);
-  --shadow: 0 10px 30px rgb(0 0 0 / 0.35);
-  --focus: 0 0 0 3px rgb(255 176 102 / 0.45);
+  --shadow: 0 15px 45px rgba(4, 9, 28, 0.65);
+  --focus: 0 0 0 3px rgba(255, 181, 17, 0.4);
 }
