@@ -455,6 +455,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           <Link to="/previa/painel-solar">Prévia: painel solar</Link>
           <Link to="/previa/filtro-oxigenio">Prévia: oxigênio</Link>
           <Link to="/previa/estufa">Prévia: estufa</Link>
+          <Link to="/previa/rover">Prévia: rover</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>
