@@ -1,0 +1,595 @@
+{
+ "id": "hellas",
+ "name": "Hellas · Estrela",
+ "description": "Laboratório no centro e quatro braços longos. Extras: laboratório, enfermaria e garagem.",
+ "tileMeters": 4,
+ "bounds": {
+  "x0": -9,
+  "y0": -8,
+  "x1": 12,
+  "y1": 12
+ },
+ "rooms": [
+  {
+   "id": "Laboratorio_0",
+   "kind": "Laboratorio",
+   "tile": [
+    0,
+    0
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      12
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      0
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Estufa_1",
+   "kind": "Estufa",
+   "tile": [
+    0,
+    5
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      26
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      32
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      20
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      26
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Habitacao_2",
+   "kind": "Habitacao",
+   "tile": [
+    5,
+    0
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      32,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      26,
+      8
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      26,
+      0
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      20,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Comunicacoes_3",
+   "kind": "Comunicacoes",
+   "tile": [
+    -4,
+    1
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      -8,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -16,
+      10
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Medicina_4",
+   "kind": "Medicina",
+   "tile": [
+    0,
+    -4
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      -8
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S0",
+     "pos": [
+      2,
+      -16
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "CentralEnergia_5",
+   "kind": "CentralEnergia",
+   "tile": [
+    10,
+    0
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      46,
+      8
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      40,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "SuporteVida_6",
+   "kind": "SuporteVida",
+   "tile": [
+    1,
+    10
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      46
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S0",
+     "pos": [
+      6,
+      40
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Armazem_7",
+   "kind": "Armazem",
+   "tile": [
+    -9,
+    2
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      -24,
+      10
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N0",
+     "pos": [
+      -34,
+      16
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      -30,
+      8
+     ],
+     "garage": true,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Garagem_8",
+   "kind": "Garagem",
+   "tile": [
+    -1,
+    -8
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "S0",
+     "pos": [
+      -2,
+      -32
+     ],
+     "garage": true,
+     "exterior": true
+    },
+    {
+     "side": "S2",
+     "pos": [
+      6,
+      -32
+     ],
+     "garage": true,
+     "exterior": true
+    },
+    {
+     "side": "E1",
+     "pos": [
+      8,
+      -26
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "N1",
+     "pos": [
+      2,
+      -24
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  }
+ ],
+ "corridors": [
+  {
+   "tile": [
+    3,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    4,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    3
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    1,
+    4
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    1,
+    8
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    1,
+    9
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    8,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    9,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -2,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -1,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    -2
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    1,
+    -1
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -6,
+    2
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -5,
+    2
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    0,
+    -6
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    0,
+    -5
+   ],
+   "axis": "y"
+  }
+ ],
+ "bay": {
+  "room": "Garagem_8",
+  "kind": "Garagem",
+  "crew": {
+   "path": [
+    [
+     -2.0,
+     -28.6
+    ],
+    [
+     -2.0,
+     -32.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S0",
+   "exit": [
+    0,
+    -1
+   ]
+  },
+  "auto": {
+   "path": [
+    [
+     6.0,
+     -29.0
+    ],
+    [
+     6.0,
+     -32.0
+    ]
+   ],
+   "heading": [
+    0,
+    -1
+   ],
+   "door": "S2",
+   "exit": [
+    0,
+    -1
+   ]
+  }
+ },
+ "solar": [
+  [
+   38.0,
+   -14.0
+  ],
+  [
+   42.0,
+   -14.0
+  ],
+  [
+   46.0,
+   -14.0
+  ],
+  [
+   38.0,
+   -10.0
+  ],
+  [
+   42.0,
+   -10.0
+  ],
+  [
+   46.0,
+   -10.0
+  ],
+  [
+   38.0,
+   -6.0
+  ],
+  [
+   42.0,
+   -6.0
+  ],
+  [
+   46.0,
+   -6.0
+  ]
+ ],
+ "pad": [
+  26,
+  -26
+ ],
+ "model": "/assets/bases/base_hellas.glb"
+}

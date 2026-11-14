@@ -14,8 +14,8 @@ Challenge, no hackathon de Fortaleza.
 | Cadastro, login, sessões, recuperação de senha | ✅ pronto |
 | Amigos (pedidos, presença online) e mensagens em tempo real | ✅ pronto |
 | API, Socket.IO e banco de dados (Neon) | ✅ pronto |
+| Jogar sem conta (pop-up de apelido) e cena 3D da base | ✅ pronto: sorteia 1 das 8 bases |
 | Jogo: simulação, mundos, papéis, eventos | 🚧 próxima etapa |
-| Cena 3D da base | 🚧 próxima etapa |
 
 Esta base é o alicerce: o jogo se encaixa nela usando a mesma conta, os mesmos amigos e o mesmo WebSocket.
 
@@ -116,8 +116,21 @@ apps/
 packages/
   shared/              Tipos, constantes, schemas Zod e protocolo do socket
   sim/                 Simulação do jogo (esqueleto, a ser preenchido)
+Assets/                Modelos 3D, animações e arquivos do Blender (fonte única)
 scripts/               gen-jwt-secret.mjs, smoke.mjs
 ```
+
+## Jogar sem conta e as 8 bases
+
+O botão **Jogar** da home abre um pop-up pedindo só o apelido (guardado na aba do navegador, nunca enviado ao
+servidor) e leva a `/jogar`. A cada partida o jogo **sorteia uma das 8 bases** (Jezero, Utopia, Gale, Olympus,
+Valles, Hellas, Elysium, Arcadia), com terreno, estufas, painéis solares, nave e antena animada. Dá para girar,
+mover e aproximar a câmera, mostrar ou ocultar os telhados e sortear outra base. As regras do jogo entram nessa
+cena na próxima etapa.
+
+Os modelos ficam em `Assets/` (pastas `bases` e `modelos`). O Vite os serve de lá em `/assets/…` e os inclui no
+build, sem duplicar arquivos; `.blend`, scripts e modelos brutos nunca vão para o site. O `.gitignore` ignora
+`*.glb`: **para o deploy funcionar, os GLB precisam estar no repositório** (ou ser fornecidos no build).
 
 ## Segurança
 

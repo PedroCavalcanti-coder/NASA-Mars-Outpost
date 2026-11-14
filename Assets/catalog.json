@@ -1,0 +1,2285 @@
+{
+  "gerado": "node scripts/export-assets.mjs",
+  "itens": [
+    {
+      "arquivo": "modelos/antenna.glb",
+      "triangulos": 1048,
+      "nos": 10,
+      "nosNomeados": [
+        "dish_tilt_mesh",
+        "dish_tilt",
+        "dish_yaw",
+        "service_panel_mesh.007",
+        "service_panel.007",
+        "static_body_mesh.007",
+        "static_body.007",
+        "status_lamp_mesh.005",
+        "status_lamp.005",
+        "antenna_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 29
+    },
+    {
+      "arquivo": "modelos/astronaut.glb",
+      "triangulos": 2304,
+      "nos": 39,
+      "nosNomeados": [
+        "leg_L",
+        "leg_R",
+        "arm_L",
+        "tool_botany_mesh",
+        "tool_botany",
+        "tool_cleaning_mesh",
+        "tool_cleaning",
+        "tool_engineering_mesh",
+        "tool_engineering",
+        "tool_harvest_mesh",
+        "tool_harvest",
+        "tool_medicine_mesh",
+        "tool_medicine",
+        "tool_science_mesh",
+        "tool_science",
+        "task_tool",
+        "arm_R",
+        "face",
+        "head",
+        "crew_marker_mesh",
+        "crew_marker",
+        "torso",
+        "root",
+        "astronaut_rig",
+        "color_backpack_mesh",
+        "color_backpack",
+        "color_boots_mesh",
+        "color_boots",
+        "color_gloves_mesh",
+        "color_gloves",
+        "color_helmet_mesh",
+        "color_helmet",
+        "color_suit_mesh",
+        "color_suit",
+        "color_vest_mesh",
+        "color_vest",
+        "static_body_mesh",
+        "static_body",
+        "astronaut_root"
+      ],
+      "esqueleto": [
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        },
+        {
+          "name": "astronaut_rig",
+          "ossos": [
+            "root",
+            "leg_L",
+            "leg_R",
+            "torso",
+            "arm_L",
+            "arm_R",
+            "head"
+          ]
+        }
+      ],
+      "animacoes": [
+        {
+          "nome": "Idle",
+          "duracaoSeg": 3.04,
+          "canais": 21
+        },
+        {
+          "nome": "Walk",
+          "duracaoSeg": 1.04,
+          "canais": 21
+        },
+        {
+          "nome": "Work",
+          "duracaoSeg": 1.04,
+          "canais": 21
+        },
+        {
+          "nome": "Wave",
+          "duracaoSeg": 2.04,
+          "canais": 21
+        },
+        {
+          "nome": "Clean",
+          "duracaoSeg": 2.04,
+          "canais": 21
+        },
+        {
+          "nome": "Plant",
+          "duracaoSeg": 2.04,
+          "canais": 21
+        },
+        {
+          "nome": "Harvest",
+          "duracaoSeg": 2.04,
+          "canais": 21
+        }
+      ],
+      "materiais": [
+        "Material_10",
+        "M_tool_cleaning_0",
+        "M_tool_cleaning_1",
+        "M_tool_cleaning_2",
+        "Material_8",
+        "M_tool_harvest_0",
+        "M_tool_harvest_1",
+        "M_tool_harvest_2",
+        "Material_11",
+        "Material_9",
+        "M_Rosto",
+        "Material_7",
+        "Material_6",
+        "Material_5",
+        "Material_4",
+        "Material_1",
+        "Material_3",
+        "Material_2",
+        "Material_0"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/astronaut_Rostos.png",
+          "tamanho": [
+            1024,
+            256
+          ]
+        }
+      ],
+      "tamanhoKB": 127
+    },
+    {
+      "arquivo": "modelos/battery_bank.glb",
+      "triangulos": 1152,
+      "nos": 14,
+      "nosNomeados": [
+        "charge_01_mesh",
+        "charge_01",
+        "charge_02_mesh",
+        "charge_02",
+        "charge_03_mesh",
+        "charge_03",
+        "charge_04_mesh",
+        "charge_04",
+        "charge_display",
+        "service_panel_mesh.005",
+        "service_panel.005",
+        "static_body_mesh.005",
+        "static_body.005",
+        "battery_bank_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 26
+    },
+    {
+      "arquivo": "modelos/cargo_pallet.glb",
+      "triangulos": 492,
+      "nos": 3,
+      "nosNomeados": [
+        "static_body_mesh.012",
+        "static_body.012",
+        "cargo_pallet_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 11
+    },
+    {
+      "arquivo": "modelos/greenhouse.glb",
+      "triangulos": 3072,
+      "nos": 23,
+      "nosNomeados": [
+        "crop_growing_mesh",
+        "crop_growing",
+        "crop_ready_mesh",
+        "crop_ready",
+        "crop_seedling_mesh",
+        "crop_seedling",
+        "crop_bed_left",
+        "crop_growing_mesh.001",
+        "crop_growing.001",
+        "crop_ready_mesh.001",
+        "crop_ready.001",
+        "crop_seedling_mesh.001",
+        "crop_seedling.001",
+        "crop_bed_right",
+        "service_panel_mesh.001",
+        "service_panel.001",
+        "static_body_mesh.001",
+        "static_body.001",
+        "status_lamp_mesh.001",
+        "status_lamp.001",
+        "Mesh_1.001",
+        "window_shell",
+        "greenhouse_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0",
+        "Material_1"
+      ],
+      "texturas": [],
+      "tamanhoKB": 71
+    },
+    {
+      "arquivo": "modelos/habitat.glb",
+      "triangulos": 2736,
+      "nos": 9,
+      "nosNomeados": [
+        "regolith_shield_mesh",
+        "regolith_shield",
+        "service_panel_mesh",
+        "service_panel",
+        "static_body_mesh",
+        "static_body",
+        "status_lamp_mesh",
+        "status_lamp",
+        "habitat_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 63
+    },
+    {
+      "arquivo": "modelos/ice_extractor.glb",
+      "triangulos": 622,
+      "nos": 7,
+      "nosNomeados": [
+        "service_panel_mesh.009",
+        "service_panel.009",
+        "static_body_mesh.009",
+        "static_body.009",
+        "status_lamp_mesh.007",
+        "status_lamp.007",
+        "ice_extractor_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 17
+    },
+    {
+      "arquivo": "modelos/lab.glb",
+      "triangulos": 736,
+      "nos": 9,
+      "nosNomeados": [
+        "sample_drawer_mesh",
+        "sample_drawer",
+        "service_panel_mesh.002",
+        "service_panel.002",
+        "static_body_mesh.002",
+        "static_body.002",
+        "status_lamp_mesh.002",
+        "status_lamp.002",
+        "lab_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 20
+    },
+    {
+      "arquivo": "modelos/moxie.glb",
+      "triangulos": 888,
+      "nos": 7,
+      "nosNomeados": [
+        "service_panel_mesh.003",
+        "service_panel.003",
+        "static_body_mesh.003",
+        "static_body.003",
+        "status_lamp_mesh.003",
+        "status_lamp.003",
+        "moxie_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 22
+    },
+    {
+      "arquivo": "modelos/oxygen_tank.glb",
+      "triangulos": 486,
+      "nos": 7,
+      "nosNomeados": [
+        "service_panel_mesh.011",
+        "service_panel.011",
+        "static_body_mesh.011",
+        "static_body.011",
+        "status_lamp_mesh.009",
+        "status_lamp.009",
+        "oxygen_tank_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 14
+    },
+    {
+      "arquivo": "modelos/props.glb",
+      "triangulos": 464,
+      "nos": 3,
+      "nosNomeados": [
+        "static_body_mesh.013",
+        "static_body.013",
+        "props_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 10
+    },
+    {
+      "arquivo": "modelos/rover.glb",
+      "triangulos": 3036,
+      "nos": 8,
+      "nosNomeados": [
+        "Roda_0",
+        "Roda_1",
+        "Roda_2",
+        "Roda_3",
+        "Roda_4",
+        "Roda_5",
+        "rover_body",
+        "rover_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Drive",
+          "duracaoSeg": 1.04,
+          "canais": 8
+        }
+      ],
+      "materiais": [
+        "M_Rocket_Black",
+        "M_Telhado",
+        "M_NASA_Azul",
+        "M_Dark_Metal",
+        "M_Glow_Cyan",
+        "M_Hull_White",
+        "M_Vidro_Escuro",
+        "M_NASA_Vermelho",
+        "M_Glow_Orange",
+        "M_Janela_Luz",
+        "M_Decal_00"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/rover_Decal_00.png",
+          "tamanho": [
+            402,
+            319
+          ]
+        }
+      ],
+      "tamanhoKB": 67
+    },
+    {
+      "arquivo": "modelos/rover_remoto.glb",
+      "triangulos": 640,
+      "nos": 10,
+      "nosNomeados": [
+        "cabeca_camera",
+        "mastro",
+        "Roda_0",
+        "Roda_1",
+        "Roda_2",
+        "Roda_3",
+        "Roda_4",
+        "Roda_5",
+        "rover_remoto_body",
+        "rover_remoto_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Scan",
+          "duracaoSeg": 6.04,
+          "canais": 1
+        },
+        {
+          "nome": "Drive",
+          "duracaoSeg": 1.04,
+          "canais": 8
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Tela",
+        "M_Glow_Cyan",
+        "M_Aco",
+        "M_Borracha",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_Telhado",
+        "M_Glow_Orange"
+      ],
+      "texturas": [],
+      "tamanhoKB": 23
+    },
+    {
+      "arquivo": "modelos/solar_array.glb",
+      "triangulos": 636,
+      "nos": 9,
+      "nosNomeados": [
+        "panel_left_mesh",
+        "panel_left",
+        "panel_right_mesh",
+        "panel_right",
+        "service_panel_mesh.006",
+        "service_panel.006",
+        "static_body_mesh.006",
+        "static_body.006",
+        "solar_array_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 17
+    },
+    {
+      "arquivo": "modelos/water_recycler.glb",
+      "triangulos": 1028,
+      "nos": 9,
+      "nosNomeados": [
+        "filter_cartridge_mesh",
+        "filter_cartridge",
+        "service_panel_mesh.004",
+        "service_panel.004",
+        "static_body_mesh.004",
+        "static_body.004",
+        "status_lamp_mesh.004",
+        "status_lamp.004",
+        "water_recycler_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 26
+    },
+    {
+      "arquivo": "modelos/water_tank.glb",
+      "triangulos": 486,
+      "nos": 7,
+      "nosNomeados": [
+        "service_panel_mesh.010",
+        "service_panel.010",
+        "static_body_mesh.010",
+        "static_body.010",
+        "status_lamp_mesh.008",
+        "status_lamp.008",
+        "water_tank_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 14
+    },
+    {
+      "arquivo": "modelos/weather_station.glb",
+      "triangulos": 460,
+      "nos": 7,
+      "nosNomeados": [
+        "service_panel_mesh.008",
+        "service_panel.008",
+        "static_body_mesh.008",
+        "static_body.008",
+        "status_lamp_mesh.006",
+        "status_lamp.006",
+        "weather_station_root"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "Material_0"
+      ],
+      "texturas": [],
+      "tamanhoKB": 14
+    },
+    {
+      "arquivo": "bases/base_arcadia.glb",
+      "triangulos": 34344,
+      "nos": 230,
+      "nosNomeados": [
+        "B8_arcadia_Armazem_8_E0_Tampa",
+        "B8_arcadia_Armazem_8_N0_Porta_FolhaInf",
+        "B8_arcadia_Armazem_8_N0_Porta_FolhaSup",
+        "B8_arcadia_Armazem_8_N0_Porta",
+        "B8_arcadia_Armazem_8_Prateleira_00",
+        "B8_arcadia_Armazem_8_Prateleira_01",
+        "B8_arcadia_Armazem_8_Prateleira_02",
+        "B8_arcadia_Armazem_8_Prateleira_03",
+        "B8_arcadia_Armazem_8_S1_PortaGaragem_FolhaInf",
+        "B8_arcadia_Armazem_8_S1_PortaGaragem_FolhaSup",
+        "B8_arcadia_Armazem_8_S1_PortaGaragem",
+        "B8_arcadia_Armazem_8_S1_Rampa",
+        "B8_arcadia_Armazem_8_Telhado",
+        "B8_arcadia_Armazem_8",
+        "B8_arcadia_Bateria_00",
+        "B8_arcadia_Bateria_01",
+        "B8_arcadia_Bateria_10",
+        "B8_arcadia_Bateria_11",
+        "B8_arcadia_CentralEnergia_5_Bateria_02",
+        "B8_arcadia_CentralEnergia_5_Bateria_03",
+        "B8_arcadia_CentralEnergia_5_Bateria_04",
+        "B8_arcadia_CentralEnergia_5_Bateria_05",
+        "B8_arcadia_CentralEnergia_5_N1_Porta_FolhaInf",
+        "B8_arcadia_CentralEnergia_5_N1_Porta_FolhaSup",
+        "B8_arcadia_CentralEnergia_5_N1_Porta",
+        "B8_arcadia_CentralEnergia_5_PainelEletrico_00",
+        "B8_arcadia_CentralEnergia_5_RackServidor_01",
+        "B8_arcadia_CentralEnergia_5_Telhado",
+        "B8_arcadia_CentralEnergia_5_W1_Tampa",
+        "B8_arcadia_CentralEnergia_5",
+        "B8_arcadia_Comunicacoes_7_Cadeira_01",
+        "B8_arcadia_Comunicacoes_7_Computador_05",
+        "B8_arcadia_Comunicacoes_7_ConsoleComunicacao_00",
+        "B8_arcadia_Comunicacoes_7_E0_Porta_FolhaInf",
+        "B8_arcadia_Comunicacoes_7_E0_Porta_FolhaSup",
+        "B8_arcadia_Comunicacoes_7_E0_Porta",
+        "B8_arcadia_Comunicacoes_7_E0_Rampa",
+        "B8_arcadia_Comunicacoes_7_RackServidor_02",
+        "B8_arcadia_Comunicacoes_7_RackServidor_03",
+        "B8_arcadia_Comunicacoes_7_Telao_04",
+        "B8_arcadia_Comunicacoes_7_Antena_Prato",
+        "B8_arcadia_Comunicacoes_7_Telhado",
+        "B8_arcadia_Comunicacoes_7_W1_Porta_FolhaInf",
+        "B8_arcadia_Comunicacoes_7_W1_Porta_FolhaSup",
+        "B8_arcadia_Comunicacoes_7_W1_Porta",
+        "B8_arcadia_Comunicacoes_7",
+        "B8_arcadia_Corredor_00_Telhado",
+        "B8_arcadia_Corredor_00",
+        "B8_arcadia_Corredor_01_Telhado",
+        "B8_arcadia_Corredor_01",
+        "B8_arcadia_Corredor_02_Telhado",
+        "B8_arcadia_Corredor_02",
+        "B8_arcadia_Corredor_03_Telhado",
+        "B8_arcadia_Corredor_03",
+        "B8_arcadia_Corredor_04_Telhado",
+        "B8_arcadia_Corredor_04",
+        "B8_arcadia_Corredor_05_Telhado",
+        "B8_arcadia_Corredor_05",
+        "B8_arcadia_Corredor_06_Telhado",
+        "B8_arcadia_Corredor_06"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 26
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 26
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "Scan_B8_arcadia_Comunicacoes_7_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Parede_Interna",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Aco",
+        "M_Caixa_Carga",
+        "M_Decal_02",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Borracha",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Mars_Soil",
+        "M_Decal_04",
+        "M_Med_Red",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_04.webp",
+          "tamanho": [
+            461,
+            365
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_arcadia_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 818
+    },
+    {
+      "arquivo": "bases/base_elysium.glb",
+      "triangulos": 26577,
+      "nos": 219,
+      "nosNomeados": [
+        "B7_elysium_Armazem_6_Caixote_04",
+        "B7_elysium_Armazem_6_Caixote_05",
+        "B7_elysium_Armazem_6_Caixote_06",
+        "B7_elysium_Armazem_6_Caixote_07",
+        "B7_elysium_Armazem_6_E0_Porta_FolhaInf",
+        "B7_elysium_Armazem_6_E0_Porta_FolhaSup",
+        "B7_elysium_Armazem_6_E0_Porta",
+        "B7_elysium_Armazem_6_E0_Rampa",
+        "B7_elysium_Armazem_6_N0_Porta_FolhaInf",
+        "B7_elysium_Armazem_6_N0_Porta_FolhaSup",
+        "B7_elysium_Armazem_6_N0_Porta",
+        "B7_elysium_Armazem_6_Prateleira_00",
+        "B7_elysium_Armazem_6_Prateleira_01",
+        "B7_elysium_Armazem_6_Prateleira_02",
+        "B7_elysium_Armazem_6_Prateleira_03",
+        "B7_elysium_Armazem_6_S1_PortaGaragem_FolhaInf",
+        "B7_elysium_Armazem_6_S1_PortaGaragem_FolhaSup",
+        "B7_elysium_Armazem_6_S1_PortaGaragem",
+        "B7_elysium_Armazem_6_S1_Rampa",
+        "B7_elysium_Armazem_6_Telhado",
+        "B7_elysium_Armazem_6",
+        "B7_elysium_Bateria_00",
+        "B7_elysium_Bateria_01",
+        "B7_elysium_Bateria_10",
+        "B7_elysium_Bateria_11",
+        "B7_elysium_CentralEnergia_3_Bateria_02",
+        "B7_elysium_CentralEnergia_3_Bateria_03",
+        "B7_elysium_CentralEnergia_3_Bateria_04",
+        "B7_elysium_CentralEnergia_3_Bateria_05",
+        "B7_elysium_CentralEnergia_3_N1_Porta_FolhaInf",
+        "B7_elysium_CentralEnergia_3_N1_Porta_FolhaSup",
+        "B7_elysium_CentralEnergia_3_N1_Porta",
+        "B7_elysium_CentralEnergia_3_N1_Rampa",
+        "B7_elysium_CentralEnergia_3_PainelEletrico_00",
+        "B7_elysium_CentralEnergia_3_RackServidor_01",
+        "B7_elysium_CentralEnergia_3_Telhado",
+        "B7_elysium_CentralEnergia_3_W1_Porta_FolhaInf",
+        "B7_elysium_CentralEnergia_3_W1_Porta_FolhaSup",
+        "B7_elysium_CentralEnergia_3_W1_Porta",
+        "B7_elysium_CentralEnergia_3",
+        "B7_elysium_Comunicacoes_5_Cadeira_01",
+        "B7_elysium_Comunicacoes_5_Computador_05",
+        "B7_elysium_Comunicacoes_5_ConsoleComunicacao_00",
+        "B7_elysium_Comunicacoes_5_E0_Porta_FolhaInf",
+        "B7_elysium_Comunicacoes_5_E0_Porta_FolhaSup",
+        "B7_elysium_Comunicacoes_5_E0_Porta",
+        "B7_elysium_Comunicacoes_5_RackServidor_02",
+        "B7_elysium_Comunicacoes_5_RackServidor_03",
+        "B7_elysium_Comunicacoes_5_Telao_04",
+        "B7_elysium_Comunicacoes_5_Antena_Prato",
+        "B7_elysium_Comunicacoes_5_Telhado",
+        "B7_elysium_Comunicacoes_5_W1_Porta_FolhaInf",
+        "B7_elysium_Comunicacoes_5_W1_Porta_FolhaSup",
+        "B7_elysium_Comunicacoes_5_W1_Porta",
+        "B7_elysium_Comunicacoes_5",
+        "B7_elysium_Corredor_00_Telhado",
+        "B7_elysium_Corredor_00",
+        "B7_elysium_Corredor_01_Telhado",
+        "B7_elysium_Corredor_01",
+        "B7_elysium_Corredor_02_Telhado"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 23
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 23
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 5
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 5
+        },
+        {
+          "nome": "Scan_B7_elysium_Comunicacoes_5_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Caixa_Carga",
+        "M_Dark_Metal",
+        "M_Hazard_Yellow",
+        "M_Hull_White",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Pad_Concreto",
+        "M_Aco",
+        "M_Decal_02",
+        "M_Parede_Interna",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Borracha",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_elysium_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 702
+    },
+    {
+      "arquivo": "bases/base_gale.glb",
+      "triangulos": 25917,
+      "nos": 189,
+      "nosNomeados": [
+        "B3_gale_Armazem_5_E0_Porta_FolhaInf",
+        "B3_gale_Armazem_5_E0_Porta_FolhaSup",
+        "B3_gale_Armazem_5_E0_Porta",
+        "B3_gale_Armazem_5_N0_Porta_FolhaInf",
+        "B3_gale_Armazem_5_N0_Porta_FolhaSup",
+        "B3_gale_Armazem_5_N0_Porta",
+        "B3_gale_Armazem_5_N0_Rampa",
+        "B3_gale_Armazem_5_Prateleira_00",
+        "B3_gale_Armazem_5_Prateleira_01",
+        "B3_gale_Armazem_5_Prateleira_02",
+        "B3_gale_Armazem_5_Prateleira_03",
+        "B3_gale_Armazem_5_S1_PortaGaragem_FolhaInf",
+        "B3_gale_Armazem_5_S1_PortaGaragem_FolhaSup",
+        "B3_gale_Armazem_5_S1_PortaGaragem",
+        "B3_gale_Armazem_5_S1_Rampa",
+        "B3_gale_Armazem_5_Telhado",
+        "B3_gale_Armazem_5",
+        "B3_gale_Bateria_00",
+        "B3_gale_Bateria_01",
+        "B3_gale_Bateria_10",
+        "B3_gale_Bateria_11",
+        "B3_gale_CentralEnergia_3_Bateria_02",
+        "B3_gale_CentralEnergia_3_Bateria_03",
+        "B3_gale_CentralEnergia_3_Bateria_04",
+        "B3_gale_CentralEnergia_3_Bateria_05",
+        "B3_gale_CentralEnergia_3_N1_Porta_FolhaInf",
+        "B3_gale_CentralEnergia_3_N1_Porta_FolhaSup",
+        "B3_gale_CentralEnergia_3_N1_Porta",
+        "B3_gale_CentralEnergia_3_N1_Rampa",
+        "B3_gale_CentralEnergia_3_PainelEletrico_00",
+        "B3_gale_CentralEnergia_3_RackServidor_01",
+        "B3_gale_CentralEnergia_3_Telhado",
+        "B3_gale_CentralEnergia_3_W1_Porta_FolhaInf",
+        "B3_gale_CentralEnergia_3_W1_Porta_FolhaSup",
+        "B3_gale_CentralEnergia_3_W1_Porta",
+        "B3_gale_CentralEnergia_3",
+        "B3_gale_Comunicacoes_4_Cadeira_01",
+        "B3_gale_Comunicacoes_4_Computador_05",
+        "B3_gale_Comunicacoes_4_ConsoleComunicacao_00",
+        "B3_gale_Comunicacoes_4_E0_Porta_FolhaInf",
+        "B3_gale_Comunicacoes_4_E0_Porta_FolhaSup",
+        "B3_gale_Comunicacoes_4_E0_Porta",
+        "B3_gale_Comunicacoes_4_RackServidor_02",
+        "B3_gale_Comunicacoes_4_RackServidor_03",
+        "B3_gale_Comunicacoes_4_Telao_04",
+        "B3_gale_Comunicacoes_4_Antena_Prato",
+        "B3_gale_Comunicacoes_4_Telhado",
+        "B3_gale_Comunicacoes_4_W1_Porta_FolhaInf",
+        "B3_gale_Comunicacoes_4_W1_Porta_FolhaSup",
+        "B3_gale_Comunicacoes_4_W1_Porta",
+        "B3_gale_Comunicacoes_4_W1_Rampa",
+        "B3_gale_Comunicacoes_4",
+        "B3_gale_Corredor_00_Telhado",
+        "B3_gale_Corredor_00",
+        "B3_gale_Corredor_01_Telhado",
+        "B3_gale_Corredor_01",
+        "B3_gale_Corredor_02_Telhado",
+        "B3_gale_Corredor_02",
+        "B3_gale_Corredor_03_Telhado",
+        "B3_gale_Corredor_03"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 20
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 20
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "Scan_B3_gale_Comunicacoes_4_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_Aco",
+        "M_Caixa_Carga",
+        "M_Decal_02",
+        "M_Parede_Interna",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Borracha",
+        "M_Med_Red",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_gale_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_gale_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 680
+    },
+    {
+      "arquivo": "bases/base_hellas.glb",
+      "triangulos": 30272,
+      "nos": 241,
+      "nosNomeados": [
+        "B6_hellas_Armazem_7_Caixote_04",
+        "B6_hellas_Armazem_7_Caixote_05",
+        "B6_hellas_Armazem_7_Caixote_06",
+        "B6_hellas_Armazem_7_Caixote_07",
+        "B6_hellas_Armazem_7_E0_Porta_FolhaInf",
+        "B6_hellas_Armazem_7_E0_Porta_FolhaSup",
+        "B6_hellas_Armazem_7_E0_Porta",
+        "B6_hellas_Armazem_7_N0_Porta_FolhaInf",
+        "B6_hellas_Armazem_7_N0_Porta_FolhaSup",
+        "B6_hellas_Armazem_7_N0_Porta",
+        "B6_hellas_Armazem_7_N0_Rampa",
+        "B6_hellas_Armazem_7_Prateleira_00",
+        "B6_hellas_Armazem_7_Prateleira_01",
+        "B6_hellas_Armazem_7_Prateleira_02",
+        "B6_hellas_Armazem_7_Prateleira_03",
+        "B6_hellas_Armazem_7_S1_PortaGaragem_FolhaInf",
+        "B6_hellas_Armazem_7_S1_PortaGaragem_FolhaSup",
+        "B6_hellas_Armazem_7_S1_PortaGaragem",
+        "B6_hellas_Armazem_7_S1_Rampa",
+        "B6_hellas_Armazem_7_Telhado",
+        "B6_hellas_Armazem_7",
+        "B6_hellas_Bateria_00",
+        "B6_hellas_Bateria_01",
+        "B6_hellas_Bateria_10",
+        "B6_hellas_Bateria_11",
+        "B6_hellas_CentralEnergia_5_Bateria_02",
+        "B6_hellas_CentralEnergia_5_Bateria_03",
+        "B6_hellas_CentralEnergia_5_Bateria_04",
+        "B6_hellas_CentralEnergia_5_Bateria_05",
+        "B6_hellas_CentralEnergia_5_N1_Porta_FolhaInf",
+        "B6_hellas_CentralEnergia_5_N1_Porta_FolhaSup",
+        "B6_hellas_CentralEnergia_5_N1_Porta",
+        "B6_hellas_CentralEnergia_5_N1_Rampa",
+        "B6_hellas_CentralEnergia_5_PainelEletrico_00",
+        "B6_hellas_CentralEnergia_5_RackServidor_01",
+        "B6_hellas_CentralEnergia_5_Telhado",
+        "B6_hellas_CentralEnergia_5_W1_Porta_FolhaInf",
+        "B6_hellas_CentralEnergia_5_W1_Porta_FolhaSup",
+        "B6_hellas_CentralEnergia_5_W1_Porta",
+        "B6_hellas_CentralEnergia_5",
+        "B6_hellas_Comunicacoes_3_Cadeira_01",
+        "B6_hellas_Comunicacoes_3_Computador_05",
+        "B6_hellas_Comunicacoes_3_ConsoleComunicacao_00",
+        "B6_hellas_Comunicacoes_3_E0_Porta_FolhaInf",
+        "B6_hellas_Comunicacoes_3_E0_Porta_FolhaSup",
+        "B6_hellas_Comunicacoes_3_E0_Porta",
+        "B6_hellas_Comunicacoes_3_RackServidor_02",
+        "B6_hellas_Comunicacoes_3_RackServidor_03",
+        "B6_hellas_Comunicacoes_3_Telao_04",
+        "B6_hellas_Comunicacoes_3_Antena_Prato",
+        "B6_hellas_Comunicacoes_3_Telhado",
+        "B6_hellas_Comunicacoes_3_W1_Porta_FolhaInf",
+        "B6_hellas_Comunicacoes_3_W1_Porta_FolhaSup",
+        "B6_hellas_Comunicacoes_3_W1_Porta",
+        "B6_hellas_Comunicacoes_3",
+        "B6_hellas_Corredor_00_Telhado",
+        "B6_hellas_Corredor_00",
+        "B6_hellas_Corredor_01_Telhado",
+        "B6_hellas_Corredor_01",
+        "B6_hellas_Corredor_02_Telhado"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 25
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 25
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 4
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 4
+        },
+        {
+          "nome": "Scan_B6_hellas_Comunicacoes_3_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Caixa_Carga",
+        "M_Dark_Metal",
+        "M_Hazard_Yellow",
+        "M_Hull_White",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Pad_Concreto",
+        "M_Aco",
+        "M_Decal_02",
+        "M_Parede_Interna",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Borracha",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Mars_Soil",
+        "M_Decal_04",
+        "M_Med_Red",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_04.webp",
+          "tamanho": [
+            461,
+            365
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_hellas_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 766
+    },
+    {
+      "arquivo": "bases/base_jezero.glb",
+      "triangulos": 30620,
+      "nos": 200,
+      "nosNomeados": [
+        "B1_jezero_Armazem_7_E0_Porta_FolhaInf",
+        "B1_jezero_Armazem_7_E0_Porta_FolhaSup",
+        "B1_jezero_Armazem_7_E0_Porta",
+        "B1_jezero_Armazem_7_N0_Tampa",
+        "B1_jezero_Armazem_7_Prateleira_00",
+        "B1_jezero_Armazem_7_Prateleira_01",
+        "B1_jezero_Armazem_7_Prateleira_02",
+        "B1_jezero_Armazem_7_Prateleira_03",
+        "B1_jezero_Armazem_7_S1_PortaGaragem_FolhaInf",
+        "B1_jezero_Armazem_7_S1_PortaGaragem_FolhaSup",
+        "B1_jezero_Armazem_7_S1_PortaGaragem",
+        "B1_jezero_Armazem_7_S1_Rampa",
+        "B1_jezero_Armazem_7_Telhado",
+        "B1_jezero_Armazem_7",
+        "B1_jezero_Bateria_00",
+        "B1_jezero_Bateria_01",
+        "B1_jezero_Bateria_10",
+        "B1_jezero_Bateria_11",
+        "B1_jezero_CentralEnergia_6_Bateria_02",
+        "B1_jezero_CentralEnergia_6_Bateria_03",
+        "B1_jezero_CentralEnergia_6_Bateria_04",
+        "B1_jezero_CentralEnergia_6_Bateria_05",
+        "B1_jezero_CentralEnergia_6_N1_Porta_FolhaInf",
+        "B1_jezero_CentralEnergia_6_N1_Porta_FolhaSup",
+        "B1_jezero_CentralEnergia_6_N1_Porta",
+        "B1_jezero_CentralEnergia_6_PainelEletrico_00",
+        "B1_jezero_CentralEnergia_6_RackServidor_01",
+        "B1_jezero_CentralEnergia_6_Telhado",
+        "B1_jezero_CentralEnergia_6_W1_Porta_FolhaInf",
+        "B1_jezero_CentralEnergia_6_W1_Porta_FolhaSup",
+        "B1_jezero_CentralEnergia_6_W1_Porta",
+        "B1_jezero_CentralEnergia_6",
+        "B1_jezero_Comunicacoes_5_Cadeira_01",
+        "B1_jezero_Comunicacoes_5_Computador_05",
+        "B1_jezero_Comunicacoes_5_ConsoleComunicacao_00",
+        "B1_jezero_Comunicacoes_5_E0_Porta_FolhaInf",
+        "B1_jezero_Comunicacoes_5_E0_Porta_FolhaSup",
+        "B1_jezero_Comunicacoes_5_E0_Porta",
+        "B1_jezero_Comunicacoes_5_RackServidor_02",
+        "B1_jezero_Comunicacoes_5_RackServidor_03",
+        "B1_jezero_Comunicacoes_5_Telao_04",
+        "B1_jezero_Comunicacoes_5_Antena_Prato",
+        "B1_jezero_Comunicacoes_5_Telhado",
+        "B1_jezero_Comunicacoes_5_W1_Porta_FolhaInf",
+        "B1_jezero_Comunicacoes_5_W1_Porta_FolhaSup",
+        "B1_jezero_Comunicacoes_5_W1_Porta",
+        "B1_jezero_Comunicacoes_5_W1_Rampa",
+        "B1_jezero_Comunicacoes_5",
+        "B1_jezero_Corredor_00_Telhado",
+        "B1_jezero_Corredor_00",
+        "B1_jezero_Corredor_01_Telhado",
+        "B1_jezero_Corredor_01",
+        "B1_jezero_Corredor_02_Telhado",
+        "B1_jezero_Corredor_02",
+        "B1_jezero_Corredor_03_Telhado",
+        "B1_jezero_Corredor_03",
+        "B1_jezero_Corredor_04_Telhado",
+        "B1_jezero_Corredor_04",
+        "B1_jezero_Corredor_05_Telhado",
+        "B1_jezero_Corredor_05"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 22
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 22
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "Scan_B1_jezero_Comunicacoes_5_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Parede_Interna",
+        "M_Aco",
+        "M_Caixa_Carga",
+        "M_Decal_02",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Borracha",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Mars_Soil",
+        "M_Decal_04",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_04.webp",
+          "tamanho": [
+            461,
+            365
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_jezero_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 749
+    },
+    {
+      "arquivo": "bases/base_olympus.glb",
+      "triangulos": 30622,
+      "nos": 205,
+      "nosNomeados": [
+        "B4_olympus_Armazem_4_E0_Porta_FolhaInf",
+        "B4_olympus_Armazem_4_E0_Porta_FolhaSup",
+        "B4_olympus_Armazem_4_E0_Porta",
+        "B4_olympus_Armazem_4_N0_Tampa",
+        "B4_olympus_Armazem_4_Prateleira_00",
+        "B4_olympus_Armazem_4_Prateleira_01",
+        "B4_olympus_Armazem_4_Prateleira_02",
+        "B4_olympus_Armazem_4_Prateleira_03",
+        "B4_olympus_Armazem_4_S1_PortaGaragem_FolhaInf",
+        "B4_olympus_Armazem_4_S1_PortaGaragem_FolhaSup",
+        "B4_olympus_Armazem_4_S1_PortaGaragem",
+        "B4_olympus_Armazem_4_S1_Rampa",
+        "B4_olympus_Armazem_4_Telhado",
+        "B4_olympus_Armazem_4",
+        "B4_olympus_Bateria_00",
+        "B4_olympus_Bateria_01",
+        "B4_olympus_Bateria_10",
+        "B4_olympus_Bateria_11",
+        "B4_olympus_CentralEnergia_5_Bateria_02",
+        "B4_olympus_CentralEnergia_5_Bateria_03",
+        "B4_olympus_CentralEnergia_5_Bateria_04",
+        "B4_olympus_CentralEnergia_5_Bateria_05",
+        "B4_olympus_CentralEnergia_5_N1_Porta_FolhaInf",
+        "B4_olympus_CentralEnergia_5_N1_Porta_FolhaSup",
+        "B4_olympus_CentralEnergia_5_N1_Porta",
+        "B4_olympus_CentralEnergia_5_PainelEletrico_00",
+        "B4_olympus_CentralEnergia_5_RackServidor_01",
+        "B4_olympus_CentralEnergia_5_Telhado",
+        "B4_olympus_CentralEnergia_5_W1_Porta_FolhaInf",
+        "B4_olympus_CentralEnergia_5_W1_Porta_FolhaSup",
+        "B4_olympus_CentralEnergia_5_W1_Porta",
+        "B4_olympus_CentralEnergia_5",
+        "B4_olympus_Comunicacoes_7_Cadeira_01",
+        "B4_olympus_Comunicacoes_7_Computador_05",
+        "B4_olympus_Comunicacoes_7_ConsoleComunicacao_00",
+        "B4_olympus_Comunicacoes_7_E0_Porta_FolhaInf",
+        "B4_olympus_Comunicacoes_7_E0_Porta_FolhaSup",
+        "B4_olympus_Comunicacoes_7_E0_Porta",
+        "B4_olympus_Comunicacoes_7_RackServidor_02",
+        "B4_olympus_Comunicacoes_7_RackServidor_03",
+        "B4_olympus_Comunicacoes_7_Telao_04",
+        "B4_olympus_Comunicacoes_7_Antena_Prato",
+        "B4_olympus_Comunicacoes_7_Telhado",
+        "B4_olympus_Comunicacoes_7_W1_Porta_FolhaInf",
+        "B4_olympus_Comunicacoes_7_W1_Porta_FolhaSup",
+        "B4_olympus_Comunicacoes_7_W1_Porta",
+        "B4_olympus_Comunicacoes_7_W1_Rampa",
+        "B4_olympus_Comunicacoes_7",
+        "B4_olympus_Corredor_00_Telhado",
+        "B4_olympus_Corredor_00",
+        "B4_olympus_Corredor_01_Telhado",
+        "B4_olympus_Corredor_01",
+        "B4_olympus_Corredor_02_Telhado",
+        "B4_olympus_Corredor_02",
+        "B4_olympus_Corredor_03_Telhado",
+        "B4_olympus_Corredor_03",
+        "B4_olympus_Corredor_04_Telhado",
+        "B4_olympus_Corredor_04",
+        "B4_olympus_Corredor_05_Telhado",
+        "B4_olympus_Corredor_05"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 21
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 21
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "Scan_B4_olympus_Comunicacoes_7_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Parede_Interna",
+        "M_Aco",
+        "M_Caixa_Carga",
+        "M_Decal_02",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Borracha",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Mars_Soil",
+        "M_Decal_04",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_04.webp",
+          "tamanho": [
+            461,
+            365
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_olympus_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 752
+    },
+    {
+      "arquivo": "bases/base_utopia.glb",
+      "triangulos": 31614,
+      "nos": 246,
+      "nosNomeados": [
+        "B2_utopia_Armazem_6_Caixote_04",
+        "B2_utopia_Armazem_6_Caixote_05",
+        "B2_utopia_Armazem_6_Caixote_06",
+        "B2_utopia_Armazem_6_Caixote_07",
+        "B2_utopia_Armazem_6_E0_Porta_FolhaInf",
+        "B2_utopia_Armazem_6_E0_Porta_FolhaSup",
+        "B2_utopia_Armazem_6_E0_Porta",
+        "B2_utopia_Armazem_6_N0_Porta_FolhaInf",
+        "B2_utopia_Armazem_6_N0_Porta_FolhaSup",
+        "B2_utopia_Armazem_6_N0_Porta",
+        "B2_utopia_Armazem_6_Prateleira_00",
+        "B2_utopia_Armazem_6_Prateleira_01",
+        "B2_utopia_Armazem_6_Prateleira_02",
+        "B2_utopia_Armazem_6_Prateleira_03",
+        "B2_utopia_Armazem_6_S1_PortaGaragem_FolhaInf",
+        "B2_utopia_Armazem_6_S1_PortaGaragem_FolhaSup",
+        "B2_utopia_Armazem_6_S1_PortaGaragem",
+        "B2_utopia_Armazem_6_S1_Rampa",
+        "B2_utopia_Armazem_6_Telhado",
+        "B2_utopia_Armazem_6",
+        "B2_utopia_Bateria_00",
+        "B2_utopia_Bateria_01",
+        "B2_utopia_Bateria_10",
+        "B2_utopia_Bateria_11",
+        "B2_utopia_CentralEnergia_5_Bateria_02",
+        "B2_utopia_CentralEnergia_5_Bateria_03",
+        "B2_utopia_CentralEnergia_5_Bateria_04",
+        "B2_utopia_CentralEnergia_5_Bateria_05",
+        "B2_utopia_CentralEnergia_5_N1_Porta_FolhaInf",
+        "B2_utopia_CentralEnergia_5_N1_Porta_FolhaSup",
+        "B2_utopia_CentralEnergia_5_N1_Porta",
+        "B2_utopia_CentralEnergia_5_N1_Rampa",
+        "B2_utopia_CentralEnergia_5_PainelEletrico_00",
+        "B2_utopia_CentralEnergia_5_RackServidor_01",
+        "B2_utopia_CentralEnergia_5_Telhado",
+        "B2_utopia_CentralEnergia_5_W1_Porta_FolhaInf",
+        "B2_utopia_CentralEnergia_5_W1_Porta_FolhaSup",
+        "B2_utopia_CentralEnergia_5_W1_Porta",
+        "B2_utopia_CentralEnergia_5",
+        "B2_utopia_Comunicacoes_0_Cadeira_01",
+        "B2_utopia_Comunicacoes_0_Computador_05",
+        "B2_utopia_Comunicacoes_0_ConsoleComunicacao_00",
+        "B2_utopia_Comunicacoes_0_E0_Porta_FolhaInf",
+        "B2_utopia_Comunicacoes_0_E0_Porta_FolhaSup",
+        "B2_utopia_Comunicacoes_0_E0_Porta",
+        "B2_utopia_Comunicacoes_0_RackServidor_02",
+        "B2_utopia_Comunicacoes_0_RackServidor_03",
+        "B2_utopia_Comunicacoes_0_Telao_04",
+        "B2_utopia_Comunicacoes_0_Antena_Prato",
+        "B2_utopia_Comunicacoes_0_Telhado",
+        "B2_utopia_Comunicacoes_0_W1_Porta_FolhaInf",
+        "B2_utopia_Comunicacoes_0_W1_Porta_FolhaSup",
+        "B2_utopia_Comunicacoes_0_W1_Porta",
+        "B2_utopia_Comunicacoes_0_W1_Rampa",
+        "B2_utopia_Comunicacoes_0",
+        "B2_utopia_Corredor_00_Telhado",
+        "B2_utopia_Corredor_00",
+        "B2_utopia_Corredor_01_Telhado",
+        "B2_utopia_Corredor_01",
+        "B2_utopia_Corredor_02_Telhado"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 26
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 26
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 4
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 4
+        },
+        {
+          "nome": "Scan_B2_utopia_Comunicacoes_0_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Caixa_Carga",
+        "M_Dark_Metal",
+        "M_Hazard_Yellow",
+        "M_Hull_White",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Aco",
+        "M_Decal_02",
+        "M_Pad_Concreto",
+        "M_Parede_Interna",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Borracha",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Liquido_Azul",
+        "M_Vidro_Lab",
+        "M_Liquido_Verde",
+        "M_Mars_Soil",
+        "M_Decal_04",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_04.webp",
+          "tamanho": [
+            461,
+            365
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_utopia_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 785
+    },
+    {
+      "arquivo": "bases/base_valles.glb",
+      "triangulos": 24890,
+      "nos": 204,
+      "nosNomeados": [
+        "B5_valles_Armazem_7_E0_Porta_FolhaInf",
+        "B5_valles_Armazem_7_E0_Porta_FolhaSup",
+        "B5_valles_Armazem_7_E0_Porta",
+        "B5_valles_Armazem_7_E0_Rampa",
+        "B5_valles_Armazem_7_N0_Porta_FolhaInf",
+        "B5_valles_Armazem_7_N0_Porta_FolhaSup",
+        "B5_valles_Armazem_7_N0_Porta",
+        "B5_valles_Armazem_7_Prateleira_00",
+        "B5_valles_Armazem_7_Prateleira_01",
+        "B5_valles_Armazem_7_Prateleira_02",
+        "B5_valles_Armazem_7_Prateleira_03",
+        "B5_valles_Armazem_7_S1_PortaGaragem_FolhaInf",
+        "B5_valles_Armazem_7_S1_PortaGaragem_FolhaSup",
+        "B5_valles_Armazem_7_S1_PortaGaragem",
+        "B5_valles_Armazem_7_S1_Rampa",
+        "B5_valles_Armazem_7_Telhado",
+        "B5_valles_Armazem_7",
+        "B5_valles_Bateria_00",
+        "B5_valles_Bateria_01",
+        "B5_valles_Bateria_10",
+        "B5_valles_Bateria_11",
+        "B5_valles_CentralEnergia_4_Bateria_02",
+        "B5_valles_CentralEnergia_4_Bateria_03",
+        "B5_valles_CentralEnergia_4_Bateria_04",
+        "B5_valles_CentralEnergia_4_Bateria_05",
+        "B5_valles_CentralEnergia_4_N1_Porta_FolhaInf",
+        "B5_valles_CentralEnergia_4_N1_Porta_FolhaSup",
+        "B5_valles_CentralEnergia_4_N1_Porta",
+        "B5_valles_CentralEnergia_4_N1_Rampa",
+        "B5_valles_CentralEnergia_4_PainelEletrico_00",
+        "B5_valles_CentralEnergia_4_RackServidor_01",
+        "B5_valles_CentralEnergia_4_Telhado",
+        "B5_valles_CentralEnergia_4_W1_Porta_FolhaInf",
+        "B5_valles_CentralEnergia_4_W1_Porta_FolhaSup",
+        "B5_valles_CentralEnergia_4_W1_Porta",
+        "B5_valles_CentralEnergia_4",
+        "B5_valles_Comunicacoes_5_Cadeira_01",
+        "B5_valles_Comunicacoes_5_Computador_05",
+        "B5_valles_Comunicacoes_5_ConsoleComunicacao_00",
+        "B5_valles_Comunicacoes_5_E0_Porta_FolhaInf",
+        "B5_valles_Comunicacoes_5_E0_Porta_FolhaSup",
+        "B5_valles_Comunicacoes_5_E0_Porta",
+        "B5_valles_Comunicacoes_5_RackServidor_02",
+        "B5_valles_Comunicacoes_5_RackServidor_03",
+        "B5_valles_Comunicacoes_5_Telao_04",
+        "B5_valles_Comunicacoes_5_Antena_Prato",
+        "B5_valles_Comunicacoes_5_Telhado",
+        "B5_valles_Comunicacoes_5_W1_Porta_FolhaInf",
+        "B5_valles_Comunicacoes_5_W1_Porta_FolhaSup",
+        "B5_valles_Comunicacoes_5_W1_Porta",
+        "B5_valles_Comunicacoes_5_W1_Rampa",
+        "B5_valles_Comunicacoes_5",
+        "B5_valles_Corredor_00_Telhado",
+        "B5_valles_Corredor_00",
+        "B5_valles_Corredor_01_Telhado",
+        "B5_valles_Corredor_01",
+        "B5_valles_Corredor_02_Telhado",
+        "B5_valles_Corredor_02",
+        "B5_valles_Corredor_03_Telhado",
+        "B5_valles_Corredor_03"
+      ],
+      "esqueleto": [],
+      "animacoes": [
+        {
+          "nome": "Porta_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 22
+        },
+        {
+          "nome": "Porta_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 22
+        },
+        {
+          "nome": "PortaGaragem_FolhaInf_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "PortaGaragem_FolhaSup_Abrir",
+          "duracaoSeg": 0.83,
+          "canais": 2
+        },
+        {
+          "nome": "Scan_B5_valles_Comunicacoes_5_Antena_Prato",
+          "duracaoSeg": 8.04,
+          "canais": 1
+        }
+      ],
+      "materiais": [
+        "M_Hull_White",
+        "M_Dark_Metal",
+        "M_NASA_Azul",
+        "M_NASA_Vermelho",
+        "M_Decal_01",
+        "M_Glow_Cyan",
+        "M_Telhado",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_Aco",
+        "M_Caixa_Carga",
+        "M_Decal_02",
+        "M_Parede_Interna",
+        "M_Decal_03",
+        "M_Piso_Interno",
+        "M_Glow_Green",
+        "M_Janela_Luz",
+        "M_Decal_00",
+        "M_Tela_Laranja",
+        "M_Glow_Orange",
+        "M_Tecido_Cinza",
+        "M_Tela",
+        "M_Tela_Verde",
+        "M_Glass_Dome",
+        "M_Tecido_Azul",
+        "M_Almofada",
+        "M_Borracha",
+        "M_Gold_Foil",
+        "M_Vidro_Escuro",
+        "M_Decal_05",
+        "M_Piso_Junta",
+        "M_Solar_Cell",
+        "M_Solar_Poeira"
+      ],
+      "texturas": [
+        {
+          "arquivo": "texturas/embutidas/base_valles_Decal_01.webp",
+          "tamanho": [
+            290,
+            232
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Decal_02.webp",
+          "tamanho": [
+            388,
+            308
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Decal_03.webp",
+          "tamanho": [
+            768,
+            603
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Piso_Placas.webp",
+          "tamanho": [
+            512,
+            512
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Decal_00.webp",
+          "tamanho": [
+            655,
+            517
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Decal_05.webp",
+          "tamanho": [
+            679,
+            536
+          ]
+        },
+        {
+          "arquivo": "texturas/embutidas/base_valles_Poeira_Solar.webp",
+          "tamanho": [
+            1920,
+            204
+          ]
+        }
+      ],
+      "tamanhoKB": 665
+    },
+    {
+      "arquivo": "bases/plantas.glb",
+      "triangulos": 19392,
+      "nos": 17,
+      "nosNomeados": [
+        "PLANTA_Alface_0_Vazio",
+        "PLANTA_Alface_1_Muda",
+        "PLANTA_Alface_2_Pequena",
+        "PLANTA_Alface_3_Media",
+        "PLANTA_Alface_4_Colheita",
+        "PLANTA_Batata_0_Vazio",
+        "PLANTA_Batata_1_Semente",
+        "PLANTA_Batata_2_Broto",
+        "PLANTA_Batata_3_Jovem",
+        "PLANTA_Batata_4_Crescida",
+        "PLANTA_Batata_5_Colheita",
+        "PLANTA_Tomate_0_Vazio",
+        "PLANTA_Tomate_1_Muda",
+        "PLANTA_Tomate_2_Jovem",
+        "PLANTA_Tomate_3_Florada",
+        "PLANTA_Tomate_4_FrutosVerdes",
+        "PLANTA_Tomate_5_Colheita"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "M_Hull_White",
+        "M_Substrato",
+        "M_NASA_Azul",
+        "M_Dark_Metal",
+        "M_Luz_Cultivo",
+        "M_Glow_Green",
+        "M_Alface_Clara",
+        "M_Alface",
+        "M_Alface_Roxa",
+        "M_Batata",
+        "M_Caule",
+        "M_Folha_Clara",
+        "M_Folha",
+        "M_Flor_Roxa",
+        "M_Flor_Branca",
+        "M_Folha_Seca",
+        "M_Aco",
+        "M_Flor_Amarela",
+        "M_Tomate_Verde",
+        "M_Tomate"
+      ],
+      "texturas": [],
+      "tamanhoKB": 1448
+    },
+    {
+      "arquivo": "bases/sonda.glb",
+      "triangulos": 296,
+      "nos": 1,
+      "nosNomeados": [
+        "KIT_Sonda_Perfuracao"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "M_Dark_Metal",
+        "M_Pad_Concreto",
+        "M_Hazard_Yellow",
+        "M_NASA_Azul",
+        "M_Hull_White",
+        "M_Janela_Luz"
+      ],
+      "texturas": [],
+      "tamanhoKB": 20
+    },
+    {
+      "arquivo": "bases/terreno.glb",
+      "triangulos": 57920,
+      "nos": 111,
+      "nosNomeados": [
+        "GAME_Rocha_Grande_00",
+        "GAME_Rocha_Grande_01",
+        "GAME_Rocha_Grande_02",
+        "GAME_Rocha_Grande_03",
+        "GAME_Rocha_Grande_04",
+        "GAME_Rocha_Grande_05",
+        "GAME_Rocha_Grande_06",
+        "GAME_Rocha_Grande_07",
+        "GAME_Rocha_Grande_08",
+        "GAME_Rocha_Grande_09",
+        "GAME_Rocha_Grande_10",
+        "GAME_Rocha_Grande_11",
+        "GAME_Rocha_Grande_12",
+        "GAME_Rocha_Grande_13",
+        "GAME_Rocha_Grande_14",
+        "GAME_Rocha_Grande_15",
+        "GAME_Rocha_Grande_16",
+        "GAME_Rocha_Grande_17",
+        "GAME_Rocha_Grande_18",
+        "GAME_Rocha_Grande_19",
+        "GAME_Rocha_Grande_20",
+        "GAME_Rocha_Grande_21",
+        "GAME_Rocha_Grande_22",
+        "GAME_Rocha_Grande_23",
+        "GAME_Rocha_Grande_24",
+        "GAME_Rocha_Grande_25",
+        "GAME_Rocha_Grande_26",
+        "GAME_Rocha_Grande_27",
+        "GAME_Rocha_Grande_28",
+        "GAME_Rocha_Grande_29",
+        "GAME_Rocha_Grande_30",
+        "GAME_Rocha_Grande_31",
+        "GAME_Rocha_Grande_32",
+        "GAME_Rocha_Grande_33",
+        "GAME_Rocha_Grande_34",
+        "GAME_Rocha_Grande_35",
+        "GAME_Rocha_Grande_36",
+        "GAME_Rocha_Grande_37",
+        "GAME_Rocha_Grande_38",
+        "GAME_Rocha_Grande_39",
+        "GAME_Rocha_Grande_40",
+        "GAME_Rocha_Grande_41",
+        "GAME_Rocha_Grande_42",
+        "GAME_Rocha_Grande_43",
+        "GAME_Rocha_Grande_44",
+        "GAME_Rocha_Grande_45",
+        "GAME_Rocha_Grande_46",
+        "GAME_Rocha_Grande_47",
+        "GAME_Rocha_Grande_48",
+        "GAME_Rocha_Grande_49",
+        "GAME_Rocha_Grande_50",
+        "GAME_Rocha_Grande_51",
+        "GAME_Rocha_Grande_52",
+        "GAME_Rocha_Grande_53",
+        "GAME_Rocha_Grande_54",
+        "GAME_Rocha_Grande_55",
+        "GAME_Rocha_Grande_56",
+        "GAME_Rocha_Grande_57",
+        "GAME_Rocha_Grande_58",
+        "GAME_Rocha_Grande_59"
+      ],
+      "esqueleto": [],
+      "animacoes": [],
+      "materiais": [
+        "M_Mars_Rock",
+        "M_Mars_Terreno"
+      ],
+      "texturas": [],
+      "tamanhoKB": 1295
+    }
+  ]
+}

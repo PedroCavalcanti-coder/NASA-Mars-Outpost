@@ -1,0 +1,474 @@
+{
+ "id": "gale",
+ "name": "Gale · Bloco",
+ "description": "Bem compacta: módulos colados por corredores de um tile. Extras: enfermaria e pesquisa.",
+ "tileMeters": 4,
+ "bounds": {
+  "x0": -3,
+  "y0": -3,
+  "x1": 7,
+  "y1": 9
+ },
+ "rooms": [
+  {
+   "id": "Habitacao_0",
+   "kind": "Habitacao",
+   "tile": [
+    0,
+    0
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      8
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      0
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Estufa_1",
+   "kind": "Estufa",
+   "tile": [
+    0,
+    3
+   ],
+   "size": [
+    3,
+    3
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      12,
+      18
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      24
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S1",
+     "pos": [
+      6,
+      12
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      0,
+      18
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "SuporteVida_2",
+   "kind": "SuporteVida",
+   "tile": [
+    4,
+    1
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 180,
+   "doors": [
+    {
+     "side": "E1",
+     "pos": [
+      16,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "CentralEnergia_3",
+   "kind": "CentralEnergia",
+   "tile": [
+    -3,
+    1
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 180,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      -10,
+      4
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -4,
+      6
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  },
+  {
+   "id": "Comunicacoes_4",
+   "kind": "Comunicacoes",
+   "tile": [
+    -3,
+    4
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      -4,
+      18
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "W1",
+     "pos": [
+      -12,
+      22
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Armazem_5",
+   "kind": "Armazem",
+   "tile": [
+    4,
+    3
+   ],
+   "size": [
+    3,
+    2
+   ],
+   "rotation": 180,
+   "doors": [
+    {
+     "side": "E0",
+     "pos": [
+      16,
+      18
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "N0",
+     "pos": [
+      26,
+      12
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S1",
+     "pos": [
+      22,
+      20
+     ],
+     "garage": true,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Medicina_6",
+   "kind": "Medicina",
+   "tile": [
+    0,
+    -3
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      6,
+      -4
+     ],
+     "garage": false,
+     "exterior": false
+    },
+    {
+     "side": "S0",
+     "pos": [
+      2,
+      -12
+     ],
+     "garage": false,
+     "exterior": true
+    }
+   ]
+  },
+  {
+   "id": "Pesquisa_7",
+   "kind": "Pesquisa",
+   "tile": [
+    1,
+    7
+   ],
+   "size": [
+    2,
+    2
+   ],
+   "rotation": 0,
+   "doors": [
+    {
+     "side": "N1",
+     "pos": [
+      10,
+      36
+     ],
+     "garage": false,
+     "exterior": true
+    },
+    {
+     "side": "S0",
+     "pos": [
+      6,
+      28
+     ],
+     "garage": false,
+     "exterior": false
+    }
+   ]
+  }
+ ],
+ "corridors": [
+  {
+   "tile": [
+    3,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    2
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    3,
+    4
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    6
+   ],
+   "axis": "y"
+  },
+  {
+   "tile": [
+    -1,
+    1
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    -1,
+    4
+   ],
+   "axis": "x"
+  },
+  {
+   "tile": [
+    1,
+    -1
+   ],
+   "axis": "y"
+  }
+ ],
+ "bay": {
+  "room": "Armazem_5",
+  "kind": "Armazem",
+  "crew": {
+   "path": [
+    [
+     19.4,
+     16.8
+    ],
+    [
+     22.0,
+     17.6
+    ],
+    [
+     22.0,
+     20.0
+    ]
+   ],
+   "heading": [
+    0,
+    1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    1
+   ]
+  },
+  "auto": {
+   "path": [
+    [
+     25.0,
+     17.2
+    ],
+    [
+     22.0,
+     18.4
+    ],
+    [
+     22.0,
+     20.0
+    ]
+   ],
+   "heading": [
+    0,
+    1
+   ],
+   "door": "S1",
+   "exit": [
+    0,
+    1
+   ]
+  }
+ },
+ "solar": [
+  [
+   -26.0,
+   2.0
+  ],
+  [
+   -22.0,
+   2.0
+  ],
+  [
+   -18.0,
+   2.0
+  ],
+  [
+   -26.0,
+   6.0
+  ],
+  [
+   -22.0,
+   6.0
+  ],
+  [
+   -18.0,
+   6.0
+  ],
+  [
+   -26.0,
+   10.0
+  ],
+  [
+   -22.0,
+   10.0
+  ],
+  [
+   -18.0,
+   10.0
+  ],
+  [
+   -26.0,
+   14.0
+  ],
+  [
+   -22.0,
+   14.0
+  ],
+  [
+   -18.0,
+   14.0
+  ]
+ ],
+ "pad": [
+  2,
+  -30
+ ],
+ "model": "/assets/bases/base_gale.glb"
+}
