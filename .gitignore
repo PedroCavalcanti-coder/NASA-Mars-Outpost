@@ -1,3 +1,30 @@
+# ====== NÃO ENVIAR (regras principais) ======
+# Claude Code (configurações, memória e sessões locais)
+.claude/
+CLAUDE.md
+# Documentação interna
+docs/
+# Variáveis de ambiente e segredos
+.env
+.env.*
+*.env
+!.env.example.keep
+# Dependências e builds
+node_modules/
+dist/
+# Banco local de desenvolvimento
+data/
+data.*/
+database/
+# Arquivos 3D e fontes de arte
+*.blend
+*.blend1
+*.glb
+*.gltf
+*.fbx
+assets-src/
+
+# ====== Modelo Node (padrão) ======
 # Logs
 logs
 *.log
@@ -147,3 +174,47 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# --- Regras deste projeto (copiadas de NASA - Mars Output) ---
+.pnpm-debug.log*
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+# vuepress v2.x temp and cache directory
+# Stores VSCode versions used for testing VSCode extensions
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+# ── Mars Outpost ────────────────────────────────────────────
+# Segredos / variáveis de ambiente (mantém só o exemplo)
+# Claude Code (configurações e memória locais)
+.claude/
+CLAUDE.local.md
+# Banco local (PGlite), SQL exportado para o Neon e builds
+apps/server/data*/
+/database/
+**/dist/
+*.local
+# Editores e sistema operacional
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+# Blender: backups automáticos e caches
+*.blend1
+*.blend2
+assets-src/**/tmp/
+# Local browser test output
+test-results/
+playwright-report/

@@ -1,0 +1,33 @@
+{
+  "name": "nasa-mars-outpost",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Jogo educativo de colônia em Marte — hackathon da NASA em Fortaleza.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c yellow,cyan \"npm:dev -w @mars/server\" \"npm:dev -w @mars/web\"",
+    "dev:server": "npm run dev -w @mars/server",
+    "dev:web": "npm run dev -w @mars/web",
+    "build": "npm run build -w @mars/web",
+    "build:server": "npm run build -w @mars/server",
+    "start": "npm run start -w @mars/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.6",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}
