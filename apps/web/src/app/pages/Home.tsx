@@ -1,13 +1,16 @@
 import { ArrowRight, LogIn, LogOut, Settings, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
+import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
+import { PlayModal } from './PlayModal';
 import './home.css';
 
 export default function Home() {
   const user = useAuth((s) => s.user);
   const logout = useAuth((s) => s.logout);
+  const nav = useNavigate();
   const canvas = useRef<HTMLDivElement>(null);
   const target = useRef<HTMLButtonElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -17,6 +20,7 @@ export default function Home() {
   const [fallback, setFallback] = useState(false);
   const [progress, setProgress] = useState(0);
   const [panel, setPanel] = useState<'settings' | 'about'>('settings');
+  const [playModalOpen, setPlayModalOpen] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(
     () => matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -52,16 +56,42 @@ export default function Home() {
     scene.current?.setQuality(quality);
   }, [quality]);
 
+  // Ao completar a decolagem, aterra automaticamente na base em Marte após breve transição
+  useEffect(() => {
+    if (phase === 'complete') {
+      const timer = setTimeout(() => {
+        nav('/jogar');
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, nav]);
+
   const launch = () => {
     if (started.current || !scene.current || fallback) return;
     started.current = true;
     setPhase('ignition');
     scene.current.launch();
   };
+
+  const handlePlay = () => {
+    if (phase !== 'ready') return;
+    const currentName = user?.name ?? getGuestName();
+    if (!currentName) {
+      setPlayModalOpen(true);
+      return;
+    }
+    if (fallback) {
+      nav('/jogar');
+      return;
+    }
+    launch();
+  };
+
   const openPanel = (next: 'settings' | 'about') => {
     setPanel(next);
     dialog.current?.showModal();
   };
+
   const launching = phase !== 'ready';
 
   return (
@@ -81,8 +111,10 @@ export default function Home() {
         <span className="launch-star launch-star--two">✦</span>
         <span className="launch-star launch-star--three">✦</span>
       </div>
+
       <div className="launch-canvas" ref={canvas} />
       <div className="launch-vignette" />
+
       <header className="launch-header">
         <div className="launch-brands">
           <Link to="/" className="launch-brand" aria-label="Mars Outpost, início">
@@ -110,6 +142,7 @@ export default function Home() {
             height={84}
           />
         </div>
+
         <nav className="launch-nav" aria-label="Navegação inicial">
           <button
             className="launch-nav-button"
@@ -138,6 +171,7 @@ export default function Home() {
           )}
         </nav>
       </header>
+
       <section className="launch-copy" aria-label="Sua expedição começa aqui" inert={launching}>
         <div className="launch-eyebrow">
           BASE ESPACIAL ARES <span>·</span> TERRA <i />
@@ -156,11 +190,16 @@ export default function Home() {
           <br className="launch-desktop-break" /> com um clima de exploração e descoberta.
         </p>
         {fallback ? (
-          <p className="launch-error" role="status">
-            Não foi possível carregar o cenário 3D. Recarregue a página para tentar novamente.
-          </p>
+          <button className="launch-cta" type="button" onClick={handlePlay}>
+            <span className="launch-cta-icon" aria-hidden="true">
+              <ArrowRight />
+            </span>
+            <span className="launch-cta-label">
+              Jogar Agora<small>Entrar direto na base marciana</small>
+            </span>
+          </button>
         ) : (
-          <button className="launch-cta" type="button" onClick={launch} disabled={launching}>
+          <button className="launch-cta" type="button" onClick={handlePlay} disabled={launching}>
             <span className="launch-cta-icon" aria-hidden="true">
               <ArrowRight />
             </span>
@@ -170,6 +209,7 @@ export default function Home() {
           </button>
         )}
       </section>
+
       {!fallback && (
         <button
           ref={target}
@@ -177,10 +217,11 @@ export default function Home() {
           className="rocket-hit-target"
           aria-label="Lançar foguete"
           title="Lançar foguete"
-          onClick={launch}
+          onClick={handlePlay}
           disabled={launching}
         />
       )}
+
       <div className="launch-flight-status" role="status" aria-live="polite">
         {launching && (
           <>
@@ -195,9 +236,19 @@ export default function Home() {
             <div className="launch-flight-line">
               <span style={{ transform: `scaleX(${progress})` }} />
             </div>
+            <div className="launch-flight-actions">
+              <button
+                type="button"
+                className="launch-skip-button"
+                onClick={() => nav('/jogar')}
+              >
+                Pular viagem e aterrissar na base →
+              </button>
+            </div>
           </>
         )}
       </div>
+
       <footer className="launch-footer">
         <span className="launch-system-status">
           <i />
@@ -217,6 +268,14 @@ export default function Home() {
           </button>
         </nav>
       </footer>
+
+      {/* Modal de apelido/jogar */}
+      <PlayModal
+        open={playModalOpen}
+        onClose={() => setPlayModalOpen(false)}
+        onStart={launch}
+      />
+
       <dialog className="launch-dialog" ref={dialog} aria-labelledby="launch-dialog-title">
         <div className="launch-dialog-head">
           <span className="launch-dialog-kicker">MARS OUTPOST</span>

@@ -752,3 +752,88 @@
 .launch-home[data-reduced-motion="true"] *::before {
   transition-duration: 0s;
 }
+
+/* ---------- Ações de voo e pular animação ---------- */
+.launch-flight-actions {
+  margin-top: 18px;
+  pointer-events: auto;
+}
+.launch-skip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1.5px solid #78ace180;
+  border-radius: 30px;
+  background: rgba(20, 45, 96, 0.75);
+  backdrop-filter: blur(10px);
+  color: #e6f0ff;
+  font: 600 14px "Barlow", sans-serif;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s;
+}
+.launch-skip-button:hover {
+  background: rgba(35, 70, 140, 0.9);
+  border-color: #b1d6ff;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(82, 162, 255, 0.25);
+}
+
+/* ---------- Modal de identificação do astronauta (PlayModal) ---------- */
+.play-dialog {
+  max-width: 480px;
+}
+.play-dialog__desc {
+  margin: -10px 0 24px;
+  color: #c1d5f2;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.play-dialog__field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.play-dialog__label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8fbbe9;
+}
+.play-dialog__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.play-dialog__input-icon {
+  position: absolute;
+  left: 16px;
+  color: #7293c4;
+  pointer-events: none;
+}
+.play-dialog__input {
+  width: 100%;
+  height: 50px;
+  padding: 0 16px 0 46px;
+  border: 2px solid #7293c4;
+  border-radius: 14px;
+  background: #13264b;
+  color: #f6f8ff;
+  font: 600 17px "Barlow", sans-serif;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.play-dialog__input:focus {
+  border-color: var(--launch-gold);
+  box-shadow: 0 0 0 3px rgba(255, 181, 17, 0.25);
+}
+.play-dialog__submit {
+  width: 100%;
+  min-height: 76px;
+  margin-top: 8px;
+}
+
