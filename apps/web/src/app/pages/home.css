@@ -23,52 +23,52 @@
 .launch-sky {
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 68% 65%, #6575bd70, transparent 60%),
-    linear-gradient(180deg, #0b1746 0%, #17316f 43%, #4f69a4 73%, #ad6a7a 100%);
+    radial-gradient(ellipse at 68% 65%, #a2d2dc55, transparent 60%),
+    linear-gradient(180deg, #0b1746 0%, #214876 43%, #6595ae 73%, #b4d2c9 100%);
 }
-.launch-planet {
+.launch-moon {
   position: absolute;
   top: 14%;
   right: 3.2%;
-  width: clamp(125px, 13vw, 210px);
+  width: clamp(85px, 8vw, 130px);
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 50%;
   background:
-    radial-gradient(ellipse at 29% 23%, #ff934b70, transparent 50%),
-    linear-gradient(130deg, #fa763f 9%, #d45151 39%, #8d437c 70%, #4b3977);
+    radial-gradient(ellipse at 29% 23%, #fffde4a0, transparent 50%),
+    linear-gradient(130deg, #f5f1d7 9%, #d5dfdd 39%, #afc4cf 70%, #7595ae);
   box-shadow:
-    inset 8px 4px 12px #ffb77c28,
-    inset -25px -12px 30px #30275c45;
+    inset 8px 4px 12px #fff9df40,
+    inset -16px -8px 24px #57769560;
   transform: rotate(-18deg);
 }
-.launch-planet > span {
+.launch-moon > span {
   position: absolute;
   border-radius: 44% 56% 37% 63%;
-  background: #7c386b;
+  background: #7f99ad;
   opacity: 0.45;
 }
-.launch-planet > span:nth-child(1) {
+.launch-moon > span:nth-child(1) {
   width: 24%;
   height: 32%;
   top: 16%;
   left: 26%;
   transform: rotate(42deg);
 }
-.launch-planet > span:nth-child(2) {
+.launch-moon > span:nth-child(2) {
   width: 46%;
   height: 51%;
   bottom: 0;
   right: 8%;
   transform: rotate(-20deg);
 }
-.launch-planet > span:nth-child(3) {
+.launch-moon > span:nth-child(3) {
   width: 13%;
   height: 18%;
   top: 24%;
   right: 9%;
 }
-.launch-planet > span:nth-child(4) {
+.launch-moon > span:nth-child(4) {
   width: 18%;
   height: 10%;
   bottom: 15%;
@@ -102,7 +102,7 @@
 .launch-vignette {
   background:
     linear-gradient(90deg, #0a1a4430, transparent 50%),
-    linear-gradient(0deg, #39162d55, transparent 20%);
+    linear-gradient(0deg, #102e3d70, transparent 23%);
 }
 .launch-header {
   position: absolute;
@@ -140,25 +140,16 @@
   color: #f7f8ff;
 }
 .launch-brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
+  flex-shrink: 0;
   width: 72px;
   height: 72px;
-  border: 3px solid #85b3e4;
-  border-radius: 50%;
-  background: #12275a50;
-  box-shadow: inset 0 0 16px #5093e214;
-  font:
-    500 32px "Barlow",
-    sans-serif;
-  letter-spacing: -6px;
-  padding-right: 5px;
+  object-fit: contain;
 }
 .launch-brand-name {
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: 0.15em;
+  display: block;
+  width: 100px;
+  height: auto;
 }
 .launch-nav {
   display: flex;
@@ -233,12 +224,11 @@
     0 4px 0 #09163885,
     0 8px 22px #09163825;
 }
-.launch-title-accent {
+.launch-title-image {
   display: block;
-  color: var(--launch-gold);
-  text-shadow:
-    0 4px 0 #6d361e,
-    0 8px 22px #09163825;
+  width: min(100%, 480px);
+  height: auto;
+  filter: drop-shadow(0 4px 0 #09163860);
 }
 .launch-copy > p {
   margin: 26px 0 0;
@@ -583,8 +573,7 @@
     font-size: 24px;
   }
   .launch-brand-name {
-    font-size: 11px;
-    letter-spacing: 0.12em;
+    width: 75px;
   }
   .launch-nav {
     gap: 8px;
@@ -602,10 +591,10 @@
   .launch-nav-button:first-child > span {
     display: none;
   }
-  .launch-planet {
+  .launch-moon {
     top: 12%;
     right: -20px;
-    width: 115px;
+    width: 82px;
   }
   .launch-star--one {
     left: 15%;
@@ -700,11 +689,32 @@
   }
 }
 @media (max-width: 600px) {
+  .launch-brand {
+    gap: 6px;
+  }
+  .launch-brands {
+    gap: 8px;
+  }
+  .launch-brand-mark {
+    width: 40px;
+    height: 40px;
+  }
   .launch-brand-name {
-    display: none;
+    width: 62px;
+  }
+  .launch-space-apps-logo {
+    width: 52px;
+    height: 44px;
   }
 }
 @media (max-width: 360px) {
+  .launch-nav-button:last-child {
+    width: 39px;
+    padding: 0;
+  }
+  .launch-nav-button:last-child > span {
+    display: none;
+  }
   .launch-copy {
     left: 20px;
     width: calc(100% - 40px);

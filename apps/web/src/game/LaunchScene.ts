@@ -53,16 +53,16 @@ export class LaunchScene {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.domElement.setAttribute('aria-hidden', 'true');
     container.appendChild(this.renderer.domElement);
-    this.scene.fog = new THREE.FogExp2(0x65618d, 0.006);
-    this.scene.add(new THREE.HemisphereLight(0xadc4ff, 0xd95d38, 2.3));
-    const sun = new THREE.DirectionalLight(0xffd5b2, 4);
+    this.scene.fog = new THREE.FogExp2(0x8fb8c2, 0.006);
+    this.scene.add(new THREE.HemisphereLight(0xb4d6ff, 0x657957, 2.3));
+    const sun = new THREE.DirectionalLight(0xffdfb9, 4);
     sun.position.set(-12, 14, 11);
     sun.castShadow = true;
     sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 18, bottom: -12, far: 70 });
     sun.shadow.bias = -0.001;
     this.scene.add(sun);
-    const rim = new THREE.DirectionalLight(0x718eff, 2.7);
+    const rim = new THREE.DirectionalLight(0x8bb8ef, 2.7);
     rim.position.set(7, 9, -10);
     this.scene.add(rim);
     const ivory = mat(0xfff0de),
@@ -71,7 +71,7 @@ export class LaunchScene {
       orange = mat(0xee7725),
       navy = mat(PALETTE.solar),
       metal = mat(0x667eaa),
-      ground = mat(0xc34e2d),
+      ground = mat(0x47764d),
       concrete = mat(0xa4a5b4),
       lamp = mat(0x82eeff, 0x28c8ff);
     this.materials.push(ivory, gray, dark, orange, navy, metal, ground, concrete, lamp);
@@ -255,52 +255,108 @@ export class LaunchScene {
     this.resize();
   }
   private makeLandscape(site: THREE.Group) {
-    const rock = mat(0x87434e),
-      ridge = mat(0x974a58),
-      sandstone = mat(0xb85645),
-      sand = mat(0xe16a37);
-    this.materials.push(rock, ridge, sandstone, sand);
-    // Layered, flat-topped mesas form the Martian horizon.
-    for (let i = 0; i < 14; i++) {
-      const x = (i - 6.5) * 13,
-        z = -35 - this.random() * 18,
-        height = 3.8 + this.random() * 5,
-        radius = 6 + this.random() * 5;
-      for (let layer = 0; layer < 3; layer++) {
-        const cliff = this.mesh(
-          site,
-          new THREE.CylinderGeometry(
-            radius * (layer === 0 ? 0.8 : layer === 1 ? 0.69 : 0.63),
-            radius * (layer === 0 ? 1 : layer === 1 ? 0.8 : 0.69),
-            height / 3,
-            6,
-          ),
-          layer === 2 ? sandstone : ridge,
-        );
-        cliff.position.set(x + layer * 0.5, -0.75 + (height / 3) * (layer + 0.5), z);
-        cliff.rotation.y = i * 0.7;
-      }
-    }
-    for (let i = 0; i < 65; i++) {
-      const x = (this.random() - 0.5) * 90,
-        z = (this.random() - 0.5) * 80;
-      if (Math.abs(x) < 8 && Math.abs(z) < 7) continue;
-      const size = 0.25 + this.random() * 0.85;
-      const boulder = this.mesh(
+    const grass = mat(0x679153),
+      meadow = mat(0x557e48),
+      hills = mat(0x427c5b),
+      distantHills = mat(0x548a8a),
+      rock = mat(0x79857b),
+      bark = mat(0x6a5943),
+      leaves = mat(0x38734c),
+      lightLeaves = mat(0x5b8e52),
+      water = mat(0x467fa3),
+      sand = mat(0xc0b58b),
+      asphalt = mat(0x525f6a),
+      marking = mat(0xd4d8c7),
+      cloud = mat(0xe9f1f7);
+    this.materials.push(
+      grass,
+      meadow,
+      hills,
+      distantHills,
+      rock,
+      bark,
+      leaves,
+      lightLeaves,
+      water,
+      sand,
+      asphalt,
+      marking,
+      cloud,
+    );
+
+    // A coastal spaceport on Earth. The pad and launch hardware keep their layout.
+    this.box(site, water, [240, 0.08, 48], [0, -0.69, -74]);
+    this.box(site, sand, [240, 0.04, 3], [0, -0.71, -49]);
+    for (let i = 0; i < 13; i++) {
+      const hill = this.mesh(
         site,
-        new THREE.IcosahedronGeometry(size, 0),
-        i % 3 ? rock : sandstone,
+        new THREE.IcosahedronGeometry(1, 1),
+        i % 3 ? hills : distantHills,
       );
-      boulder.position.set(x, -0.67, z);
-      boulder.scale.set(1.5, 0.65 + this.random() * 0.5, 1);
-      boulder.rotation.y = this.random() * Math.PI;
+      const height = 3 + this.random() * 4;
+      hill.position.set((i - 6) * 16, -1.6, -42 - this.random() * 16);
+      hill.scale.set(10 + this.random() * 6, height, 6 + this.random() * 4);
+      hill.rotation.y = i * 0.7;
     }
-    // Broad patches keep the ground faceted rather than uniformly flat.
+
+    // Faceted lawns and a service road keep the launch area clear.
     for (let i = 0; i < 24; i++) {
-      const patch = this.mesh(site, new THREE.CircleGeometry(2 + this.random() * 6, 5), sand);
+      const patch = this.mesh(
+        site,
+        new THREE.CircleGeometry(2 + this.random() * 6, 6),
+        i % 2 ? grass : meadow,
+      );
       patch.rotation.x = -Math.PI / 2;
       patch.rotation.z = this.random() * Math.PI;
       patch.position.set((this.random() - 0.5) * 90, -0.742, (this.random() - 0.5) * 65);
+    }
+    this.box(site, asphalt, [4.8, 0.06, 40], [0, -0.69, 24]);
+    for (let i = 0; i < 9; i++) this.box(site, marking, [0.12, 0.015, 1.4], [0, -0.65, 7 + i * 4]);
+
+    // Small stands of rounded cartoon trees sit beyond the safety perimeter.
+    for (let i = 0; i < 34; i++) {
+      const x = (this.random() - 0.5) * 78,
+        z = -12 - this.random() * 23,
+        height = 1.6 + this.random() * 2;
+      this.cylinder(site, bark, 0.11, 0.18, height * 0.55, [x, -0.75 + height * 0.275, z]);
+      for (let crown = 0; crown < 2; crown++) {
+        const canopy = this.mesh(
+          site,
+          new THREE.IcosahedronGeometry(1, 1),
+          crown ? lightLeaves : leaves,
+        );
+        canopy.position.set(x + crown * 0.35, -0.75 + height * (crown ? 0.85 : 0.65), z);
+        canopy.scale.set(height * 0.4, height * 0.45, height * 0.4);
+        canopy.rotation.y = i * 0.8;
+      }
+    }
+    for (let i = 0; i < 25; i++) {
+      const x = (this.random() - 0.5) * 85,
+        z = (this.random() - 0.5) * 65;
+      if (Math.abs(x) < 13 && z > -7) continue;
+      const boulder = this.mesh(
+        site,
+        new THREE.IcosahedronGeometry(0.2 + this.random() * 0.5, 0),
+        rock,
+      );
+      boulder.position.set(x, -0.68, z);
+      boulder.scale.set(1.4, 0.65, 1);
+      boulder.rotation.y = this.random() * Math.PI;
+    }
+
+    // Puffy low-poly clouds share the scene's light and perspective.
+    for (const [x, y, z, size] of [
+      [-32, 14, -53, 1.6],
+      [-9, 18, -62, 1.9],
+      [17, 12, -47, 1.3],
+      [40, 17, -60, 1.7],
+    ] as const) {
+      for (let puff = 0; puff < 5; puff++) {
+        const piece = this.mesh(site, new THREE.IcosahedronGeometry(1, 1), cloud);
+        piece.position.set(x + (puff - 2) * size * 1.3, y + (puff % 2) * size * 0.5, z);
+        piece.scale.set(size * 1.6, size * (puff % 2 ? 1.05 : 0.65), size);
+        piece.castShadow = false;
+      }
     }
   }
   private random() {
@@ -381,7 +437,7 @@ export class LaunchScene {
   private makeStars() {
     const positions = [],
       colors = [];
-    for (let i = 0; i < 180; i++) {
+    for (let i = 0; i < 65; i++) {
       positions.push(
         (this.random() - 0.5) * 200,
         15 + this.random() * 85,
@@ -397,7 +453,7 @@ export class LaunchScene {
       size: 0.19,
       vertexColors: true,
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.4,
       fog: false,
     });
     this.materials.push(material);

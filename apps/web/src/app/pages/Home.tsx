@@ -71,7 +71,7 @@ export default function Home() {
       data-reduced-motion={reducedMotion}
     >
       <div className="launch-sky" aria-hidden="true">
-        <div className="launch-planet">
+        <div className="launch-moon">
           <span />
           <span />
           <span />
@@ -86,14 +86,20 @@ export default function Home() {
       <header className="launch-header">
         <div className="launch-brands">
           <Link to="/" className="launch-brand" aria-label="Mars Outpost, início">
-            <span className="launch-brand-mark" aria-hidden="true">
-              M↗
-            </span>
-            <span className="launch-brand-name">
-              MARTE
-              <br />
-              OUTPOST
-            </span>
+            <img
+              className="launch-brand-mark"
+              src="/assets/branding/mars-outpost-logo.svg"
+              alt=""
+              width={72}
+              height={72}
+            />
+            <img
+              className="launch-brand-name"
+              src="/assets/branding/mars-outpost-wordmark.svg"
+              alt=""
+              width={1012}
+              height={440}
+            />
           </Link>
           <span className="launch-brand-divider" aria-hidden="true" />
           <img
@@ -115,12 +121,17 @@ export default function Home() {
             <span>Configurações</span>
           </button>
           {user ? (
-            <button className="launch-nav-button" type="button" onClick={() => void logout()}>
+            <button
+              className="launch-nav-button"
+              type="button"
+              aria-label="Sair"
+              onClick={() => void logout()}
+            >
               <LogOut size={20} aria-hidden="true" />
               <span>Sair</span>
             </button>
           ) : (
-            <Link className="launch-nav-button" to="/login">
+            <Link className="launch-nav-button" to="/login" aria-label="Entrar">
               <LogIn size={20} aria-hidden="true" />
               <span>Entrar</span>
             </Link>
@@ -129,10 +140,16 @@ export default function Home() {
       </header>
       <section className="launch-copy" aria-label="Sua expedição começa aqui" inert={launching}>
         <div className="launch-eyebrow">
-          BASE ESPACIAL ARES <span>·</span> MARTE <i />
+          BASE ESPACIAL ARES <span>·</span> TERRA <i />
         </div>
         <h1>
-          MARS<span className="launch-title-accent">OUTPOST</span>
+          <img
+            className="launch-title-image"
+            src="/assets/branding/mars-outpost-wordmark.svg"
+            alt="Mars Outpost"
+            width={1012}
+            height={440}
+          />
         </h1>
         <p>
           Construa e mantenha uma base em Marte
