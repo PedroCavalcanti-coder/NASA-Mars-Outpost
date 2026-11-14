@@ -81,6 +81,8 @@ const MAX_CATCHUP_SECONDS = 20;
 /** Distâncias (u) para considerar que o astronauta "chegou" ao alvo de uma tarefa. */
 const TASK_REACH = 6.5;
 const ENTER_REACH = 3.4;
+/** intervalo máximo entre os dois cliques no rover para sair dele */
+const DOUBLE_CLICK_MS = 400;
 
 function shade(root: THREE.Object3D, cast = true) {
   root.traverse((o) => {
@@ -255,6 +257,8 @@ export class BaseViewer {
   private readonly planeFloor = new THREE.Plane(new THREE.Vector3(0, 1, 0), -FLOOR_Y);
   private readonly planeGround = new THREE.Plane(new THREE.Vector3(0, 1, 0), -GROUND_Y);
   private readonly clickDownPos = new THREE.Vector2();
+  /** hora do último clique no rover enquanto dirige (duplo clique = sair) */
+  private lastRoverClick = 0;
   private interior: InteriorFader | null = null;
   private lights: NightLights | null = null;
   /** 0 dia … 1 noite fechada (vem do céu) */
@@ -1443,7 +1447,7 @@ export class BaseViewer {
     rover.stopPath();
     this.repathCount = 0;
     this.options?.onVehicleChange?.(true);
-    this.notify('🚙 No rover! Clique no solo ou use WASD. E para sair.', 'ok');
+    this.notify('🚙 No rover! Clique no solo ou use WASD. Duplo clique no rover para sair.', 'ok');
     this.lastSent = null; // força o envio imediato
   }
 
@@ -1815,7 +1819,7 @@ export class BaseViewer {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
     if (this.roverDriver === 'local') {
-      this.notify('Saia do rover primeiro (tecla E).', 'info');
+      this.notify('Saia do rover primeiro (duplo clique no rover).', 'info');
       return;
     }
     if (kind === 'solar') {
@@ -1917,9 +1921,6 @@ export class BaseViewer {
     if (k in BaseViewer.KEY_MAP) {
       this.keys.add(BaseViewer.KEY_MAP[k]!);
       e.preventDefault();
-    } else if (k === 'e' && !e.repeat) {
-      if (this.roverDriver === 'local') this.exitRover();
-      else this.tryEnterNearestRover();
     } else if (k === 'escape') {
       this.pending = null;
       this.localAstronaut?.stopMoving();
@@ -1935,16 +1936,6 @@ export class BaseViewer {
   private onBlur = () => {
     this.keys.clear();
   };
-
-  /** Tecla E perto do rover: entra. */
-  private tryEnterNearestRover() {
-    const local = this.localAstronaut;
-    const rover = this.rover;
-    if (!local?.isRevealed || !rover) return;
-    const d = Math.hypot(local.position.x - rover.position.x, local.position.z - rover.position.z);
-    if (d <= ENTER_REACH + 0.8) this.enterRover();
-    else this.notify('Chegue perto do rover e aperte E (ou clique nele).', 'info');
-  }
 
   /** Setas/WASD -> direção no mundo, relativa à câmera (cima = para o fundo da tela). */
   private keyboardDirection(): { x: number; z: number } | null {
@@ -2107,8 +2098,19 @@ export class BaseViewer {
     this.setRay(clientX, clientY);
     const pick = this.pickScene();
 
-    // ---- dirigindo: o clique manda o rover para o solo ----
+    // ---- dirigindo: o clique manda o rover para o solo; duplo clique no rover sai dele ----
     if (this.roverDriver === 'local' && this.rover) {
+      if (pick.type === 'vehicle') {
+        const now = performance.now();
+        if (now - this.lastRoverClick < DOUBLE_CLICK_MS) {
+          this.lastRoverClick = 0;
+          this.exitRover();
+        } else {
+          this.lastRoverClick = now;
+        }
+        return;
+      }
+      this.lastRoverClick = 0;
       let spot: THREE.Vector3 | null = null;
       if (pick.type === 'floor') spot = this.floorTarget(pick.point.x, pick.point.z, 'vehicle');
       else if (pick.type === 'surface' && pick.normal.y > 0.7) {

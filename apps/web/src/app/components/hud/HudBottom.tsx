@@ -37,7 +37,6 @@ export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBo
           <button type="button" className="hud-bottom__exit" onClick={onExitRover}>
             <Car size={18} />
             <span>Sair do rover</span>
-            <kbd>E</kbd>
           </button>
         )}
         {showCoords && coords && (
@@ -59,9 +58,7 @@ export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBo
           <span>
             <kbd>T</kbd> tarefas do Sol
           </span>
-          <span>
-            <kbd>E</kbd> rover
-          </span>
+          <span>Clique no rover para dirigir · duplo clique nele para sair</span>
           <span>Arraste para girar a câmera</span>
         </p>
       )}
