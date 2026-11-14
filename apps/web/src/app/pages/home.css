@@ -1,0 +1,744 @@
+@import "@fontsource/barlow/700.css";
+@import "@fontsource/barlow/800.css";
+
+.launch-home {
+  --launch-ice: #a9d6ff;
+  --launch-gold: #ffb511;
+  position: relative;
+  isolation: isolate;
+  height: 100svh;
+  min-height: 680px;
+  overflow: hidden;
+  color: #f7f8ff;
+  background: #14295d;
+  font-family: "Barlow", sans-serif;
+}
+.launch-sky,
+.launch-canvas,
+.launch-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.launch-sky {
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 68% 65%, #6575bd70, transparent 60%),
+    linear-gradient(180deg, #0b1746 0%, #17316f 43%, #4f69a4 73%, #ad6a7a 100%);
+}
+.launch-planet {
+  position: absolute;
+  top: 14%;
+  right: 3.2%;
+  width: clamp(125px, 13vw, 210px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse at 29% 23%, #ff934b70, transparent 50%),
+    linear-gradient(130deg, #fa763f 9%, #d45151 39%, #8d437c 70%, #4b3977);
+  box-shadow:
+    inset 8px 4px 12px #ffb77c28,
+    inset -25px -12px 30px #30275c45;
+  transform: rotate(-18deg);
+}
+.launch-planet > span {
+  position: absolute;
+  border-radius: 44% 56% 37% 63%;
+  background: #7c386b;
+  opacity: 0.45;
+}
+.launch-planet > span:nth-child(1) {
+  width: 24%;
+  height: 32%;
+  top: 16%;
+  left: 26%;
+  transform: rotate(42deg);
+}
+.launch-planet > span:nth-child(2) {
+  width: 46%;
+  height: 51%;
+  bottom: 0;
+  right: 8%;
+  transform: rotate(-20deg);
+}
+.launch-planet > span:nth-child(3) {
+  width: 13%;
+  height: 18%;
+  top: 24%;
+  right: 9%;
+}
+.launch-planet > span:nth-child(4) {
+  width: 18%;
+  height: 10%;
+  bottom: 15%;
+  left: 12%;
+}
+.launch-star {
+  position: absolute;
+  color: #b4e3ff;
+  text-shadow: 0 0 16px #52a2ff;
+  font-size: 19px;
+}
+.launch-star--one {
+  left: 28.8%;
+  top: 8.4%;
+}
+.launch-star--two {
+  left: 49.8%;
+  top: 28.6%;
+  font-size: 13px;
+}
+.launch-star--three {
+  right: 20.3%;
+  top: 26%;
+  font-size: 12px;
+}
+.launch-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.launch-vignette {
+  background:
+    linear-gradient(90deg, #0a1a4430, transparent 50%),
+    linear-gradient(0deg, #39162d55, transparent 20%);
+}
+.launch-header {
+  position: absolute;
+  z-index: 4;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px 2.2%;
+}
+.launch-brands {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-shrink: 0;
+}
+.launch-brand-divider {
+  width: 1px;
+  height: 52px;
+  background: #92b8e580;
+}
+.launch-space-apps-logo {
+  display: block;
+  width: 112px;
+  height: 84px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.launch-brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-decoration: none;
+  color: #f7f8ff;
+}
+.launch-brand-mark {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border: 3px solid #85b3e4;
+  border-radius: 50%;
+  background: #12275a50;
+  box-shadow: inset 0 0 16px #5093e214;
+  font:
+    500 32px "Barlow",
+    sans-serif;
+  letter-spacing: -6px;
+  padding-right: 5px;
+}
+.launch-brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.15em;
+}
+.launch-nav {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.launch-nav-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 19px;
+  border: 2px solid #78ace1a6;
+  border-radius: 30px;
+  color: #f4f7ff;
+  background: linear-gradient(180deg, #1c428151, #142d6040);
+  box-shadow: inset 0 0 0 2px #18397460;
+  font:
+    600 15px "Barlow",
+    sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
+}
+.launch-nav-button:hover {
+  background: #345ca47a;
+  border-color: #b1d6ff;
+  color: #fff;
+  transform: translateY(-1px);
+}
+.launch-copy {
+  position: absolute;
+  z-index: 3;
+  top: 22%;
+  left: 5.5%;
+  width: min(540px, 43%);
+  transition:
+    opacity 0.5s,
+    transform 0.6s;
+}
+.launch-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  color: #8fbbe9;
+  font-size: clamp(11px, 1.15vw, 17px);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+}
+.launch-eyebrow > span {
+  font-size: 13px;
+}
+.launch-eyebrow > i {
+  flex: 1;
+  max-width: 115px;
+  height: 2px;
+  margin-left: 3px;
+  background: #79a9dc65;
+}
+.launch-copy h1 {
+  margin: 5px 0 20px;
+  color: #fbfcff;
+  font:
+    800 clamp(80px, 7.3vw, 122px) / 0.94 "Barlow",
+    sans-serif;
+  letter-spacing: -0.025em;
+  text-shadow:
+    0 4px 0 #09163885,
+    0 8px 22px #09163825;
+}
+.launch-title-accent {
+  display: block;
+  color: var(--launch-gold);
+  text-shadow:
+    0 4px 0 #6d361e,
+    0 8px 22px #09163825;
+}
+.launch-copy > p {
+  margin: 26px 0 0;
+  color: #f0f3ff;
+  font-size: clamp(17px, 1.7vw, 25px);
+  font-weight: 500;
+  line-height: 1.4;
+  text-shadow: 0 2px 10px #0c1a4160;
+}
+.launch-cta {
+  display: flex;
+  align-items: center;
+  gap: 21px;
+  width: 362px;
+  max-width: 100%;
+  min-height: 91px;
+  margin-top: 27px;
+  padding: 5px 22px 5px 6px;
+  border: 3px solid #8db9e5;
+  border-radius: 60px;
+  background: linear-gradient(120deg, #273b75e6, #152851df);
+  color: #fff;
+  text-align: left;
+  box-shadow:
+    0 5px 0 #17224650,
+    inset 0 1px 0 #ffffff17;
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    background 0.2s,
+    box-shadow 0.2s;
+}
+.launch-cta:hover:not(:disabled) {
+  transform: translateY(-3px);
+  background: linear-gradient(120deg, #344d8af5, #213b70e6);
+  box-shadow:
+    0 8px 0 #17224640,
+    0 0 25px #81b8ff20;
+}
+.launch-cta:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.launch-cta-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 72px;
+  height: 72px;
+  border: 1px solid #ffd357;
+  border-radius: 50%;
+  color: #1a2b56;
+  background: linear-gradient(145deg, #ffd63c, #ffae00 68%);
+  box-shadow:
+    0 3px 0 #b96700,
+    inset 0 2px 0 #fff19a70;
+}
+.launch-cta-icon > svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 3;
+}
+.launch-cta-label {
+  font:
+    700 29px / 1.1 "Barlow",
+    sans-serif;
+  white-space: nowrap;
+}
+.launch-cta-label > small {
+  display: block;
+  margin-top: 6px;
+  color: #b8d4fc;
+  font-size: 17px;
+  font-weight: 500;
+}
+.rocket-hit-target {
+  position: absolute;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  border-radius: 48%;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.rocket-hit-target:disabled {
+  pointer-events: none;
+}
+.launch-flight-status {
+  position: absolute;
+  z-index: 3;
+  top: 39%;
+  left: 5.5%;
+  pointer-events: none;
+}
+.launch-flight-status > strong {
+  display: block;
+  margin-top: 10px;
+  font:
+    800 clamp(42px, 5vw, 76px) / 1.1 "Barlow",
+    sans-serif;
+  text-shadow: 0 4px 0 #0c194970;
+}
+.launch-flight-line {
+  width: 210px;
+  height: 4px;
+  margin-top: 25px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #8ab6ee40;
+}
+.launch-flight-line > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--launch-gold);
+  transform-origin: left;
+}
+.launch-footer {
+  position: absolute;
+  z-index: 4;
+  bottom: 0;
+  left: 2.2%;
+  right: 2.2%;
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 9px;
+  border-top: 1px solid #b6bdcf45;
+  color: #cfdef8;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.launch-system-status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.launch-system-status > i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ffbd1c;
+  box-shadow: 0 0 16px #ffa60030;
+}
+.launch-footer-nav {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+}
+.launch-footer-nav > a,
+.launch-footer-nav > button {
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+}
+.launch-footer-nav > a:hover,
+.launch-footer-nav > button:hover {
+  color: #fff;
+}
+.is-launching .launch-copy {
+  opacity: 0;
+  transform: translateY(15px);
+  pointer-events: none;
+}
+.launch-home button:focus-visible,
+.launch-home a:focus-visible,
+.launch-home input:focus-visible,
+.launch-home select:focus-visible {
+  outline: 3px solid #ffd25b;
+  outline-offset: 5px;
+  box-shadow: none;
+}
+.launch-dialog {
+  width: min(500px, calc(100% - 36px));
+  max-height: calc(100svh - 48px);
+  padding: 25px 30px 32px;
+  border: 2px solid #709dd1;
+  border-radius: 24px;
+  color: #f5f8ff;
+  background: linear-gradient(145deg, #203b6b, #111f43);
+  box-shadow: 0 25px 100px #050d36a0;
+}
+.launch-dialog::backdrop {
+  background: #071230b3;
+  backdrop-filter: blur(8px);
+}
+.launch-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.launch-dialog-kicker {
+  color: #9fbee8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+.launch-dialog-close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid #759ac367;
+  border-radius: 50%;
+  color: #fff;
+  background: #749ac315;
+  cursor: pointer;
+}
+.launch-dialog h2 {
+  font:
+    700 30px "Barlow",
+    sans-serif;
+  letter-spacing: -0.02em;
+  margin: 0 0 23px;
+}
+.launch-preferences {
+  display: grid;
+  gap: 20px;
+}
+.launch-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  font-weight: 600;
+}
+.launch-preference small {
+  display: block;
+  margin-top: 5px;
+  max-width: 240px;
+  color: #b8cae5;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.launch-preference input {
+  flex-shrink: 0;
+  width: 21px;
+  height: 21px;
+  accent-color: #ffbd1c;
+  cursor: pointer;
+}
+.launch-preference select {
+  border: 1px solid #7293c4;
+  border-radius: 9px;
+  padding: 8px;
+  background: #13264b;
+  color: #f6f8ff;
+  font: inherit;
+  font-size: 14px;
+}
+.launch-about {
+  display: grid;
+  gap: 16px;
+  color: #d4e0f4;
+  line-height: 1.6;
+}
+.launch-about small {
+  color: #9fbbde;
+}
+
+@media (min-width: 1800px) {
+  .launch-copy {
+    top: 24%;
+    left: 7%;
+    width: 620px;
+  }
+  .launch-copy h1 {
+    font-size: 135px;
+  }
+}
+@media (max-width: 1100px) and (min-width: 760px) {
+  .launch-copy {
+    left: 5%;
+    width: 43%;
+    top: 25%;
+  }
+  .launch-copy h1 {
+    font-size: 8vw;
+  }
+  .launch-copy > p {
+    font-size: 18px;
+  }
+  .launch-desktop-break {
+    display: none;
+  }
+  .launch-cta {
+    min-height: 80px;
+    width: 320px;
+    gap: 15px;
+  }
+  .launch-cta-icon {
+    flex-basis: 62px;
+    height: 62px;
+  }
+  .launch-cta-label {
+    font-size: 25px;
+  }
+  .launch-cta-label > small {
+    font-size: 15px;
+  }
+  .launch-brand-mark {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+  }
+}
+@media (max-width: 759px) {
+  .launch-home {
+    min-height: 780px;
+  }
+  .launch-header {
+    padding: 18px 20px;
+    gap: 12px;
+  }
+  .launch-brand {
+    gap: 9px;
+  }
+  .launch-brands {
+    gap: 12px;
+  }
+  .launch-brand-divider {
+    height: 36px;
+  }
+  .launch-space-apps-logo {
+    width: 72px;
+    height: 54px;
+  }
+  .launch-brand-mark {
+    width: 48px;
+    height: 48px;
+    border-width: 2px;
+    font-size: 24px;
+  }
+  .launch-brand-name {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+  }
+  .launch-nav {
+    gap: 8px;
+  }
+  .launch-nav-button {
+    min-height: 39px;
+    padding: 0 12px;
+    font-size: 13px;
+    gap: 7px;
+  }
+  .launch-nav-button:first-child {
+    width: 39px;
+    padding: 0;
+  }
+  .launch-nav-button:first-child > span {
+    display: none;
+  }
+  .launch-planet {
+    top: 12%;
+    right: -20px;
+    width: 115px;
+  }
+  .launch-star--one {
+    left: 15%;
+    top: 16%;
+  }
+  .launch-vignette {
+    background: linear-gradient(0deg, #182b59 0%, #1b3056f5 25%, #263854b0 37%, #23385a00 57%);
+  }
+  .launch-copy {
+    top: auto;
+    bottom: 104px;
+    left: 24px;
+    width: calc(100% - 48px);
+  }
+  .launch-eyebrow {
+    font-size: 10px;
+    gap: 9px;
+    letter-spacing: 0.11em;
+  }
+  .launch-eyebrow > i {
+    max-width: 65px;
+  }
+  .launch-copy h1 {
+    font-size: clamp(57px, 15vw, 87px);
+    line-height: 0.94;
+    margin: 8px 0 15px;
+  }
+  .launch-copy > p {
+    font-size: 16px;
+    margin: 17px 0 0;
+    max-width: 375px;
+  }
+  .launch-desktop-break {
+    display: none;
+  }
+  .launch-cta {
+    margin-top: 20px;
+    min-height: 74px;
+    width: 310px;
+    gap: 17px;
+    border-width: 2px;
+  }
+  .launch-cta-icon {
+    flex-basis: 59px;
+    height: 59px;
+  }
+  .launch-cta-icon > svg {
+    width: 32px;
+    height: 32px;
+  }
+  .launch-cta-label {
+    font-size: 25px;
+  }
+  .launch-cta-label > small {
+    font-size: 14px;
+  }
+  .launch-flight-status {
+    top: auto;
+    bottom: 210px;
+    left: 24px;
+  }
+  .launch-flight-status > strong {
+    font-size: 44px;
+  }
+  .launch-footer {
+    left: 20px;
+    right: 20px;
+    min-height: 77px;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 3px 20px;
+    padding: 8px 0;
+    font-size: 9px;
+    letter-spacing: 0.09em;
+  }
+  .launch-system-status {
+    gap: 9px;
+  }
+  .launch-system-status > i {
+    height: 7px;
+    width: 7px;
+  }
+  .launch-footer-nav {
+    gap: 18px;
+  }
+  .launch-footer-nav > a,
+  .launch-footer-nav > button {
+    padding: 8px 0;
+  }
+  .launch-dialog {
+    padding: 22px;
+  }
+}
+@media (max-width: 600px) {
+  .launch-brand-name {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .launch-copy {
+    left: 20px;
+    width: calc(100% - 40px);
+  }
+  .launch-cta-label {
+    font-size: 23px;
+  }
+}
+@media (max-height: 740px) and (min-width: 760px) {
+  .launch-home {
+    min-height: 590px;
+  }
+  .launch-header {
+    padding-top: 18px;
+  }
+  .launch-brand-mark {
+    width: 60px;
+    height: 60px;
+    font-size: 28px;
+  }
+  .launch-copy {
+    top: 22%;
+  }
+  .launch-copy h1 {
+    font-size: clamp(70px, 7.3vw, 104px);
+  }
+  .launch-copy > p {
+    margin-top: 22px;
+  }
+  .launch-cta {
+    margin-top: 23px;
+  }
+}
+.launch-home[data-reduced-motion="true"] *,
+.launch-home[data-reduced-motion="true"] *::before {
+  transition-duration: 0s;
+}
