@@ -12,6 +12,7 @@ import {
   movementPath,
   navigationData,
   navigationFor,
+  openFieldFor,
   neutralInput,
   newMovement,
   PLAYER_RADIUS,
@@ -32,7 +33,9 @@ interface Player {
 /** One authoritative simulation per room. Transport never assigns coordinates. */
 export class RoomMovement {
   readonly players = new Map<string, Player>();
-  readonly grid;
+  /** a malha em uso: a da base, ou o campo aberto durante a expedição */
+  grid: ReturnType<typeof navigationFor>;
+  private readonly baseGrid: ReturnType<typeof navigationFor>;
   readonly rover: RoverState;
   private readonly resumes = new Map<string, { state: MovementState; expires: number }>();
   tick = 0;
@@ -43,6 +46,10 @@ export class RoomMovement {
     this.restrictions.set(id, restriction);
     const state = this.players.get(id)?.state;
     if (state) Object.assign(state, { blocked: restriction.blocked, cold: restriction.cold });
+  }
+  /** Expedição: troca a malha pelo campo aberto (sem as estruturas da base) e volta. */
+  setField(on: boolean) {
+    this.grid = on ? openFieldFor(this.base) : this.baseGrid;
   }
   /** Leva o rover (e quem está nele) para outro ponto: expedição e volta. */
   teleportRover(pose: { x: number; z: number; h: number }) {
@@ -74,7 +81,7 @@ export class RoomMovement {
     readonly base: string,
     parked?: { x: number; z: number; h: number },
   ) {
-    this.grid = navigationFor(base);
+    this.baseGrid = this.grid = navigationFor(base);
     const initial =
       // rover salvo longe do estacionamento (ficou preso numa expedição): volta para a base
       parked &&

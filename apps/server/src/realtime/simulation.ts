@@ -73,6 +73,7 @@ export class RoomSimulation {
       teleport:(id,pose)=>{if(id==='rover')this.movement.teleportRover(pose);else this.movement.teleport(id,pose);},
       spot:(x,z,profile)=>{const p=this.movement.grid.nearestWalkablePoint(x,z,14,profile);return p&&!this.movement.grid.isInsideBase(p.x,p.z)?{x:p.x,z:p.z}:null;},
       lockExit:(on)=>{this.movement.exitLock=on;},
+      fieldMode:(on)=>this.movement.setField(on),
       rescue:(id)=>{this.movement.action(id,'infirmary');},
     };
   }

@@ -5,6 +5,8 @@ export interface RadarRock {
   z: number;
   /** alguém está levando esta pedra */
   carried: boolean;
+  /** poço de escavação (cava no lugar) */
+  pit?: boolean;
 }
 
 /** O que a tela mostra durante a expedição (o BaseViewer atualiza ~10 vezes por segundo). */
@@ -25,6 +27,8 @@ export interface ExpeditionHud {
   rocks: RadarRock[];
   /** 0..1: círculo de "pegando a pedra" */
   pick: number;
+  /** o círculo é de cavar um poço (e não de pegar uma pedra) */
+  digging: boolean;
 }
 
 const idle: ExpeditionHud = {
@@ -39,6 +43,7 @@ const idle: ExpeditionHud = {
   car: { x: 0, z: 0 },
   rocks: [],
   pick: 0,
+  digging: false,
 };
 
 export const useExpedition = create<ExpeditionHud>(() => idle);

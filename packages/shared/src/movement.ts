@@ -3,6 +3,7 @@ import type { GameMotion, GameMotionKind } from './game';
 import {
   type BaseFullLayout,
   NavigationGrid,
+  OpenFieldGrid,
   PLAYER_RADIUS,
   STORM_SAFE_RADIUS,
   VEHICLE_RADIUS,
@@ -77,6 +78,16 @@ export function navigationFor(base: string) {
     grid = new NavigationGrid(data.layout as unknown as BaseFullLayout);
     grid.importMasks(data.masks);
     grids.set(base, grid);
+  }
+  return grid;
+}
+const fields = new Map<string, NavigationGrid>();
+/** Campo aberto (sem estruturas) da expedição, no mesmo tamanho do mapa da base. */
+export function openFieldFor(base: string) {
+  let grid = fields.get(base);
+  if (!grid) {
+    grid = new OpenFieldGrid(navigationData(base).layout as unknown as BaseFullLayout);
+    fields.set(base, grid);
   }
   return grid;
 }

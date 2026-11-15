@@ -7,6 +7,7 @@ import {
   type MovementState,
   movementPath,
   navigationFor,
+  openFieldFor,
   type RoverState,
   stepMovement,
 } from '@mars/shared';
@@ -21,6 +22,11 @@ export class MovementClient {
   private seq = 0;
   private accumulator = 0;
   private revision = -1;
+  /** expedição: campo aberto, sem as estruturas da base (igual ao servidor) */
+  field = false;
+  private gridNow() {
+    return this.field ? openFieldFor(this.base) : navigationFor(this.base);
+  }
   private roverRevision = -1;
   private receivedAt = 0;
   correction = 0;
@@ -94,7 +100,7 @@ export class MovementClient {
     const vehicle = rover.driver === this.self();
     if (rover.rider === this.self()) return;
     const s = vehicle ? rover : state;
-    const grid = navigationFor(this.base);
+    const grid = this.gridNow();
     const officialInput = {
       ...input,
       sleeping: state.blocked ?? input.sleeping,
@@ -131,7 +137,7 @@ export class MovementClient {
       1,
       Math.max(0, (target - before.serverNow) / Math.max(1, after.serverNow - before.serverNow)),
     );
-    const grid = navigationFor(this.base);
+    const grid = this.gridNow();
     const interpolate = (a: MovementState, b: MovementState) => {
       if (
         a.revision !== b.revision ||

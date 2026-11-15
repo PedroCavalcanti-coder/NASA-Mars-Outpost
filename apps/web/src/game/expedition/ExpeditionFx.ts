@@ -23,6 +23,7 @@ export interface ExpeditionRock {
   z: number;
   by: string | null;
   loaded: boolean;
+  kind?: 'rock' | 'pit';
 }
 
 export class ExpeditionFx {
@@ -77,6 +78,33 @@ export class ExpeditionFx {
   ) {
     while (this.rockMeshes.length < list.length) {
       const g = new THREE.Group();
+      if (list[this.rockMeshes.length]?.kind === 'pit') {
+        // poço de escavação: cratera escura com um monte de terra ao lado
+        const hole = new THREE.Mesh(
+          new THREE.CircleGeometry(1.1, 24),
+          new THREE.MeshBasicMaterial({ color: 0x2a160c }),
+        );
+        hole.rotation.x = -Math.PI / 2;
+        hole.position.y = 0.05;
+        const mound = new THREE.Mesh(
+          new THREE.TorusGeometry(1.15, 0.28, 8, 24),
+          new THREE.MeshStandardMaterial({ color: 0x8a5a3a, roughness: 1, flatShading: true }),
+        );
+        mound.rotation.x = Math.PI / 2;
+        mound.position.y = 0.12;
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(1.5, 1.7, 28),
+          new THREE.MeshBasicMaterial({ color: 0x6fe58e, transparent: true, opacity: 0.6, side: THREE.DoubleSide, depthWrite: false }),
+        );
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.y = 0.06;
+        ring.name = 'ring';
+        g.add(hole, mound, ring);
+        applyBoundaryFog(g);
+        this.rocks.add(g);
+        this.rockMeshes.push(g);
+        continue;
+      }
       const rock = new THREE.Mesh(
         new THREE.IcosahedronGeometry(0.62, 0),
         new THREE.MeshStandardMaterial({
@@ -111,7 +139,7 @@ export class ExpeditionFx {
       const g = this.rockMeshes[i]!;
       g.visible = !r.loaded;
       if (r.loaded) return;
-      const carrier = r.by ? carrierPosition(r.by) : null;
+      const carrier = r.by && r.kind !== 'pit' ? carrierPosition(r.by) : null;
       const ring = g.getObjectByName('ring') as THREE.Mesh | undefined;
       if (carrier) {
         g.position.set(carrier.x, carrier.y + 2.15, carrier.z);

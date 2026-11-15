@@ -85,7 +85,8 @@ export interface ExpeditionState {
   deadline: number;
   /** quem foi (motorista e passageiro do rover) */
   members: string[];
-  rocks: { x: number; z: number; by: string | null; loaded: boolean }[];
+  /** alvos: pedras (pegar e levar ao rover) e poços de escavação (cavar no lugar conta como coletado) */
+  rocks: { x: number; z: number; by: string | null; loaded: boolean; kind?: 'rock' | 'pit' }[];
   /** onde o rover chegou e de onde saiu (para a volta) */
   start: { x: number; z: number; h: number };
   home: { x: number; z: number; h: number };
@@ -142,7 +143,7 @@ export const gameCommandSchema = z.object({
     z.object({ type: z.literal('event:choose'), eid: short, choice: index }).strict(),
     z.object({ type: z.literal('action'), action: z.enum(['research','expedition']) }).strict(),
     // expedição com o rover: partir, pegar uma pedra, colocá-la no carro
-    z.object({ type: z.literal('expedition'), op: z.enum(['start','pick','load','abort']), rock: index.optional() }).strict(),
+    z.object({ type: z.literal('expedition'), op: z.enum(['start','pick','load','abort','dig']), rock: index.optional() }).strict(),
     // ferramentas de teste (o servidor só aceita fora de produção)
     z.object({ type: z.literal('dev'), action: z.enum(['complete','event','catastrophe','storm','refill','next_sol','critical','radiation']), id: short.optional() }).strict(),
   ]),
@@ -179,6 +180,8 @@ export interface GameplayMovement {
   restrict(id: string, blocked: boolean, cold: boolean, slow?: boolean): void;
   /** radiação alta: ninguém pode sair da base (o servidor segura quem está dentro) */
   lockExit?(on: boolean): void;
+  /** expedição: usa o campo aberto (sem as estruturas da base) em vez da malha da base */
+  fieldMode?(on: boolean): void;
   /** quem está no rover (a expedição leva os dois) */
   occupants?(): { driver: string | null; rider: string | null };
   /** posição e direção atuais do rover */

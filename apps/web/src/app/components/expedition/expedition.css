@@ -177,3 +177,10 @@
   font: 800 13px inherit;
   cursor: pointer;
 }
+
+.exp-radar__blip.is-pit {
+  border-radius: 3px;
+  background: #6fe58e;
+  box-shadow: 0 0 8px #6fe58e;
+  transform: rotate(45deg);
+}

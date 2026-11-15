@@ -60,10 +60,10 @@ export function ExpeditionHud() {
     ? L('🪨 Entre no rover com a pedra! Você anda mais devagar.', '🪨 Get in the rover with the rock! You walk slower.')
     : hud.inCar
       ? L('📡 Dirija até uma pedra e SAIA do rover (botão Sair) para pegá-la.', '📡 Drive to a rock, then EXIT the rover (Exit button) to pick it up.')
-      : L('👣 Ande até a pedra brilhante para pegá-la.', '👣 Walk up to the glowing rock to pick it up.');
+      : L('👣 Ande até a pedra brilhante (pegar) ou o poço verde (⛏️ cavar parado: já conta como coletado).', '👣 Walk to the glowing rock (pick up) or the green pit (⛏️ dig standing still: it counts as collected).');
 
   const ring = (
-    <svg className="exp-pick" viewBox="0 0 44 44" aria-label={L('Pegando a pedra', 'Picking up the rock')}>
+    <svg className="exp-pick" viewBox="0 0 44 44" aria-label={hud.digging ? L('Cavando o poço', 'Digging the pit') : L('Pegando a pedra', 'Picking up the rock')}>
       <circle cx="22" cy="22" r="18" className="exp-pick__bg" />
       <circle cx="22" cy="22" r="18" className="exp-pick__fg" strokeDasharray={`${hud.pick * 113} 113`} />
     </svg>
@@ -88,7 +88,7 @@ export function ExpeditionHud() {
           return (
             <i
               key={`${r.x}:${r.z}`}
-              className={`exp-radar__blip ${r.carried ? 'is-carried' : ''} ${b.far ? 'is-far' : ''}`}
+              className={`exp-radar__blip ${r.carried ? 'is-carried' : ''} ${r.pit ? 'is-pit' : ''} ${b.far ? 'is-far' : ''}`}
               style={{ left: b.left, top: b.top }}
             />
           );

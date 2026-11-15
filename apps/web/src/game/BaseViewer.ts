@@ -1782,6 +1782,7 @@ export class BaseViewer {
       room = this.room;
     if (!client || !local || !room) return;
     local.networkControlled = true;
+    client.field = this.expedition.active;
     const driving = client.rover?.driver === room.self.id;
     const riding = client.rover?.rider === room.self.id;
     if (dir && !local.isBusy) {
@@ -4079,7 +4080,10 @@ export class BaseViewer {
       );
       return false;
     }
-    const { path, clampedByStorm } = this.grid.findPath(
+    // na expedição não há estruturas: segue direto (o servidor traça o caminho no campo aberto)
+    const { path, clampedByStorm } = this.expedition.active
+      ? { path: [target.clone()], clampedByStorm: false }
+      : this.grid.findPath(
       local.position,
       target,
       this.stormCurrent > 0.25,

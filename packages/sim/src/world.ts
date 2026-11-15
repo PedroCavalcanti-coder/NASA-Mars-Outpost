@@ -509,6 +509,7 @@ export function applyDifficulty(s: GameplayState, d: Difficulty) {
 /** Duração da expedição (tempo real, ms) e quantas pedras achar. */
 export const EXPEDITION_MS = 240000;
 export const EXPEDITION_ROCKS = 3;
+export const PIT_DIG_SECONDS = 3;
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
 function beginExpedition(s: GameplayState, actor: string, movement: GameplayMovement): GameErrorCode | null {
@@ -523,23 +524,28 @@ function beginExpedition(s: GameplayState, actor: string, movement: GameplayMove
   if (occupants.driver !== actor) return 'FORBIDDEN';
   const members = [occupants.driver, occupants.rider].filter((id): id is string => Boolean(id && s.players[id]));
   const seed = s.mission.seed, sol = s.mission.sol;
+  const rules = rulesFor(s.difficulty);
+  // o mapa da expedição é um campo aberto: sem as estruturas da base (que ficam escondidas)
+  movement.fieldMode?.(true);
+  const abort = (code: GameErrorCode) => { movement.fieldMode?.(false); return code; };
   // ponto de chegada longe da base e pedras espalhadas por perto: tudo sorteado pelo servidor
   const a0 = seeded(seed, sol, 1100) * Math.PI * 2;
   const at = (x: number, z: number, profile: 'foot' | 'vehicle') => movement.spot ? movement.spot(x, z, profile) : { x, z };
   const start = at(Math.cos(a0) * 52, Math.sin(a0) * 52, 'vehicle');
-  if (!start) return 'UNAVAILABLE';
+  if (!start) return abort('UNAVAILABLE');
   const rocks: ExpeditionState['rocks'] = [];
-  for (let i = 0; rocks.length < EXPEDITION_ROCKS && i < 80; i++) {
+  const targets = rules.expeditionTargets;
+  for (let i = 0; rocks.length < targets && i < 160; i++) {
     const angle = seeded(seed, sol, 1110 + i * 2) * Math.PI * 2, radius = 18 + seeded(seed, sol, 1111 + i * 2) * 30;
     const p = at(start.x + Math.cos(angle) * radius, start.z + Math.sin(angle) * radius, 'foot');
     if (!p || Math.hypot(p.x - start.x, p.z - start.z) < 14 || rocks.some(r => Math.hypot(r.x - p.x, r.z - p.z) < 16)) continue;
-    rocks.push({ x: round1(p.x), z: round1(p.z), by: null, loaded: false });
+    rocks.push({ x: round1(p.x), z: round1(p.z), by: null, loaded: false, kind: rocks.length >= targets - rules.expeditionPits ? 'pit' : 'rock' });
   }
-  if (rocks.length < EXPEDITION_ROCKS) return 'UNAVAILABLE';
+  if (rocks.length < targets) return abort('UNAVAILABLE');
   const home = movement.roverPose?.() ?? { x: 0, z: 0, h: 0 };
   s.expedition = { id: `${s.generation}:${s.revision + 1}`, startedAt: s.interactionMs, deadline: s.interactionMs + rulesFor(s.difficulty).expeditionMs, members, rocks, start: { x: round1(start.x), z: round1(start.z), h: a0 + Math.PI }, home };
   movement.teleport?.('rover', s.expedition.start);
-  log(s, 'Expedição com o rover', {}, 'Vocês foram para uma região coberta de neblina. Use o radar e ache 3 pedras!', 'info');
+  log(s, 'Expedição com o rover', {}, 'Vocês foram para uma região coberta de neblina. Use o radar e ache os alvos!', 'info');
   return null;
 }
 
@@ -548,6 +554,7 @@ function endExpedition(s: GameplayState, movement: GameplayMovement, reason: 'do
   const x = s.expedition;
   if (!x) return;
   s.expedition = null;
+  movement.fieldMode?.(false);
   movement.teleport?.('rover', x.home);
   members: for (const id of x.members) {
     const p = s.players[id];
@@ -564,7 +571,7 @@ function endExpedition(s: GameplayState, movement: GameplayMovement, reason: 'do
     // previsão do tempo de amanhã (o que o radar do rover viu)
     const next = eventsForSol(s.mission.seed, s.mission.sol + 1, Object.keys(s.players).length, rulesFor(s.difficulty).majorBonus)[0];
     log(s, 'Reconhecimento com o rover', deltas,
-      next ? `As 3 pedras estão a bordo! Previsão do radar para amanhã: ${next.title}.` : 'As 3 pedras estão a bordo! O radar não viu nada de perigoso para amanhã.', 'good');
+      next ? `Todos os alvos foram coletados! Previsão do radar para amanhã: ${next.title}.` : 'Todos os alvos foram coletados! O radar não viu nada de perigoso para amanhã.', 'good');
     s.board.done.push('soil_robot');
   } else if (reason === 'oxygen') {
     // o oxigênio de alguém acabou: a missão falha e só volta no próximo Sol
@@ -580,18 +587,27 @@ function endExpedition(s: GameplayState, movement: GameplayMovement, reason: 'do
   outcome(s);
 }
 
-function expeditionCommand(s: GameplayState, actor: string, op: 'start' | 'pick' | 'load' | 'abort', rock: number | undefined, movement: GameplayMovement): GameErrorCode | null {
+function expeditionCommand(s: GameplayState, actor: string, op: 'start' | 'pick' | 'load' | 'abort' | 'dig', rock: number | undefined, movement: GameplayMovement): GameErrorCode | null {
   if (op === 'start') return beginExpedition(s, actor, movement);
   const x = s.expedition;
   if (!x || !x.members.includes(actor)) return 'UNAVAILABLE';
   if (op === 'abort') { endExpedition(s, movement, 'abort'); return null; }
-  const mine = x.rocks.find(r => r.by === actor && !r.loaded);
+  const mine = x.rocks.find(r => r.by === actor && !r.loaded && r.kind !== 'pit');
   if (op === 'pick') {
     const i = Number(rock);
     const target = x.rocks[i];
-    if (!Number.isInteger(i) || !target || target.by || target.loaded || mine) return 'UNAVAILABLE';
+    if (!Number.isInteger(i) || !target || target.by || target.loaded || mine || target.kind === 'pit') return 'UNAVAILABLE';
     if (movement.context(actor)?.driving || !movement.near(actor, `xrock:${i}`, 2.6)) return 'TOO_FAR';
     target.by = actor;
+    return null;
+  }
+  if (op === 'dig') {
+    const i = Number(rock);
+    const pit = x.rocks[i];
+    if (!Number.isInteger(i) || !pit || pit.kind !== 'pit' || pit.loaded) return 'UNAVAILABLE';
+    if (movement.context(actor)?.driving || !movement.near(actor, `xrock:${i}`, 2.6)) return 'TOO_FAR';
+    pit.loaded = true; // cavar o poço já conta como coletado
+    if (x.rocks.every(r => r.loaded)) endExpedition(s, movement, 'done');
     return null;
   }
   // load: a pedra vai para o rover

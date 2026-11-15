@@ -120,4 +120,21 @@ describe('expedição com o rover', () => {
     expect(w.s.board.done).not.toContain('soil_robot');
     expect(w.s.mission.resources.energy.value).toBe(energy);
   });
+
+  it('no difícil são 6 alvos, 2 deles poços; cavar o poço já conta como coletado', () => {
+    const w = world();
+    w.s.difficulty = 'hard';
+    w.run({ type: 'expedition', op: 'start' });
+    const x = () => w.s.expedition!;
+    expect(x().rocks).toHaveLength(6);
+    expect(x().rocks.filter((r) => r.kind === 'pit')).toHaveLength(2);
+    const pitIndex = x().rocks.findIndex((r) => r.kind === 'pit');
+    // pedra não se cava e poço não se pega
+    Object.assign(w.pos.a!, { x: x().rocks[pitIndex]!.x, z: x().rocks[pitIndex]!.z, driving: false });
+    expect(w.run({ type: 'expedition', op: 'pick', rock: pitIndex })).toBe('UNAVAILABLE');
+    expect(w.run({ type: 'expedition', op: 'dig', rock: pitIndex })).toBeUndefined();
+    expect(x().rocks[pitIndex]!.loaded).toBe(true);
+    const rockIndex = x().rocks.findIndex((r) => r.kind === 'rock');
+    expect(w.run({ type: 'expedition', op: 'dig', rock: rockIndex })).toBe('UNAVAILABLE');
+  });
 });

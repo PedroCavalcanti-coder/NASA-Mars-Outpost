@@ -748,7 +748,7 @@ export class NavigationGrid {
 
   protected refreshDebugMesh() {}
 
-  private allocate() {
+  protected allocate() {
     const n = this.size * this.size;
     this.raw = new Uint8Array(n);
     this.blocked = new Uint8Array(n);
@@ -794,6 +794,41 @@ export class NavigationGrid {
     this.penV = this.clearanceOf(this.blockedV, 4);
     this.navReady = true;
     this.refreshDebugMesh();
+  }
+}
+
+/**
+ * Campo aberto da expedição: o mesmo mapa, mas sem nenhuma estrutura (a base some). Só a borda
+ * do mundo bloqueia; ninguém "está dentro da base" e o chão é plano.
+ */
+export class OpenFieldGrid extends NavigationGrid {
+  constructor(layout: BaseFullLayout) {
+    super(layout);
+    this.allocate();
+    const s = this.size;
+    const reachV = Math.ceil(VEHICLE_RADIUS / CELL) + 1;
+    for (let j = 0; j < s; j++) {
+      for (let i = 0; i < s; i++) {
+        const k = j * s + i;
+        const edge = Math.min(i, j, s - 1 - i, s - 1 - j);
+        this.blocked[k] = edge < 1 ? 1 : 0;
+        this.blockedV[k] = edge < reachV ? 1 : 0;
+        this.reach[k] = this.blocked[k] ? 0 : 1;
+        this.reachV[k] = this.blockedV[k] ? 0 : 1;
+      }
+    }
+    this.buildClearancePenalty();
+    this.penV = this.clearanceOf(this.blockedV, 4);
+    this.navReady = true;
+  }
+  override isInsideBase(): boolean {
+    return false;
+  }
+  override roomIdAt(): string | null {
+    return null;
+  }
+  override groundY(): number {
+    return GROUND_Y;
   }
 }
 

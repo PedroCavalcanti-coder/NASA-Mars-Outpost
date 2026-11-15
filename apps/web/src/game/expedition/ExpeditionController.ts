@@ -67,8 +67,8 @@ export class ExpeditionController {
       performance.now() / 1000,
     );
     const now = performance.now();
-    const mine = x.rocks.findIndex((r) => r.by === selfId && !r.loaded);
-    const pickProgress = this.handlePickup(dt, now, x.rocks, mine, onFoot, local, rover.position);
+    const mine = x.rocks.findIndex((r) => r.by === selfId && !r.loaded && r.kind !== 'pit');
+    const pickProgress = this.handlePickup(dt, now, x.rocks, mine, onFoot, local);
     this.beep(now, x.rocks, mine, onFoot ? local!.position : rover.position, rover.position);
     // dados do radar e do relógio (10 vezes por segundo bastam)
     if (pickProgress > 0 || useExpedition.getState().pick > 0) useExpedition.setState({ pick: pickProgress });
@@ -87,33 +87,45 @@ export class ExpeditionController {
       inCar: !onFoot,
       me: { x: pos.x, z: pos.z, yaw: Math.atan2(dir.x, dir.z) },
       car: { x: rover.position.x, z: rover.position.z },
-      rocks: x.rocks.filter((r) => !r.loaded).map((r) => ({ x: r.x, z: r.z, carried: Boolean(r.by) })),
+      rocks: x.rocks.filter((r) => !r.loaded).map((r) => ({ x: r.x, z: r.z, carried: Boolean(r.by) && r.kind !== 'pit', pit: r.kind === 'pit' })),
     });
   }
 
-  /** Pegar: ficar parado perto da pedra enche um círculo. Guardar: entrar no rover com ela. */
+  /**
+   * Pegar a pedra: ficar parado perto dela enche um círculo (guardar: entrar no rover com ela).
+   * Poço de escavação: ficar parado perto e cavar por mais tempo; cavar já conta como coletado.
+   */
   private handlePickup(
     dt: number,
     now: number,
-    rocks: readonly { x: number; z: number; by: string | null; loaded: boolean }[],
+    rocks: readonly { x: number; z: number; by: string | null; loaded: boolean; kind?: 'rock' | 'pit' }[],
     mine: number,
     onFoot: boolean,
     local: AstronautActor | null,
-    car: THREE.Vector3,
   ) {
     let progress = 0;
-    if (onFoot && local && mine < 0) {
+    let digging = false;
+    if (onFoot && local) {
       const i = rocks.findIndex(
-        (r) => !r.by && !r.loaded && Math.hypot(r.x - local.position.x, r.z - local.position.z) < 2.4,
+        (r) =>
+          !r.by &&
+          !r.loaded &&
+          (r.kind === 'pit' || mine < 0) &&
+          Math.hypot(r.x - local.position.x, r.z - local.position.z) < 2.4,
       );
       if (i >= 0 && local.motion === 'idle') {
+        digging = rocks[i]!.kind === 'pit';
         this.pickHold += dt;
-        progress = Math.min(1, this.pickHold / 1.4);
+        progress = Math.min(1, this.pickHold / (digging ? 3 : 1.4));
         if (progress >= 1 && now - this.pickAt > 900) {
           this.pickAt = now;
           this.pickHold = 0;
-          void gameplayCommand({ type: 'expedition', op: 'pick', rock: i }).then((res) => {
-            if (res.ok) this.host.notify('🪨 Pedra na mão! Entre no rover para guardá-la (você anda mais devagar).', 'ok');
+          void gameplayCommand({ type: 'expedition', op: digging ? 'dig' : 'pick', rock: i }).then((res) => {
+            if (res.ok)
+              this.host.notify(
+                digging ? '⛏️ Poço cavado! Contou como coletado.' : '🪨 Pedra na mão! Entre no rover para guardá-la (você anda mais devagar).',
+                'ok',
+              );
             else this.host.notify(res.error, 'error');
           });
         }
@@ -126,7 +138,7 @@ export class ExpeditionController {
         else this.host.notify(res.error, 'error');
       });
     }
-    void car;
+    useExpedition.setState({ digging });
     return progress;
   }
 
@@ -158,7 +170,7 @@ export class ExpeditionController {
       host.setBaseVisible(false);
       host.fade(0, 900);
     }, 450);
-    host.notify('🌫️ Neblina! Use o radar 📡 para achar 3 pedras 🪨 antes que o tempo acabe.', 'ok');
+    host.notify(`🌫️ Neblina! Use o radar 📡 para achar os ${host.gameplay()?.expedition?.rocks.length ?? 3} alvos (🪨 pedras e ⛏️ poços) antes que o tempo acabe.`, 'ok');
   }
 
   private leave() {
