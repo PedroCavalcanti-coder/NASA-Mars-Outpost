@@ -1,0 +1,93 @@
+.mg-result {
+  position: fixed;
+  z-index: 6000;
+  left: 50%;
+  top: 14%;
+  transform: translateX(-50%);
+  width: min(420px, 90vw);
+  padding: 10px 16px;
+  border: 3px solid #20394b;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #405a66, #2c4452);
+  color: #fff4dc;
+  text-align: center;
+  box-shadow: 0 6px 0 #152e3d;
+  animation: mg-pop 0.35s ease-out;
+}
+.mg-result strong {
+  font-size: clamp(18px, 3vmin, 26px);
+  color: #ffe3a1;
+}
+.mg-result p {
+  margin: 4px 0 0;
+  font-size: clamp(12px, 2vmin, 15px);
+}
+.mg-result__stars {
+  font-size: clamp(30px, 6vmin, 46px);
+  letter-spacing: 6px;
+}
+.mg-result__stars span {
+  color: #5b7c8c;
+}
+.mg-result__stars span.is-on {
+  color: #ffd34d;
+  text-shadow: 0 0 12px #ffd34d;
+  animation: mg-star 0.5s ease-out both;
+}
+.mg-hand {
+  position: fixed;
+  z-index: 5900;
+  left: 50%;
+  top: 58%;
+  font-size: 56px;
+  pointer-events: none;
+  animation: mg-tap 1s ease-in-out infinite;
+}
+.mg-hand small {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 3px #000;
+  text-align: center;
+  white-space: nowrap;
+}
+.mg-shake {
+  animation: mg-shake 0.3s linear;
+}
+@keyframes mg-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px) scale(0.9);
+  }
+}
+@keyframes mg-star {
+  from {
+    transform: scale(0.2) rotate(-90deg);
+    opacity: 0;
+  }
+}
+@keyframes mg-tap {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, -14px);
+  }
+}
+@keyframes mg-shake {
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mg-hand,
+  .mg-result,
+  .mg-result__stars span {
+    animation: none;
+  }
+}

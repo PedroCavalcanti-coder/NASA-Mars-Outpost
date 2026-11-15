@@ -36,11 +36,39 @@ export class RoomMovement {
   readonly rover: RoverState;
   private readonly resumes = new Map<string, { state: MovementState; expires: number }>();
   tick = 0;
-  private restrictions = new Map<string, { blocked: boolean; cold: boolean }>();
-  restrict(id: string, restriction: { blocked: boolean; cold: boolean }) {
+  /** radiação alta: quem está dentro da base não consegue sair (decidido pelo servidor) */
+  exitLock = false;
+  private restrictions = new Map<string, { blocked: boolean; cold: boolean; slow?: boolean }>();
+  restrict(id: string, restriction: { blocked: boolean; cold: boolean; slow?: boolean }) {
     this.restrictions.set(id, restriction);
     const state = this.players.get(id)?.state;
-    if (state) Object.assign(state, restriction);
+    if (state) Object.assign(state, { blocked: restriction.blocked, cold: restriction.cold });
+  }
+  /** Leva o rover (e quem está nele) para outro ponto: expedição e volta. */
+  teleportRover(pose: { x: number; z: number; h: number }) {
+    Object.assign(this.rover, pose);
+    stopMovement(this.rover);
+    this.rover.revision++;
+    for (const id of [this.rover.driver, this.rover.rider]) {
+      const p = id ? this.players.get(id) : undefined;
+      if (!p) continue;
+      Object.assign(p.state, pose);
+      stopMovement(p.state);
+      p.state.revision++;
+      p.queue = [];
+      p.input = neutralInput();
+    }
+  }
+  /** Leva um astronauta a pé para outro ponto. */
+  teleport(id: string, pose: { x: number; z: number; h: number }) {
+    const p = this.players.get(id);
+    if (!p) return;
+    this.exit(id);
+    Object.assign(p.state, pose, { m: 'idle' });
+    stopMovement(p.state);
+    p.state.revision++;
+    p.queue = [];
+    p.input = neutralInput();
   }
   constructor(
     readonly base: string,
@@ -48,7 +76,10 @@ export class RoomMovement {
   ) {
     this.grid = navigationFor(base);
     const initial =
-      parked && this.grid.isWalkable(parked.x, parked.z, 'vehicle')
+      // rover salvo longe do estacionamento (ficou preso numa expedição): volta para a base
+      parked &&
+      this.grid.isWalkable(parked.x, parked.z, 'vehicle') &&
+      Math.hypot(parked.x - navigationData(base).park.x, parked.z - navigationData(base).park.z) < 40
         ? parked
         : navigationData(base).park;
     this.rover = { ...newMovement(initial), ready: true, driver: null, rider: null };
@@ -232,13 +263,26 @@ export class RoomMovement {
       const s = driving ? this.rover : p.state;
       const bodies = this.bodies(id, driving);
       const restriction = this.restrictions.get(id);
-      const officialInput = { ...p.input, sleeping: restriction?.blocked ?? true, speedScale: 1 };
+      const officialInput = {
+        ...p.input,
+        sleeping: restriction?.blocked ?? true,
+        speedScale: 1,
+        exitBlocked: p.input.exitBlocked || this.exitLock,
+      };
       movementPath(s, officialInput, this.grid, storm, driving, (x, z) =>
         bodies.some(
           (b) => Math.hypot(x - b.x, z - b.z) < b.radius + (driving ? 1.5 : PLAYER_RADIUS),
         ),
       );
-      stepMovement(s, officialInput, this.grid, dt * (restriction?.cold ? 0.25 : 1), driving, storm, bodies);
+      stepMovement(
+        s,
+        officialInput,
+        this.grid,
+        dt * (restriction?.cold ? 0.25 : restriction?.slow ? 0.55 : 1),
+        driving,
+        storm,
+        bodies,
+      );
       // Repath a blocked click route from the authority, at a bounded frequency.
       if (s.path.length && Math.hypot(s.vx, s.vz) < 0.05 && this.tick % 15 === 0)
         s.destination = null;

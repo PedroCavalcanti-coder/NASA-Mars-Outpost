@@ -72,10 +72,10 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     id: 'soil_robot',
     title: 'Reconhecimento com o rover',
     summary:
-      'Das 2h às 16h: dirija o rover (sozinho ou com um amigo) até o quadrado amarelo longe da base. Lá começa a corrida de 300 m desviando de pedras e buracos. Rende pesquisa e a previsão do próximo evento climático; depois, conserte o rover com o maçarico.',
+      'Das 2h às 16h: dirija o rover (sozinho ou com um amigo) até o quadrado amarelo. Você e o rover vão para um mapa coberto de neblina: ache 3 pedras com o radar, pegue cada uma a pé e leve ao rover. Rende pesquisa e a previsão do tempo de amanhã. Se o tempo acabar, vocês voltam sem perder nada.',
     site: 'soil',
     cost: { energy: 20, supplies: 10, oxygen: 14 },
-    research: 2,
+    research: 3,
     morale: 3,
     // a janela do rover (2h às 16h) é conferida à parte: ele pode sair antes de amanhecer
     daytimeOnly: false,
@@ -88,7 +88,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Use a sonda de perfuração para coletar a camada que a ciência pediu.',
     site: 'drill',
     cost: { energy: 6, supplies: 2 },
-    research: 2,
+    research: 3,
     daytimeOnly: false,
     weight: 3,
   },
@@ -98,7 +98,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Rode as amostras da base na bancada do laboratório e registre os resultados.',
     site: 'lab',
     cost: { energy: 8, supplies: 3 },
-    research: 2,
+    research: 3,
     daytimeOnly: false,
     weight: 2,
   },
@@ -108,7 +108,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'No console de comunicações, alinhe a antena e envie o pacote de dados à Terra.',
     site: 'comms',
     cost: { energy: 10 },
-    research: 2,
+    research: 3,
     daytimeOnly: false,
     weight: 2,
   },
@@ -224,7 +224,29 @@ export function missionCountFor(players: number): number {
  * quem entra na sala no meio do dia não troca as missões que já existiam.
  */
 export function missionsForSol(seed: number, sol: number, players: number): MissionId[] {
-  const pool = MISSION_IDS.map((id) => ({ id, w: MISSIONS[id].weight }));
+  return orderForSol(seed, sol).slice(0, missionCountFor(players));
+}
+
+/** Quantas missões de cada dia contam como "já vistas" para evitar repetir no dia seguinte. */
+const SEEN_TOP = missionCountFor(1);
+const orderMemo = new Map<string, MissionId[]>();
+
+/**
+ * Ordem completa de missões de um Sol, com memória: o que apareceu ontem pesa 85% menos hoje e o
+ * que apareceu anteontem, 50% menos. Assim as missões se revezam em vez de repetir (o sorteio
+ * continua determinístico: depende só da semente e do Sol).
+ */
+function orderForSol(seed: number, sol: number): MissionId[] {
+  const key = `${seed}:${sol}`;
+  const hit = orderMemo.get(key);
+  if (hit) return hit;
+  const recent = new Map<MissionId, number>();
+  for (const [back, factor] of [[1, 0.15], [2, 0.5]] as const) {
+    if (sol - back < 1) continue;
+    for (const id of orderForSol(seed, sol - back).slice(0, SEEN_TOP))
+      recent.set(id, Math.min(recent.get(id) ?? 1, factor));
+  }
+  const pool = MISSION_IDS.map((id) => ({ id, w: MISSIONS[id].weight * (recent.get(id) ?? 1) }));
   const order: MissionId[] = [];
   let heavy = false;
   let round = 0;
@@ -247,7 +269,21 @@ export function missionsForSol(seed: number, sol: number, players: number): Miss
     }
     order.push(m.id);
   }
-  return order.slice(0, missionCountFor(players));
+  // pesquisa só vem das missões de pesquisa: todo dia entram pelo menos 2 (3 com 3+ jogadores),
+  // intercaladas com as de manutenção. Sem isso, a conta de chegar a 100% pontos não fechava.
+  const research = order.filter((id) => MISSIONS[id].research > 0);
+  const upkeep = order.filter((id) => MISSIONS[id].research <= 0);
+  const mixed: MissionId[] = [];
+  for (let i = 0; i < 6; i++) {
+    const r = research.shift();
+    if (r) mixed.push(r);
+    const u = upkeep.shift();
+    if (u) mixed.push(u);
+  }
+  const final = [...mixed, ...order.filter((id) => !mixed.includes(id))];
+  if (orderMemo.size > 5000) orderMemo.clear();
+  orderMemo.set(key, final);
+  return final;
 }
 
 export interface ResourceSnapshot {

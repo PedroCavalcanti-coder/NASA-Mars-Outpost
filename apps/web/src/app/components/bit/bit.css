@@ -47,8 +47,9 @@
 }
 .bit-dialogue {
   pointer-events: auto;
-  max-width: 310px;
-  padding: 16px 18px 12px;
+  max-width: min(460px, calc(100vw - 150px));
+  min-width: min(340px, calc(100vw - 150px));
+  padding: 12px 18px 10px;
   margin-bottom: 25px;
   background: #122b41f5;
   border: 2px solid #76c5df;
@@ -360,5 +361,25 @@ body:has(
 @media (prefers-reduced-motion: reduce) {
   .bit-countdown strong {
     animation: none;
+  }
+}
+
+/* celular deitado (pouca altura): o B.I.T. ocupa menos tela */
+@media (max-height: 500px) {
+  .bit-guide:not(.bit-guide--activity) .bit-dialogue {
+    max-width: min(480px, 62vw);
+    min-width: min(380px, 56vw);
+    margin-bottom: 4px;
+    padding: 8px 12px 8px;
+  }
+  .bit-guide:not(.bit-guide--activity) .bit-dialogue p {
+    margin: 4px 0 8px;
+    font-size: clamp(12px, 3.6vh, 15px);
+    line-height: 1.35;
+  }
+  .bit-guide:not(.bit-guide--activity) .bit-dialogue button {
+    min-height: 34px;
+    padding: 5px 10px;
+    font-size: 13px;
   }
 }

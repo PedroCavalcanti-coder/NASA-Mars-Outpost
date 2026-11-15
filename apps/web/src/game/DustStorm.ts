@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 /**
  * Uniforms COMPARTILHADOS por todos os materiais com a poeira (névoa de borda + tempestade).
  * Cada material recebe estes mesmos objetos `{ value }`, então basta atualizar `.value` aqui
@@ -11,6 +12,11 @@ export interface DustStormUniforms {
   dustInteriorClear: { value: number };
   dustEdgeNear: { value: number };
   dustEdgeFar: { value: number };
+  /** 1 durante a expedição do rover: neblina cobrindo o mapa */
+  expeditionFog: { value: number };
+  /** áreas sem neblina: faróis do rover e lanterna do traje (x, y, z do centro e raio) */
+  expeditionCar: { value: THREE.Vector4 };
+  expeditionMe: { value: THREE.Vector4 };
 }
 
 export const dustUniforms: DustStormUniforms = {
@@ -19,6 +25,9 @@ export const dustUniforms: DustStormUniforms = {
   dustInteriorClear: { value: 0 },
   dustEdgeNear: { value: 55 },
   dustEdgeFar: { value: 90 },
+  expeditionFog: { value: 0 },
+  expeditionCar: { value: new THREE.Vector4(0, 0, 0, 24) },
+  expeditionMe: { value: new THREE.Vector4(0, 0, 0, 8) },
 };
 
 /** Haze contínuo de poeira movido a vento nos shaders de neblina da cena. */

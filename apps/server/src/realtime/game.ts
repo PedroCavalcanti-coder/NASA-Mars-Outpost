@@ -28,6 +28,8 @@ import {
   normalizeSuit,
   normalizeTimeScale,
   REPAIR_ANCHORS,
+  isDifficulty,
+  type Difficulty,
   repairIntent,
   restoreIntegrity,
   tickIntegrity,
@@ -78,6 +80,8 @@ interface Room {
       info: GamePlayerInfo;
       motion?: GameMotion;
       resumeToken?: string;
+      /** jogador do cookie (o mesmo navegador/dono do save): pode reassumir o próprio apelido */
+      owner?: string | null;
       /** caiu: o personagem fica parado esperando a reconexão até este timer */
       dropped?: NodeJS.Timeout;
       /** tira o astronauta do mapa de vez (chamado pelo timer ou por quem reconectar) */
@@ -113,13 +117,13 @@ export function roomBase(code: string): string | undefined {
 }
 
 /** O apelido já está em uso por alguém que está na sala (sem acento nem caixa)? */
-export function isNicknameTaken(code: string, name: string): boolean {
+export function isNicknameTaken(code: string, name: string, owner?: string | null): boolean {
   const room = rooms.get(code);
   if (!room) return false;
   const n = normalizeNickname(name);
   // quem caiu e ainda está parado no mapa não segura o apelido: a entrada nova o substitui
   return [...room.players.values()].some(
-    (p) => !p.dropped && normalizeNickname(p.info.name) === n,
+    (p) => !p.dropped && normalizeNickname(p.info.name) === n && !(owner && p.owner === owner),
   );
 }
 
@@ -184,6 +188,7 @@ async function getRoom(
   baseId: string,
   allowCreate = true,
   fresh = false,
+  difficulty?: Difficulty,
 ): Promise<Room> {
   const live = rooms.get(code);
   // código recém-sorteado que já pertence a outro mundo: o cliente sorteia outro
@@ -206,6 +211,8 @@ async function getRoom(
         throw new Error('Sala não encontrada. Confira o código ou peça um novo convite.');
       const movement = new RoomMovement(saved?.baseId ?? baseId, saved?.save.vehicle);
       const simulation = new RoomSimulation(saved?.baseId ?? baseId, code, movement, saved?.save);
+      // a dificuldade escolhida vale só para mundos novos; mundo salvo guarda a sua
+      if (!saved && difficulty) simulation.state.difficulty = difficulty;
       const room: Room = {
         simulation,
         code,
@@ -460,7 +467,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         }
         const savedSuit = owner ? await linkSuit(owner, code).catch(() => null) : null;
         if (socket.disconnected) return;
-        const room = await getRoom(code, baseId, req.create === true, req.fresh === true);
+        const room = await getRoom(code, baseId, req.create === true, req.fresh === true, isDifficulty(req.difficulty) ? req.difficulty : undefined);
         if (socket.disconnected) {
           scheduleCleanup(room);
           return;
@@ -483,6 +490,11 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         // Quem caiu e voltou (ou entrou de novo com o mesmo apelido): o astronauta parado sai
         // agora e a entrada nova retoma a posição dele.
         const wantedName = normalizeNickname(name);
+        // o dono do save voltando (aba antiga ainda aberta, ping ainda não expirou): assume o lugar
+        for (const p of [...room.players.values()]) {
+          if (!p.dropped && owner && p.owner === owner && normalizeNickname(p.info.name) === wantedName)
+            ns.sockets.get(p.info.id)?.disconnect(true);
+        }
         for (const p of [...room.players.values()]) {
           if (
             p.dropped &&
@@ -522,6 +534,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           info,
           motion: room.movement.join(socket.id, slot, resumeToken),
           resumeToken,
+          owner,
         });
         room.simulation.join(socket.id,name,resumeToken);
         publish(room);

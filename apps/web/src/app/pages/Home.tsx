@@ -8,7 +8,8 @@ import {
   retainExpedition,
   subscribeExpedition,
 } from '../../game/runtime/expedition';
-import { clearPlaySession } from '../../lib/gameSession';
+import { clearPlaySession, setPendingDifficulty } from '../../lib/gameSession';
+import { DifficultyModal } from '../components/DifficultyModal';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { SuitModal } from '../components/astronaut/SuitModal';
@@ -45,6 +46,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
   const [suitModalOpen, setSuitModalOpen] = useState(false);
+  const [difficultyOpen, setDifficultyOpen] = useState(false);
   const skipSuit = useRef(false);
   // Modal para entrar em um mundo compartilhado (o destino vale depois da viagem e da suit)
   // convite aberto por link (/jogar?sala=CODIGO volta aqui): a janela abre com o código preenchido
@@ -420,10 +422,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
             className="launch-cta"
             type="button"
             aria-label={L('Jogar agora', 'Play now')}
-            onClick={() => {
-              setDestinationUrl('/jogar');
-              launch();
-            }}
+            onClick={() => setDifficultyOpen(true)}
             disabled={launching || Boolean(initializationError)}
           >
             <span className="launch-cta-icon" aria-hidden="true">
@@ -529,6 +528,16 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
       <CookieConsent />
 
+      <DifficultyModal
+        open={difficultyOpen}
+        onClose={() => setDifficultyOpen(false)}
+        onPick={(d) => {
+          setPendingDifficulty(d);
+          setDifficultyOpen(false);
+          setDestinationUrl('/jogar');
+          launch();
+        }}
+      />
       {/* Modal para Entrar em um Mundo com Código da Sala */}
       <JoinWorldModal
         open={joinModalOpen}

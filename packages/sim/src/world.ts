@@ -1,17 +1,17 @@
 import {
-  armorValue, flareFactor, flareFor, GAMEPLAY_TARGETS, RADIATION, GAMEPLAY_VERSION, GAME_SOL_SECONDS, GAME_START_HOUR, leakRate,
+  armorValue, flareFactor, rulesFor, flareFor, GAMEPLAY_TARGETS, RADIATION, GAMEPLAY_VERSION, GAME_SOL_SECONDS, GAME_START_HOUR, leakRate,
   newIntegrity, repairIntent, tickIntegrity,
-  type ActivityAction, type ActivityAttempt, type ActivityKind, type GameConfirmation,
+  type ActivityAction, type ExpeditionState, type ActivityAttempt, type ActivityKind, type GameConfirmation,
   type GameErrorCode, type GamePayload, type GameplayMovement, type GameplayState,
   type PauseReason, type RepairIntent,
 } from '@mars/shared';
 import { createMission, change, pushLog } from './state';
 import { checkAction, checkOutcome, runCommand } from './engine';
 import { dustStep, filterClogged, gridLoad, gridStep, hashString, OXYGEN_PLANT, panelDustRate, seeded, solarGeneration } from './operations';
-import { DAILY_OXYGEN_PER_PLAYER, DAILY_SUPPLIES_PER_PLAYER, gardenComplete, GARDEN_OXYGEN_BONUS, MISSIONS, missionBlock, missionsForSol, roverWindowOpen, soilReward, soilSamples, type MissionId } from './missions';
+import { DAILY_OXYGEN_PER_PLAYER, DAILY_SUPPLIES_PER_PLAYER, gardenComplete, GARDEN_OXYGEN_BONUS, MISSIONS, missionBlock, missionsForSol, NIGHT_LIMIT, roverWindowOpen, soilReward, soilSamples, type MissionId } from './missions';
 import { collectSample, drillStep, initialDrill, profileFor, targetLayer } from './drilling';
 import { inZone, pingPong, soilQuality, stationQuality, zoneFor } from './scoring';
-import { eventsForSol, GAME_EVENTS, resolveChoice } from './eventRules';
+import { eventsForSol, GAME_EVENTS, resolveChoice, WEATHER_EVENT_IDS } from './eventRules';
 import { modeFor, pickDecider, randomChoice, tally } from './voting';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -59,6 +59,9 @@ export function removeGameplayPlayer(s: GameplayState, id: string, movement: Gam
     }
   }
   for (const f of s.integrity.fractures) if (f.owner === id) { delete f.owner; delete f.leaseUntil; }
+  // a pedra que ele levava volta ao chão
+  for (const r of s.expedition?.rocks ?? []) if (r.by === id && !r.loaded) r.by = null;
+  if (s.expedition) s.expedition.members = s.expedition.members.filter(m => m !== id);
   delete s.players[id];
   setPause(s, 'repair', false);
   if (s.event && !s.event.result) {
@@ -107,25 +110,41 @@ function targetOf(kind: ActivityKind, target: string) {
   return `${kind}:${target}`;
 }
 function updateRestrictions(s: GameplayState, movement: GameplayMovement) {
+  movement.lockExit?.(Boolean(s.radiation));
   for (const p of Object.values(s.players)) {
     p.blocked = !p.ready || s.pauses.includes('ended') || Boolean(s.event && !s.event.result) ||
       p.rescueUntil > s.interactionMs || Object.values(s.attempts).some(a => a.participants.includes(p.id) && a.quality === null);
-    movement.restrict(p.id, p.blocked, p.cold);
+    const carrying = Boolean(s.expedition?.rocks.some(r => r.by === p.id && !r.loaded));
+    movement.restrict(p.id, p.blocked, p.cold, carrying);
   }
 }
 /**
  * Efeito de verdade dos eventos: pesam no estoque e na base (x3 nos simples, x2 nos grandes) e
  * pesquisa vira mantimento (pesquisa só vem das missões). O tablet mostra estes mesmos números.
  */
-export function appliedEventDeltas(kind: 'easy' | 'major', raw: Partial<Record<string, number>> = {}): Record<string, number> {
+export function appliedEventDeltas(kind: 'easy' | 'major', raw: Partial<Record<string, number>> = {}, harm = 1): Record<string, number> {
   const deltas: Record<string, number> = {};
   const scale = kind === 'major' ? 2 : 3;
   for (const [key, value] of Object.entries(raw)) {
     if (!value) continue;
     const k = key === 'research' ? 'supplies' : key;
-    deltas[k] = (deltas[k] ?? 0) + Math.round(value * (key === 'research' ? 3 : scale));
+    deltas[k] = (deltas[k] ?? 0) + Math.round(value * (key === 'research' ? 3 : scale) * (value < 0 ? harm : 1));
   }
   return deltas;
+}
+
+/** Todo evento de clima deixa uma marca na base, seja qual for a escolha. */
+function weatherAftermath(s: GameplayState, id: string) {
+  const t = s.elapsedMs / 1000;
+  if (id === 'co2_blizzard') { s.solar = s.solar.map(v => clamp(v + 1, 0, 4)); log(s, '❄️ Gelo nos painéis', {}, 'A nevasca cobriu os painéis solares: limpe-os para voltar a gerar energia.', 'bad'); }
+  else if (id === 'meteor_shower') { repairIntent(s.integrity, { op: 'damage', amount: 10 }, 'event', t, s.interactionMs); log(s, '☄️ Impacto na blindagem', {}, 'Um meteorito abriu uma rachadura: conserte-a do lado de fora.', 'bad'); }
+  else if (id === 'giant_dust_devil') { s.storm = Math.max(s.storm, 0.5); s.stormLeft = Math.max(s.stormLeft, 60); log(s, '🌪️ Poeira no ar', {}, 'O redemoinho deixou poeira no ar: lá fora o oxigênio acaba mais rápido por um tempo.', 'bad'); }
+  else if (id === 'ice_clouds') { s.storm = Math.max(s.storm, 0.3); s.stormLeft = Math.max(s.stormLeft, 90); log(s, '☁️ Céu fechado', {}, 'As nuvens de gelo escondem o Sol: os painéis rendem menos.', 'info'); }
+}
+
+/** O clima novo substitui o anterior: tempestade, radiação e poeira não acontecem juntas. */
+function clearWeather(s: GameplayState) {
+  s.storm = 0; s.stormLeft = 0; s.radiation = null;
 }
 
 function resolveEvent(s: GameplayState, choice: number) {
@@ -136,11 +155,12 @@ function resolveEvent(s: GameplayState, choice: number) {
   if (!option) return;
   const roll = seeded(s.mission.seed, hashString(e.eid), 771);
   const resolved = resolveChoice(option, roll);
-  const deltas = appliedEventDeltas(def?.kind ?? 'easy', resolved.deltas);
+  const deltas = appliedEventDeltas(def?.kind ?? 'easy', resolved.deltas, rulesFor(s.difficulty).harm);
   if (armorValue(s.integrity) <= 0)
     for (const key of ['energy','supplies','oxygen'] as const) if ((deltas[key] ?? 0) < 0) deltas[key] = deltas[key]! * 2;
   if (deltas.armor) repairIntent(s.integrity, { op: 'damage', amount: -deltas.armor }, 'event', s.elapsedMs / 1000, s.interactionMs);
   delete deltas.armor;
+  if (WEATHER_EVENT_IDS.includes(e.id) && (s.storm > 0 || s.radiation)) { clearWeather(s); log(s, 'Clima mudou', {}, 'O clima anterior passou: o novo evento toma o lugar dele.', 'info'); }
   log(s, def!.title, deltas, resolved.text, resolved.tone);
   for (const fx of resolved.effects ?? []) {
     if (fx.type === 'storm') { s.storm = fx.strength; s.stormLeft = 150; }
@@ -151,7 +171,10 @@ function resolveEvent(s: GameplayState, choice: number) {
     if (fx.type === 'wilt_crop') { const i = s.crops.findIndex(v => v > 0); if (i >= 0) s.crops[i] = 0; }
     // dose da tempestade: quanto mais forte a explosão solar real, maior
     if (fx.type === 'dose') addDose(s, fx.mSv * (e.flare ? flareFactor(e.flare.classType) : 1));
+    // radiação alta: a base fecha as portas até passar (quanto mais forte a explosão, mais demora)
+    if (fx.type === 'radiation') startRadiation(s, def!.title, fx.hours * (e.flare ? flareFactor(e.flare.classType) : 1));
   }
+  weatherAftermath(s, e.id);
   e.result = { choice, outcome: { tone: resolved.tone, text: resolved.text, deltas } };
   s.eventQueue = s.eventQueue.filter(q => q.eid !== e.eid);
   setPause(s, 'event', false);
@@ -169,7 +192,7 @@ function startAttempt(s: GameplayState, player: string, kind: ActivityKind, targ
     if (!s.board.ids.includes(mission) || s.board.done.includes(mission)) return 'UNAVAILABLE';
     if (missionCosts(s, mission)) return 'INSUFFICIENT_RESOURCES';
     if (s.mission.resources.armor.value <= 0) return 'UNAVAILABLE';
-    if (kind === 'soil' && !roverWindowOpen(simulationClock(s.elapsedMs).hour)) return 'UNAVAILABLE';
+    if (kind === 'soil' && (s.expedition || !roverWindowOpen(simulationClock(s.elapsedMs).hour))) return 'UNAVAILABLE';
   }
   if (kind === 'ducts' && !(s.critical?.kind === 'ducts' && s.critical.active)) return 'UNAVAILABLE';
   // filtro, horta e painéis são missões do dia: fora delas (ou já feitas) não abrem
@@ -321,6 +344,7 @@ function finish(s: GameplayState, a: ActivityAttempt, base = 'jezero'): GameErro
     else if (research > 0) deltas.research = research;
     log(s, def.title, deltas);
     s.board.done.push(mission);
+    if (mission === 'medical_checkup' && (s.dose ?? 0) > 0) { s.dose = Math.max(0, s.dose! - 10); s.doseAlert = Math.min(s.doseAlert ?? 0, Math.floor(s.dose / DOSE_ALERT_STEP)); }
   } else if (a.kind === 'ducts') {
     s.critical = null;
     log(s, 'Dutos de ar desentupidos a tempo!', { oxygen: 4 }, 'A ventilação voltou a correr. Ar limpo para a tripulação.');
@@ -439,6 +463,9 @@ export function applyGameplayCommand(previous: GameplayState, actor: string, pay
         log(s,MISSIONS.soil_robot.title,deltas); s.board.done.push('soil_robot');
         s.players[actor]!.carrying = 0; delete s.attempts[a.id];
       }
+    } else if (payload.type === 'expedition') {
+      const error = expeditionCommand(s, actor, payload.op, payload.rock, movement);
+      if (error) return fail(error);
     } else if (payload.type === 'event:open') {
       if (s.event && !s.event.result) return fail('BUSY');
       const q = s.eventQueue.find(e => e.eid === payload.eid);
@@ -468,6 +495,115 @@ export function applyGameplayCommand(previous: GameplayState, actor: string, pay
   }
   outcome(s); updateRestrictions(s,movement); s.revision++;
   return {state:s,attempt};
+}
+
+/** Duração da expedição (tempo real, ms) e quantas pedras achar. */
+export const EXPEDITION_MS = 240000;
+export const EXPEDITION_ROCKS = 3;
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+function beginExpedition(s: GameplayState, actor: string, movement: GameplayMovement): GameErrorCode | null {
+  if (s.expedition) return 'BUSY';
+  if (!s.board.ids.includes('soil_robot') || s.board.done.includes('soil_robot')) return 'UNAVAILABLE';
+  if (!roverWindowOpen(simulationClock(s.elapsedMs).hour)) return 'UNAVAILABLE';
+  if (missionCosts(s, 'soil_robot')) return 'INSUFFICIENT_RESOURCES';
+  if (s.mission.resources.armor.value <= 0) return 'UNAVAILABLE';
+  const ctx = movement.context(actor);
+  if (!ctx?.driving || !movement.near(actor, 'soil', 10)) return 'TOO_FAR';
+  const occupants = movement.occupants?.() ?? { driver: actor, rider: null };
+  if (occupants.driver !== actor) return 'FORBIDDEN';
+  const members = [occupants.driver, occupants.rider].filter((id): id is string => Boolean(id && s.players[id]));
+  const seed = s.mission.seed, sol = s.mission.sol;
+  // ponto de chegada longe da base e pedras espalhadas por perto: tudo sorteado pelo servidor
+  const a0 = seeded(seed, sol, 1100) * Math.PI * 2;
+  const at = (x: number, z: number, profile: 'foot' | 'vehicle') => movement.spot ? movement.spot(x, z, profile) : { x, z };
+  const start = at(Math.cos(a0) * 52, Math.sin(a0) * 52, 'vehicle');
+  if (!start) return 'UNAVAILABLE';
+  const rocks: ExpeditionState['rocks'] = [];
+  for (let i = 0; rocks.length < EXPEDITION_ROCKS && i < 80; i++) {
+    const angle = seeded(seed, sol, 1110 + i * 2) * Math.PI * 2, radius = 18 + seeded(seed, sol, 1111 + i * 2) * 30;
+    const p = at(start.x + Math.cos(angle) * radius, start.z + Math.sin(angle) * radius, 'foot');
+    if (!p || Math.hypot(p.x - start.x, p.z - start.z) < 14 || rocks.some(r => Math.hypot(r.x - p.x, r.z - p.z) < 16)) continue;
+    rocks.push({ x: round1(p.x), z: round1(p.z), by: null, loaded: false });
+  }
+  if (rocks.length < EXPEDITION_ROCKS) return 'UNAVAILABLE';
+  const home = movement.roverPose?.() ?? { x: 0, z: 0, h: 0 };
+  s.expedition = { id: `${s.generation}:${s.revision + 1}`, startedAt: s.interactionMs, deadline: s.interactionMs + rulesFor(s.difficulty).expeditionMs, members, rocks, start: { x: round1(start.x), z: round1(start.z), h: a0 + Math.PI }, home };
+  movement.teleport?.('rover', s.expedition.start);
+  log(s, 'Expedição com o rover', {}, 'Vocês foram para uma região coberta de neblina. Use o radar e ache 3 pedras!', 'info');
+  return null;
+}
+
+/** Termina a expedição: leva todos de volta à base; no sucesso paga a missão e dá a recompensa. */
+function endExpedition(s: GameplayState, movement: GameplayMovement, reason: 'done' | 'time' | 'night' | 'empty' | 'oxygen' | 'abort') {
+  const x = s.expedition;
+  if (!x) return;
+  s.expedition = null;
+  movement.teleport?.('rover', x.home);
+  members: for (const id of x.members) {
+    const p = s.players[id];
+    if (!p) continue;
+    const ctx = movement.context(id);
+    if (ctx?.driving) continue members; // vai junto com o rover
+    const back = movement.spot ? movement.spot(x.home.x + 2.4, x.home.z, 'foot') : { x: x.home.x + 2.4, z: x.home.z };
+    if (back) movement.teleport?.(id, { ...back, h: x.home.h });
+  }
+  if (reason === 'done') {
+    const quality = clamp(1 - (s.interactionMs - x.startedAt) / (x.deadline - x.startedAt), 0, 1);
+    const deltas: Record<string, number> = { research: soilReward(quality), morale: MISSIONS.soil_robot.morale ?? 0 };
+    for (const [key, value] of Object.entries(MISSIONS.soil_robot.cost)) deltas[key] = -value;
+    // previsão do tempo de amanhã (o que o radar do rover viu)
+    const next = eventsForSol(s.mission.seed, s.mission.sol + 1, Object.keys(s.players).length, rulesFor(s.difficulty).majorBonus)[0];
+    log(s, 'Reconhecimento com o rover', deltas,
+      next ? `As 3 pedras estão a bordo! Previsão do radar para amanhã: ${next.title}.` : 'As 3 pedras estão a bordo! O radar não viu nada de perigoso para amanhã.', 'good');
+    s.board.done.push('soil_robot');
+  } else if (reason === 'oxygen') {
+    // o oxigênio de alguém acabou: a missão falha e só volta no próximo Sol
+    if (!s.board.done.includes('soil_robot')) s.board.done.push('soil_robot');
+    log(s, 'Expedição fracassou', {}, 'O oxigênio de um astronauta acabou! Todos voltaram à base, mas o reconhecimento não pode ser refeito neste Sol.', 'bad');
+  } else {
+    log(s, 'Expedição encerrada', {}, reason === 'abort'
+      ? 'A tripulação saiu da missão e voltou à base sem perder nada. Dá para tentar de novo.'
+      : reason === 'night'
+      ? 'Anoiteceu! Vocês voltaram à base sem perder nada. Tentem de novo amanhã.'
+      : reason === 'empty' ? 'A tripulação voltou à base.' : 'O tempo acabou! Vocês voltaram à base sem perder nada. Dá para tentar de novo.', 'info');
+  }
+  outcome(s);
+}
+
+function expeditionCommand(s: GameplayState, actor: string, op: 'start' | 'pick' | 'load' | 'abort', rock: number | undefined, movement: GameplayMovement): GameErrorCode | null {
+  if (op === 'start') return beginExpedition(s, actor, movement);
+  const x = s.expedition;
+  if (!x || !x.members.includes(actor)) return 'UNAVAILABLE';
+  if (op === 'abort') { endExpedition(s, movement, 'abort'); return null; }
+  const mine = x.rocks.find(r => r.by === actor && !r.loaded);
+  if (op === 'pick') {
+    const i = Number(rock);
+    const target = x.rocks[i];
+    if (!Number.isInteger(i) || !target || target.by || target.loaded || mine) return 'UNAVAILABLE';
+    if (movement.context(actor)?.driving || !movement.near(actor, `xrock:${i}`, 2.6)) return 'TOO_FAR';
+    target.by = actor;
+    return null;
+  }
+  // load: a pedra vai para o rover
+  if (!mine) return 'UNAVAILABLE';
+  if (!movement.near(actor, 'rover', 4)) return 'TOO_FAR';
+  mine.by = null; mine.loaded = true;
+  if (x.rocks.every(r => r.loaded)) endExpedition(s, movement, 'done');
+  return null;
+}
+
+/** Duração da radiação alta, em horas de Marte (limites para não ficar curta nem eterna). */
+export const RADIATION_HOURS = { min: 2, max: 8 } as const;
+/** Dose por segundo de jogo para quem está fora (a pé) ou no rover durante a radiação alta. */
+export const RADIATION_OUTSIDE_RATE = { foot: 0.05, rover: 0.02 } as const;
+
+export function startRadiation(s: GameplayState, source: string, hours: number) {
+  const h = clamp(Math.round(hours * rulesFor(s.difficulty).radiationHours), RADIATION_HOURS.min, RADIATION_HOURS.max);
+  const until = s.elapsedMs + h * GAME_SOL_SECONDS * 1000 / 24;
+  // dois eventos seguidos: vale o mais longo
+  s.radiation = { until: Math.max(until, s.radiation?.until ?? 0), startedAt: s.radiation?.startedAt ?? s.elapsedMs, source };
+  log(s, '☢️ Radiação ALTA lá fora', {}, `Fique dentro da base por cerca de ${h} horas de Marte. Quando o aviso ficar verde, é seguro sair.`, 'bad');
 }
 
 /** A cada tanto de dose acumulada a tripulação precisa de cuidados (aviso e moral). */
@@ -529,12 +665,17 @@ function devCommand(s: GameplayState, actor: string, action: Extract<GamePayload
     log(s, `${def.title} (dev)`, { ...(def.research > 0 ? { research: def.research } : {}), ...(def.reward ?? {}) });
   } else if (action === 'event') {
     if (!GAME_EVENTS.some((e) => e.id === id)) return 'INVALID_COMMAND';
+    // força o novo evento: para o anterior (votação aberta, fila, clima e incidente da base)
+    s.event = null; s.eventQueue = []; setPause(s, 'event', false); clearWeather(s); s.integrity.event = undefined;
     s.eventQueue.push({ id: id!, eid: `dev:${id}:${s.revision}`, sol: s.mission.sol });
   } else if (action === 'catastrophe') {
     if (!repairIntent(s.integrity, { op: 'event', event: id as never }, actor, s.elapsedMs / 1000, s.interactionMs, true)) return 'UNAVAILABLE';
   } else if (action === 'storm') {
     s.storm = s.storm > 0 ? 0 : 0.85;
     s.stormLeft = s.storm ? 150 : 0;
+  } else if (action === 'radiation') {
+    clearWeather(s); s.event = null; s.eventQueue = []; setPause(s, 'event', false);
+    startRadiation(s, 'Teste (dev)', Number(id) || 3);
   } else if (action === 'critical') {
     const kind = id === 'breach' ? 'breach' : 'ducts';
     const solMs = GAME_SOL_SECONDS * 1000;
@@ -554,6 +695,13 @@ function devCommand(s: GameplayState, actor: string, action: Extract<GamePayload
 export function stepGameplay(s: GameplayState, realMs: number, movement: GameplayMovement, base: string): boolean {
   if (!s.started || s.pauses.includes('empty') || s.pauses.includes('ended')) return false;
   s.interactionMs += realMs;
+  if (s.expedition) {
+    const x = s.expedition;
+    x.members = x.members.filter(id => s.players[id]);
+    if (!x.members.length) endExpedition(s, movement, 'empty');
+    else if (s.interactionMs >= x.deadline) endExpedition(s, movement, 'time');
+    else if (!roverWindowOpen(simulationClock(s.elapsedMs).hour)) endExpedition(s, movement, 'night');
+  }
   if (s.event && !s.event.result) {
     s.event.remainingMs = Math.max(0,s.event.remainingMs-realMs);
     if (s.event.remainingMs <= 0) {
@@ -603,9 +751,16 @@ export function stepGameplay(s: GameplayState, realMs: number, movement: Gamepla
     // consumo diário cresce com a tripulação: cada astronauta respira, come e bebe
     const crew = Math.max(1, Object.keys(s.players).length);
     change(s.mission,{
-      oxygen:(((filterClogged(s.care.filter,c.sol) || battery.value<=0 ? 0 : OXYGEN_PLANT.perSol)-OXYGEN_PLANT.crewPerSol-DAILY_OXYGEN_PER_PLAYER*(crew-1))/GAME_SOL_SECONDS-leakRate(s.integrity))*dt,
-      supplies:-DAILY_SUPPLIES_PER_PLAYER*crew/GAME_SOL_SECONDS*dt,
+      oxygen:(((filterClogged(s.care.filter,c.sol) || battery.value<=0 ? 0 : OXYGEN_PLANT.perSol)-(OXYGEN_PLANT.crewPerSol+DAILY_OXYGEN_PER_PLAYER*(crew-1))*rulesFor(s.difficulty).use)/GAME_SOL_SECONDS-leakRate(s.integrity))*dt,
+      supplies:-DAILY_SUPPLIES_PER_PLAYER*crew*rulesFor(s.difficulty).use/GAME_SOL_SECONDS*dt,
     });
+    // radiação acumulada pesa: cada faixa de 25 mSv gasta 4% mais ar e abate o ânimo da tripulação
+    const doseLevel = Math.floor((s.dose ?? 0) / DOSE_ALERT_STEP);
+    if (doseLevel > 0) {
+      change(s.mission, { oxygen: -(Math.min(0.4, doseLevel * 0.04) * (OXYGEN_PLANT.crewPerSol + DAILY_OXYGEN_PER_PLAYER * (crew - 1)) / GAME_SOL_SECONDS) * dt });
+      s.moraleDrain = (s.moraleDrain ?? 0) + doseLevel * 0.6 * dt / GAME_SOL_SECONDS;
+      if (s.moraleDrain >= 1) { const n = Math.floor(s.moraleDrain); s.moraleDrain -= n; change(s.mission, { morale: -n }); }
+    }
     s.crops.forEach((v,i)=> {
       if (v>0 && v<3) { s.growth[i]=(s.growth[i]??0)+dt; if(s.growth[i]!>=1500) {s.growth[i]!-=1500;s.crops[i]=v+1;} }
     });
@@ -633,10 +788,14 @@ export function stepGameplay(s: GameplayState, realMs: number, movement: Gamepla
       s.crops.forEach((v,i)=> {if(v>0 && s.care.crops[i]! < c.sol-1-grace){s.crops[i]=0;s.growth[i]=0;}});
       if (!s.eventSols.includes(c.sol)) {
         s.eventSols.push(c.sol);
-        s.eventQueue.push(...eventsForSol(s.mission.seed,c.sol).map(d=>({id:d.id,eid:`${c.sol}:${d.id}`,sol:c.sol})));
+        s.eventQueue.push(...eventsForSol(s.mission.seed,c.sol,Object.keys(s.players).length,rulesFor(s.difficulty).majorBonus).map(d=>({id:d.id,eid:`${c.sol}:${d.id}`,sol:c.sol})));
       }
     }
     stepCritical(s, dt);
+    if (s.radiation && s.elapsedMs >= s.radiation.until) {
+      s.radiation = null;
+      log(s, '✅ Radiação segura', {}, 'A radiação baixou. Já é seguro sair da base e fazer os reparos!', 'good');
+    }
     // radiação de fundo de Marte, medida pelo RAD do Curiosity: 0,64 mSv por dia
     addDose(s, RADIATION.marsSurfacePerDay * dt / GAME_SOL_SECONDS);
     for (const pending of [...s.pending]) {
@@ -647,13 +806,28 @@ export function stepGameplay(s: GameplayState, realMs: number, movement: Gamepla
       const ctx = movement.context(p.id);
       if (!ctx || !p.ready || !ctx.ready) continue;
       p.inside = ctx.inside || ctx.sheltered; p.driving=ctx.driving;
+      if (s.radiation && !p.inside) addDose(s, (ctx.driving ? RADIATION_OUTSIDE_RATE.rover : RADIATION_OUTSIDE_RATE.foot) * rulesFor(s.difficulty).dose * dt);
       const protectedByAttempt = Object.values(s.attempts).some(a=>a.participants.includes(p.id) && a.quality===null);
-      p.cold = c.night > 0.6 && !p.inside && !protectedByAttempt;
+      p.cold = c.night > 0.6 && !p.inside && !ctx.driving && !protectedByAttempt;
       if (protectedByAttempt || p.rescueUntil > s.interactionMs) continue;
-      if (p.inside) {
+      // dentro da base ou do rover o tanque do traje recarrega
+      if (p.inside || ctx.driving) {
         const cost = Math.min(10*dt,100-p.tank,s.mission.resources.oxygen.value/0.05);
         p.tank+=cost; change(s.mission,{oxygen:-cost*0.05}); p.exposure=0;
-      } else { p.tank=Math.max(0,p.tank-0.8*(1+s.storm*0.5)*dt); p.exposure=p.cold ? p.exposure+dt : 0; }
+      } else {
+        // na expedição, quanto mais longe do rover (e mais perto da tempestade), mais rápido o ar acaba
+        let far = 1;
+        if (s.expedition?.members.includes(p.id)) {
+          const car = movement.roverPose?.();
+          if (car) far = 1 + Math.min(Math.hypot(ctx.x - car.x, ctx.z - car.z), 50) / 8;
+        }
+        p.tank=Math.max(0,p.tank-0.8*(1+s.storm*0.5)*far*rulesFor(s.difficulty).suitDrain*dt); p.exposure=p.cold ? p.exposure+dt : 0;
+      }
+      if (p.tank<=0 && s.expedition?.members.includes(p.id)) {
+        endExpedition(s, movement, 'oxygen');
+        for (const m of Object.values(s.players)) m.tank = Math.max(m.tank, 40);
+        continue;
+      }
       if (p.tank<=0 || p.exposure>=6) {
         const cold = p.exposure>=6;
         log(s,cold?'Socorro por hipotermia':'Socorro por falta de oxigênio',{oxygen:cold?-4:-5},'Astronauta socorrido na enfermaria.','bad');
@@ -673,6 +847,12 @@ export function applyGameplayRepair(s: GameplayState, actor: string, intent: Rep
   if (!s.players[actor]?.ready || s.mission.status !== 'playing' || s.pauses.some(p=>p !== 'repair')) return false;
   if (['damage','event','emergency','stop','restart'].includes(intent.op) && !dev) return false;
   if ('fracture' in intent && !movement.near(actor,`repair:${intent.fracture}`,3.5)) return false;
+  // o reparo é feito LÁ FORA: dentro da base, com radiação alta ou de noite (frio) não dá
+  if ('fracture' in intent && intent.op !== 'release') {
+    const ctx = movement.context(actor);
+    if (!ctx || ctx.inside || ctx.sheltered || ctx.driving) return false;
+    if (intent.op === 'reserve' && (s.radiation || simulationClock(s.elapsedMs).night > NIGHT_LIMIT)) return false;
+  }
   if (intent.op === 'reserve' && Object.values(s.attempts).some(a=>a.participants.includes(actor))) return false;
   if (!repairIntent(s.integrity,intent,actor,s.elapsedMs/1000,s.interactionMs,dev)) return false;
   setPause(s,'repair',Object.keys(s.players).length === 1 && s.integrity.fractures.some(f=>Boolean(f.owner)));

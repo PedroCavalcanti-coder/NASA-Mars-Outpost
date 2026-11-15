@@ -1,4 +1,5 @@
-import { DONKI_SOURCE, RADIATION } from '@mars/shared';
+import { DONKI_SOURCE, RADIATION, rulesFor } from '@mars/shared';
+import { useGameplay } from '../../../store/gameplay';
 import { appliedEventDeltas } from '@mars/sim';
 import { AlertTriangle, Info, Tablet } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -29,7 +30,8 @@ const signed = (v: number) => (v > 0 ? `+${v}` : `−${Math.abs(v)}`);
 /** Resumo do que a opção custa/rende (a opção arriscada mostra o ganho e o aviso de risco). */
 function Chips({ choice, kind }: { choice: EventChoice; kind: 'easy' | 'major' }) {
   // os mesmos números que o servidor aplica (multiplicados; pesquisa vira mantimento)
-  const d = appliedEventDeltas(kind, choice.outcome.deltas) as EventDeltas;
+  const harm = rulesFor(useGameplay((s) => s.state?.difficulty)).harm;
+  const d = appliedEventDeltas(kind, choice.outcome.deltas, harm) as EventDeltas;
   const effects = choice.outcome.effects ?? [];
   return (
     <span className="event-tablet__chips">
@@ -193,6 +195,11 @@ function TabletBody({
                   <a href={event.sourceUrl} target="_blank" rel="noreferrer noopener">
                     {L('Saiba mais…', 'Learn more…')}
                   </a>
+                )}
+                {event.credit && (
+                  <small style={{ display: 'block', opacity: 0.8 }}>
+                    📎 {L('Fonte', 'Source')}: {event.credit}
+                  </small>
                 )}
               </p>
             </aside>

@@ -392,6 +392,8 @@ export interface GameJoinRequest {
   create?: boolean;
   /** código recém-sorteado no "Jogar agora": se já existir outro mundo com ele, é recusado */
   fresh?: boolean;
+  /** dificuldade escolhida no "Jogar agora" (só vale ao criar o mundo) */
+  difficulty?: import('./difficulty').Difficulty;
 }
 
 export interface GameJoinResult {

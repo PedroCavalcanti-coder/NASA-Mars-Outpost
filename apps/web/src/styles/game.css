@@ -1002,3 +1002,83 @@
     touch-action: manipulation;
   }
 }
+
+/* ---------- Roda de emojis: aba de gestos em dupla ---------- */
+.game__emote-mode {
+  position: absolute;
+  left: -30px;
+  top: -30px;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-radius: 50%;
+  background: rgba(32, 57, 75, 0.95);
+  color: #ffe3a1;
+  font: 700 10px/1 inherit;
+  cursor: pointer;
+}
+.game__emote-mode.has-partner {
+  border-color: #6fe58e;
+}
+.game__emote-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6fe58e;
+  box-shadow: 0 0 8px #6fe58e;
+}
+.game__emote-item--duo {
+  left: -30px;
+  top: -30px;
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  gap: 0;
+  align-content: center;
+  font-size: 24px;
+}
+.game__emote-item--duo small {
+  display: block;
+  max-width: 56px;
+  font-size: 9px;
+  line-height: 1.05;
+  text-align: center;
+  color: #ffe3a1;
+}
+.game__emote-partner {
+  position: absolute;
+  left: -52px;
+  top: 34px;
+  width: 104px;
+  padding: 4px 6px;
+  border: 1px solid rgba(120, 198, 255, 0.5);
+  border-radius: 10px;
+  background: rgba(12, 24, 54, 0.92);
+  color: #e8f2ff;
+  font: 700 11px/1.1 inherit;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.game__emote-hint {
+  position: absolute;
+  left: -80px;
+  top: 36px;
+  width: 160px;
+  margin: 0;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(12, 24, 54, 0.92);
+  color: #e8f2ff;
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+}

@@ -1,3 +1,5 @@
+import { type ColorMode, useA11y } from '../../lib/accessibility';
+import { useEasyMode } from '../../lib/easyMode';
 import {
   Check,
   Copy,
@@ -19,7 +21,7 @@ import { toast } from '../../ui/toast';
 import './settingsModal.css';
 
 export interface VideoSettings {
-  quality: 'low' | 'medium' | 'high';
+  quality: 'low' | 'medium' | 'high' | 'ultra';
   postProcessing: boolean;
   antialiasing: boolean;
   reducedMotion: boolean;
@@ -54,9 +56,11 @@ interface Props {
   roomCode?: string;
   onCopyRoomCode?: () => boolean | Promise<boolean>;
   onLeaveRoom?: () => void;
+  /** reabre o tutorial de abertura (só dentro do jogo) */
+  onReplayTutorial?: () => void;
 }
 
-type TabId = 'video' | 'audio' | 'gameplay' | 'room' | 'about';
+type TabId = 'video' | 'audio' | 'gameplay' | 'access' | 'room' | 'about';
 
 export function SettingsModal({
   open,
@@ -73,10 +77,14 @@ export function SettingsModal({
   roomCode,
   onCopyRoomCode,
   onLeaveRoom,
+  onReplayTutorial,
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [tab, setTab] = useState<TabId>(inGame ? 'room' : 'video');
   const [copied, setCopied] = useState(false);
+  const a11y = useA11y();
+  const easy = useEasyMode((s) => s.easy);
+  const setEasy = useEasyMode((s) => s.set);
 
   useEffect(() => {
     const d = dialogRef.current;
@@ -180,6 +188,14 @@ export function SettingsModal({
 
             <button
               type="button"
+              className={`game-nav-tab ${tab === 'access' ? 'is-active' : ''}`}
+              onClick={() => setTab('access')}
+            >
+              <HelpCircle size={18} />
+              <span>{L('Acessibilidade', 'Accessibility')}</span>
+            </button>
+            <button
+              type="button"
               className={`game-nav-tab ${tab === 'about' ? 'is-active' : ''}`}
               onClick={() => setTab('about')}
             >
@@ -227,6 +243,21 @@ export function SettingsModal({
                   </div>
                 </div>
 
+                {onReplayTutorial && (
+                  <div className="settings-room-actions">
+                    <button
+                      type="button"
+                      className="settings-room-link-btn"
+                      onClick={() => {
+                        onClose();
+                        onReplayTutorial();
+                      }}
+                    >
+                      <span>📖 {L('Rever o tutorial', 'Watch the tutorial again')}</span>
+                    </button>
+                  </div>
+                )}
+
                 <div className="settings-danger-zone">
                   <div className="settings-danger-info">
                     <h4>{L('Sair da Missão Atual', 'Leave Current Mission')}</h4>
@@ -266,6 +297,8 @@ export function SettingsModal({
                         L('Baixo · Recomendado para celulares e telas pequenas', 'Low · Recommended for phones and small screens')}
                       {video.quality === 'medium' &&
                         L('Médio · Padrão equilibrado para PC / Notebook', 'Medium · Balanced default for PC / laptop')}
+                      {video.quality === 'ultra' &&
+                        L('Ultra · Resolução nativa e sombras em 8K (precisa de PC forte)', 'Ultra · Native resolution and 8K shadows (needs a strong PC)')}
                       {video.quality === 'high' &&
                         L('Alto · Fidelidade gráfica máxima com sombras detalhadas', 'High · Maximum graphics with detailed shadows')}
                     </small>
@@ -298,6 +331,14 @@ export function SettingsModal({
                       aria-pressed={video.quality === 'high'}
                     >
                       {L('Alto', 'High')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`tier-btn ${video.quality === 'ultra' ? 'is-active' : ''}`}
+                      onClick={() => onVideoChange({ ...video, quality: 'ultra' })}
+                      aria-pressed={video.quality === 'ultra'}
+                    >
+                      {L('Ultra', 'Ultra')}
                     </button>
                   </div>
                 </div>
@@ -493,6 +534,14 @@ export function SettingsModal({
             {/* SUB-PAINEL: GERAL / JOGO */}
             {tab === 'gameplay' && (
               <div className="settings-section">
+                <label className="settings-row" style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0' }}>
+                  <input type="checkbox" checked={easy} onChange={(e) => setEasy(e.target.checked)} />
+                  <span>
+                    <strong>{L('Modo fácil dos minigames', 'Easy mode for minigames')}</strong>
+                    <br />
+                    <small>{L('Mais tempo e margens maiores. Bom para os menores.', 'More time and bigger margins. Great for little ones.')}</small>
+                  </span>
+                </label>
                 <div className="settings-section-head">
                   <h3>{L('Jogabilidade & Interface', 'Gameplay & Interface')}</h3>
                   <p>{L('Preferências de assistência, acessibilidade e visualização.', 'Assistance, accessibility and display preferences.')}</p>
@@ -564,6 +613,51 @@ export function SettingsModal({
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* SUB-PAINEL: ACESSIBILIDADE */}
+            {tab === 'access' && (
+              <div className="settings-section">
+                <div className="settings-section-head">
+                  <h3>{L('Acessibilidade', 'Accessibility')}</h3>
+                  <p>{L('Ajustes para jogar com mais conforto. Ficam guardados neste aparelho.', 'Settings for more comfortable play. They are saved on this device.')}</p>
+                </div>
+                <label style={{ display: 'grid', gap: 4, margin: '8px 0' }}>
+                  <strong>{L('Cores para daltonismo', 'Colors for color blindness')}</strong>
+                  <select value={a11y.colorMode} onChange={(e) => a11y.update({ colorMode: e.target.value as ColorMode })}>
+                    <option value="none">{L('Desligado', 'Off')}</option>
+                    <option value="protan">{L('Protanopia (sem vermelho)', 'Protanopia (no red)')}</option>
+                    <option value="deutan">{L('Deuteranopia (sem verde)', 'Deuteranopia (no green)')}</option>
+                    <option value="tritan">{L('Tritanopia (sem azul)', 'Tritanopia (no blue)')}</option>
+                  </select>
+                  <small>{L('Muda as cores do jogo todo para separar melhor vermelho, verde e azul.', 'Shifts the colors of the whole game to tell red, green and blue apart.')}</small>
+                </label>
+                {(
+                  [
+                    ['contrast', 'Alto contraste', 'High contrast', 'Cores mais fortes e foco do teclado bem visível.', 'Stronger colors and a very visible keyboard focus.'],
+                    ['calm', 'Sem tremor e piscadas', 'No shaking or flashing', 'Desliga tremor de tela, neve, aurora e luzes piscando.', 'Turns off screen shake, snow, aurora and flashing lights.'],
+                    ['bigTargets', 'Botões grandes', 'Big buttons', 'Aumenta os botões para tocar com mais facilidade.', 'Makes buttons bigger so they are easier to tap.'],
+                    ['readable', 'Texto mais fácil de ler', 'Easier-to-read text', 'Letras mais fortes e mais espaçadas.', 'Bolder, more widely spaced letters.'],
+                  ] as const
+                ).map(([key, pt, en, dpt, den]) => (
+                  <label key={key} style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0' }}>
+                    <input type="checkbox" checked={a11y[key]} onChange={(e) => a11y.update({ [key]: e.target.checked })} />
+                    <span>
+                      <strong>{L(pt, en)}</strong>
+                      <br />
+                      <small>{L(dpt, den)}</small>
+                    </span>
+                  </label>
+                ))}
+                <label style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0' }}>
+                  <input type="checkbox" checked={video.reducedMotion} onChange={(e) => onVideoChange({ ...video, reducedMotion: e.target.checked })} />
+                  <span>
+                    <strong>{L('Menos movimento', 'Reduced motion')}</strong>
+                    <br />
+                    <small>{L('Câmera e animações mais suaves.', 'Gentler camera and animations.')}</small>
+                  </span>
+                </label>
               </div>
             )}
 

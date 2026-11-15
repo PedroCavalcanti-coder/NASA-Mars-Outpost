@@ -76,7 +76,7 @@ export async function worldRoutes(app: FastifyInstance) {
         };
       }
       if (!GAME_ROOM_CODE_RE.test(code)) return { ok: false, error: 'Código de sala inválido' };
-      if (isNicknameTaken(code, name)) {
+      if (isNicknameTaken(code, name, owner)) {
         return {
           ok: false,
           error: 'Já há um astronauta com esse apelido neste mundo. Escolha outro.',

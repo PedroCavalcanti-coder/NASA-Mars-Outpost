@@ -546,7 +546,14 @@ export class AstronautActor implements Collider {
     this.currentHeading = s.h;
     this.root.rotation.y = s.h;
     this.vel.set(0, 0);
-    if (this.isLocal && !this.isBusy) this.crossfadeTo(s.m === 'walk' ? 'Walk' : 'Idle', 0.15);
+    if (!this.isLocal || this.isBusy) return;
+    // o servidor manda a pose várias vezes por segundo: parado, ela NÃO pode cortar o emoji que
+    // o jogador acabou de fazer (era por isso que ele só aparecia para os outros). Andar cancela.
+    if (this.emoteLeft > 0) {
+      if (s.m === 'walk') this.cancelEmote();
+      return;
+    }
+    this.crossfadeTo(s.m === 'walk' ? 'Walk' : 'Idle', 0.15);
   }
 
   applySnapshot(s: ActorSnapshot) {

@@ -1,4 +1,4 @@
-import { armorValue, restoreIntegrity, WORLD_SAVE_MAX_BYTES, type GameplayState, type WorldSaveV3 } from '@mars/shared';
+import { armorValue, isDifficulty, restoreIntegrity, WORLD_SAVE_MAX_BYTES, type GameplayState, type WorldSaveV3 } from '@mars/shared';
 import { INITIAL, LOG_LIMIT, RESEARCH_GOAL } from './balance';
 import { cloneGameplay, createGameplay, simulationClock } from './world';
 import { MISSIONS, missionsForSol } from './missions';
@@ -14,6 +14,7 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
   const state = createGameplay(number(oldMission.seed,seed,0,4294967295),generation,defaults.solar,defaults.crops);
   const corrections: string[]=[];
   state.elapsedMs = number(source.elapsedMs,0,0,600000*15);
+  if (isDifficulty(source.difficulty)) state.difficulty = source.difficulty;
   const sol = simulationClock(state.elapsedMs).sol;
   const mission = state.mission;
   mission.sol=sol;
@@ -64,6 +65,9 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
   // dose de radiação da tripulação (mSv)
   state.dose=number(object(source).dose,0,0,100000);
   state.doseAlert=Math.floor(state.dose/25);
+  // radiação alta em andamento (a janela vale em tempo de jogo, então volta igual do save)
+  const rad=object(object(source).radiation);
+  if(Number.isFinite(rad.until)&&rad.until as number>state.elapsedMs) state.radiation={until:number(rad.until,0,0,600000*60),startedAt:number(rad.startedAt,0,0,600000*60),source:typeof rad.source==='string'?rad.source.slice(0,60):'Radiação'};
   // crítico do dia: só vale no mesmo Sol e com números válidos
   const cr=object(object(source).critical);
   state.critical=(cr.kind==='breach'||cr.kind==='ducts') && cr.sol===sol
@@ -104,6 +108,9 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
 export function createWorldSave(state: GameplayState, vehicle?: WorldSaveV3['vehicle']): WorldSaveV3 {
   const simulation=cloneGameplay(state);
   simulation.players={};simulation.attempts={};
+  // a expedição não vai para o save: o rover é guardado onde estava antes de partir
+  if(state.expedition){vehicle={...state.expedition.home};}
+  simulation.expedition=null;
   for(const f of simulation.integrity.fractures){delete f.owner;delete f.leaseUntil;delete f.stepAt;}
   return {v:3,simulation,elapsedMs:state.elapsedMs,solar:[...state.solar],crops:[...state.crops],integrity:simulation.integrity,vehicle,care:simulation.care,board:simulation.board,timeScale:state.scale,paused:state.pauses.includes('manual'),mission:simulation.mission};
 }

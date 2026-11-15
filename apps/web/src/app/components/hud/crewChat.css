@@ -389,3 +389,16 @@
 .crew-chat--always.is-compact .game__emote-wheel {
   left: -40px;
 }
+
+/* a roda de emojis aberta fica por cima da doca lateral */
+.crew-chat:has(.game__emote-wheel),
+.crew-chat__bar:has(.game__emote-wheel),
+.crew-chat__bar .game__emote:has(.game__emote-wheel) {
+  z-index: 70;
+  overflow: visible;
+}
+
+/* a faixa inferior sobe acima da doca lateral (z-index 35) enquanto a roda está aberta */
+.hud-bottom:has(.game__emote-wheel) {
+  z-index: 70;
+}

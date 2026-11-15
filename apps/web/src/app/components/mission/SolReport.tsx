@@ -17,6 +17,9 @@ interface Report {
   sol: number;
   changes: { key: Key; delta: number }[];
   dose: number;
+  /** missões do dia que ficaram feitas e o total */
+  missions: { done: number; total: number };
+  research: number;
   /** o que mais pesou no dia (entradas do diário com perdas) */
   causes: { title: string; text: string }[];
   /** lições de causa e efeito do dia */
@@ -30,7 +33,7 @@ interface Report {
 export function SolReport({ hidden }: { hidden: boolean }) {
   const state = useGameplay((s) => s.state);
   const [report, setReport] = useState<Report | null>(null);
-  const start = useRef<{ sol: number; res: Record<Key, number>; dose: number; clogged: boolean } | null>(null);
+  const start = useRef<{ sol: number; res: Record<Key, number>; dose: number; clogged: boolean; missions: { done: number; total: number }; research: number } | null>(null);
 
   useEffect(() => {
     if (!state) return;
@@ -43,6 +46,8 @@ export function SolReport({ hidden }: { hidden: boolean }) {
     // durante o dia: lembra se o filtro chegou a entupir (causa de perda de oxigênio)
     if (prev && prev.sol === sol) {
       if (filterClogged(state.care.filter, sol)) prev.clogged = true;
+      prev.missions = { done: state.board.done.length, total: state.board.ids.length };
+      prev.research = state.mission.research;
       return;
     }
     if (prev && sol === prev.sol + 1) {
@@ -70,6 +75,8 @@ export function SolReport({ hidden }: { hidden: boolean }) {
           .map((key) => ({ key, delta: Math.round(res[key] - prev.res[key]) }))
           .filter((c) => c.delta !== 0),
         dose: dose - prev.dose,
+        missions: prev.missions,
+        research: prev.research,
         causes: entries
           .filter((e) => Object.values(e.deltas ?? {}).some((v) => (v ?? 0) < 0) || e.tone === 'bad')
           .slice(0, 4)
@@ -77,7 +84,7 @@ export function SolReport({ hidden }: { hidden: boolean }) {
         lessons,
       });
     }
-    start.current = { sol, res, dose, clogged: filterClogged(state.care.filter, sol) };
+    start.current = { sol, res, dose, clogged: filterClogged(state.care.filter, sol), missions: { done: state.board.done.length, total: state.board.ids.length }, research: state.mission.research };
   }, [state]);
 
   if (!report || hidden) return null;
@@ -102,6 +109,8 @@ export function SolReport({ hidden }: { hidden: boolean }) {
                 {NAMES[c.key]} {c.delta > 0 ? `+${c.delta}` : `−${Math.abs(c.delta)}`}
               </li>
             ))}
+            <li className={report.missions.done >= report.missions.total ? 'is-up' : 'is-down'}>📋 {L('Missões', 'Missions')} {report.missions.done}/{report.missions.total}</li>
+            <li className="is-up">🔬 {L('Pesquisa', 'Research')} {report.research}/100</li>
             <li className="is-down">☢ {L('Radiação', 'Radiation')} +{report.dose.toFixed(1)} mSv</li>
           </ul>
           {report.causes.length > 0 && (

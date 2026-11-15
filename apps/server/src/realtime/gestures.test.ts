@@ -42,7 +42,7 @@ describe('GestureBroker', () => {
     expect(broker.accept('b', 'fantasma', lookup, 0).ok).toBe(false);
   });
 
-  it('exige no máximo 2,5 m e os dois fora do rover', () => {
+  it('exige no máximo 4 m e os dois fora do rover', () => {
     const broker = new GestureBroker();
     const lookup = room();
     expect(broker.invite('a', 'far', 'hug', lookup, 0).ok).toBe(false);
@@ -57,11 +57,11 @@ describe('GestureBroker', () => {
     expect(broker.invite('a', 'b', 'hug', lookup, 13_100).ok).toBe(true);
   });
 
-  it('o convite expira em ~5 s e é revalidado no aceite', () => {
+  it('o convite expira em ~8 s e é revalidado no aceite', () => {
     const broker = new GestureBroker();
     const lookup = room();
     broker.invite('a', 'b', 'fist_bump', lookup, 0);
-    expect(broker.accept('b', 'a', lookup, 5001).ok).toBe(false);
+    expect(broker.accept('b', 'a', lookup, 8001).ok).toBe(false);
     broker.invite('a', 'b', 'fist_bump', lookup, 20_000);
     broker.remove('a');
     expect(broker.accept('b', 'a', lookup, 20_500).ok).toBe(false);

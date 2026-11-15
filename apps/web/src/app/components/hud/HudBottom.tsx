@@ -20,7 +20,21 @@ interface HudBottomProps {
 }
 
 export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
-  const { chat, onSendChat, onSendEmote } = useHudContext();
+  const { chat, onSendChat, onSendEmote, viewer } = useHudContext();
+  // astronautas a pé ao alcance de um gesto em dupla (só na sala online)
+  const [partners, setPartners] = useState<Array<{ id: string; name: string }>>([]);
+  const duoOn = viewer?.canDuoGesture === true;
+  useEffect(() => {
+    if (!viewer || !duoOn) return;
+    const tick = () =>
+      setPartners((prev) => {
+        const next = viewer.nearbyPlayers().map((p) => ({ id: p.id, name: p.name }));
+        return prev.length === next.length && prev.every((p, i) => p.id === next[i]?.id) ? prev : next;
+      });
+    tick();
+    const timer = window.setInterval(tick, 400);
+    return () => window.clearInterval(timer);
+  }, [viewer, duoOn]);
   const [draft, setDraft] = useState('');
   const [showMessages, setShowMessages] = useState(false);
   /** o campo de texto só abre quando a pessoa quer escrever (economiza tela, sobretudo no celular) */
@@ -63,7 +77,14 @@ export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
           ))}
         </ul>
         <div className="crew-chat__bar">
-          <EmoteWheel onPick={onSendEmote} />
+          <EmoteWheel
+            onPick={onSendEmote}
+            duo={
+              duoOn && viewer
+                ? { partners, onInvite: (gesture, id) => viewer.inviteGesture(gesture, id) }
+                : undefined
+            }
+          />
           {typing ? (
             <form
               className="crew-chat__input-row"

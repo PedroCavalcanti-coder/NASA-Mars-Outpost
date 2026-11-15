@@ -1,0 +1,179 @@
+/* HUD da expedição: tempo, pedras, dica e radar. Pequeno no celular, maior no PC. */
+.exp-hud {
+  position: fixed;
+  z-index: 44;
+  right: max(10px, env(safe-area-inset-right));
+  top: max(64px, calc(env(safe-area-inset-top) + 56px));
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  width: clamp(120px, 24vmin, 190px);
+  pointer-events: none;
+  color: #fff;
+}
+.exp-hud__bar {
+  display: flex;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 3px solid #20394b;
+  border-radius: 12px;
+  background: rgba(24, 40, 52, 0.92);
+  font-weight: 800;
+  font-size: clamp(13px, 2.4vmin, 18px);
+}
+.exp-hud__bar .is-low {
+  color: #ff8c7a;
+  animation: exp-blink 0.8s steps(2) infinite;
+}
+.exp-hud__tip {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: rgba(24, 40, 52, 0.88);
+  font-size: clamp(11px, 1.9vmin, 14px);
+  line-height: 1.25;
+  text-align: center;
+}
+.exp-hud__dist {
+  margin: 0;
+  min-height: 1.2em;
+  font-weight: 800;
+  font-size: clamp(12px, 2.2vmin, 16px);
+  text-shadow: 0 1px 3px #000;
+}
+
+.exp-radar {
+  position: relative;
+  width: clamp(100px, 20vmin, 160px);
+  aspect-ratio: 1;
+  border: 3px solid #2f6b44;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(18, 60, 38, 0.92), rgba(6, 22, 16, 0.95));
+  box-shadow:
+    0 0 14px rgba(111, 229, 142, 0.35),
+    inset 0 0 20px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+.exp-radar > i {
+  position: absolute;
+}
+.exp-radar__ring {
+  inset: 25%;
+  border: 1px solid rgba(111, 229, 142, 0.45);
+  border-radius: 50%;
+}
+.exp-radar__ring--b {
+  inset: 3%;
+}
+.exp-radar__sweep {
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(111, 229, 142, 0.55), rgba(111, 229, 142, 0) 28%);
+  animation: exp-sweep 2.4s linear infinite;
+}
+.exp-radar__me {
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin: -7px 0 0 -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 14px solid #fff;
+}
+.exp-radar__blip {
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #ffd34d;
+  box-shadow: 0 0 8px #ffd34d;
+  animation: exp-ping 1.2s ease-in-out infinite;
+}
+.exp-radar__blip.is-far {
+  opacity: 0.55;
+  transform: scale(0.8);
+}
+.exp-radar__blip.is-carried {
+  background: #8fb7ff;
+  box-shadow: 0 0 8px #8fb7ff;
+}
+.exp-radar__blip--car {
+  border-radius: 3px;
+  background: #6fe58e;
+  box-shadow: 0 0 8px #6fe58e;
+}
+
+@keyframes exp-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes exp-ping {
+  50% {
+    transform: scale(1.35);
+  }
+}
+@keyframes exp-blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exp-radar__sweep,
+  .exp-radar__blip,
+  .exp-hud__bar .is-low {
+    animation: none;
+  }
+}
+@media (max-height: 460px) {
+  .exp-hud {
+    top: 8px;
+    width: 120px;
+  }
+  .exp-hud__tip {
+    display: none;
+  }
+}
+
+.exp-pick {
+  position: fixed;
+  z-index: 46;
+  left: 50%;
+  top: 55%;
+  width: 72px;
+  height: 72px;
+  transform: translate(-50%, -50%) rotate(-90deg);
+  pointer-events: none;
+}
+.exp-pick circle {
+  fill: rgba(10, 20, 30, 0.55);
+  stroke-width: 5;
+}
+.exp-pick__bg {
+  stroke: rgba(255, 255, 255, 0.25);
+}
+.exp-pick__fg {
+  stroke: #ffd34d;
+  stroke-linecap: round;
+  fill: none !important;
+}
+
+.exp-arrow {
+  display: inline-block;
+  color: #ffd34d;
+  font-size: 1.3em;
+  transition: transform 0.15s linear;
+}
+
+.exp-hud__leave {
+  pointer-events: auto;
+  min-height: 40px;
+  padding: 4px 12px;
+  border: 3px solid #20394b;
+  border-radius: 12px;
+  background: #a8412f;
+  color: #fff;
+  font: 800 13px inherit;
+  cursor: pointer;
+}

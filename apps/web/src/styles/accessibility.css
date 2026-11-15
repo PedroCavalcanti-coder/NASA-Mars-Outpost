@@ -1,0 +1,62 @@
+/* Acessibilidade: ligada por atributos no <html> (ver lib/accessibility.ts). */
+html[data-cb='protan'] {
+  filter: url('#mo-cb-protan');
+}
+html[data-cb='deutan'] {
+  filter: url('#mo-cb-deutan');
+}
+html[data-cb='tritan'] {
+  filter: url('#mo-cb-tritan');
+}
+html[data-contrast] {
+  filter: contrast(1.18) saturate(1.12);
+}
+html[data-cb='protan'][data-contrast] {
+  filter: url('#mo-cb-protan') contrast(1.18) saturate(1.12);
+}
+html[data-cb='deutan'][data-contrast] {
+  filter: url('#mo-cb-deutan') contrast(1.18) saturate(1.12);
+}
+html[data-cb='tritan'][data-contrast] {
+  filter: url('#mo-cb-tritan') contrast(1.18) saturate(1.12);
+}
+
+/* sem tremor, neve, aurora nem piscadas */
+html[data-calm] .event-fx,
+html[data-calm] .exp-radar__sweep {
+  display: none !important;
+}
+html[data-calm] .fx-shake,
+html[data-calm] .rad-banner--high,
+html[data-calm] .exp-hud__bar .is-low,
+html[data-calm] .intro__big,
+html[data-calm] .mg-hand {
+  animation: none !important;
+}
+
+/* botões maiores */
+html[data-bigtargets] button,
+html[data-bigtargets] [role='button'],
+html[data-bigtargets] select,
+html[data-bigtargets] input[type='checkbox'] {
+  min-height: 48px;
+}
+html[data-bigtargets] input[type='checkbox'] {
+  min-width: 28px;
+  min-height: 28px;
+}
+
+/* texto mais fácil de ler */
+html[data-readable] body {
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  word-spacing: 0.08em;
+}
+
+/* foco bem visível para quem usa teclado */
+html[data-bigtargets] :focus-visible,
+html[data-contrast] :focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 7px #000;
+}

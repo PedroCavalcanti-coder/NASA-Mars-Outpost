@@ -16,6 +16,7 @@ import {
 import { useOxygen } from '../../../game/survival/OxygenSystem';
 import { useBaseOps } from '../../../game/tasks/store';
 import { useGameSettings } from '../../../lib/gameSettings';
+import { useExpedition } from '../../../game/expedition/store';
 import { useGameplay } from '../../../store/gameplay';
 import { useMission } from '../../../store/mission';
 import { BitCharacter } from './BitCharacter';
@@ -174,6 +175,12 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
     }
     update();
   }, [activity, topic, engine, hints, offer, update]);
+
+  // primeira expedição com o rover: o B.I.T. explica o radar, a neblina e as pedras
+  const expedition = useExpedition((s) => s.active);
+  useEffect(() => {
+    if (expedition && hints) offer('scout', true, !engine.memory.mastered.includes('scout'));
+  }, [expedition, hints, engine, offer]);
 
   useEffect(() => {
     if (driving && hints) offer(touch ? 'roverTouch' : 'rover');
@@ -366,6 +373,11 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
     const lesson = pendingHud();
     if (lesson) offer(lesson.id, true, true);
   }, [engine, pendingHud, offer]);
+  const skipAll = () => {
+    for (const topic of ['welcome', 'movement', HUD_TOUR_SKIPPED, ...BRIEFING]) engine.master(topic);
+    engine.clear();
+    update();
+  };
   const next = () => {
     const lesson = hudLesson(id);
     if (lesson) engine.master(lesson.id);
@@ -438,6 +450,11 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
                   {L('Ajuda', 'Help')}
                 </button>
               )}
+              {!activity && (
+                <button type="button" onClick={skipAll}>
+                  {L('Pular todo o tutorial', 'Skip the whole tutorial')}
+                </button>
+              )}
               {!activity && !isHudLesson && (
                 <button type="button" onClick={startHudTour}>
                   {L('Tour da tela', 'HUD tour')}
@@ -450,7 +467,10 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
           className="bit-avatar"
           type="button"
           onClick={() => {
-            help();
+            // tour da tela inacabado (ou pulado): recomeça do início e o "Próximo" segue até o fim
+            const unfinished = HUD_LESSONS.some((lesson) => !engine.memory.mastered.includes(lesson.id));
+            if (!activity && unfinished) startHudTour();
+            else help();
           }}
           aria-label="Ask B.I.T. for help"
           title="Ask B.I.T. for help"

@@ -6,18 +6,33 @@
  * Atalhos: tecla 'Q' para alternar abertura e 'Escape' para fechar.
  */
 
-import { EMOTE_ANIMATIONS, GAME_EMOTES } from '@mars/shared';
-import { Smile } from 'lucide-react';
+import {
+  DUO_GESTURE_IDS,
+  DUO_GESTURES,
+  type DuoGestureId,
+  EMOTE_ANIMATIONS,
+  GAME_EMOTES,
+} from '@mars/shared';
+import { Handshake, Smile } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { L } from '../../../lib/i18n';
+import { L, t } from '../../../lib/i18n';
 
 export interface EmoteWheelProps {
   onPick: (index: number) => void;
   disabled?: boolean;
+  /** só nas salas online: astronautas por perto + convite para um gesto em dupla */
+  duo?: {
+    partners: Array<{ id: string; name: string }>;
+    onInvite: (gesture: DuoGestureId, targetId: string) => void;
+  };
 }
 
-export function EmoteWheel({ onPick, disabled }: EmoteWheelProps) {
+export function EmoteWheel({ onPick, disabled, duo }: EmoteWheelProps) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'solo' | 'duo'>('solo');
+  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const partners = duo?.partners ?? [];
+  const partner = partners.find((p) => p.id === partnerId) ?? partners[0];
   const [cooling, setCooling] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -71,7 +86,69 @@ export function EmoteWheel({ onPick, disabled }: EmoteWheelProps) {
     <div className="game__emote" ref={rootRef}>
       {open && (
         <div className="game__emote-wheel" role="menu" aria-label="Emojis">
-          {GAME_EMOTES.map((emoji, i) => {
+          {duo && (
+            <button
+              type="button"
+              className={`game__emote-mode ${partners.length ? 'has-partner' : ''}`}
+              onClick={() => setTab((t) => (t === 'solo' ? 'duo' : 'solo'))}
+              aria-pressed={tab === 'duo'}
+              title={
+                tab === 'solo'
+                  ? L('Gestos em dupla', 'Two-person gestures')
+                  : L('Voltar aos emojis', 'Back to emojis')
+              }
+            >
+              {tab === 'solo' ? <Handshake size={20} aria-hidden="true" /> : <Smile size={20} aria-hidden="true" />}
+              <span>{tab === 'solo' ? L('Dupla', 'Duo') : L('Emojis', 'Emojis')}</span>
+              {tab === 'solo' && partners.length > 0 && <i className="game__emote-dot" aria-hidden="true" />}
+            </button>
+          )}
+          {duo && tab === 'duo' && !partner && (
+            <p className="game__emote-hint" role="status">
+              {L('Chegue perto de outro astronauta (até 4 m, a pé) para fazer um gesto juntos.', 'Walk close to another astronaut (within 4 m, on foot) to do a gesture together.')}
+            </p>
+          )}
+          {duo && tab === 'duo' && partner && (
+            <>
+              <button
+                type="button"
+                className="game__emote-partner"
+                onClick={() => {
+                  const i = partners.findIndex((p) => p.id === partner.id);
+                  setPartnerId(partners[(i + 1) % partners.length]?.id ?? null);
+                }}
+                title={partners.length > 1 ? L('Trocar de parceiro', 'Change partner') : partner.name}
+              >
+                👤 {partner.name}
+                {partners.length > 1 ? ' ▸' : ''}
+              </button>
+              {DUO_GESTURE_IDS.map((id, i) => {
+                const angle = (i / DUO_GESTURE_IDS.length) * Math.PI * 2 - Math.PI / 4 - Math.PI / 2;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="menuitem"
+                    className="game__emote-item game__emote-item--duo"
+                    style={{
+                      transform: `translate(${Math.cos(angle) * 80}px, ${Math.sin(angle) * 80}px)`,
+                      animationDelay: `${i * 30}ms`,
+                    }}
+                    onClick={() => {
+                      duo.onInvite(id, partner.id);
+                      setOpen(false);
+                    }}
+                    title={`${t(DUO_GESTURES[id].label)} · ${partner.name}`}
+                    aria-label={`${DUO_GESTURES[id].label} ${partner.name}`}
+                  >
+                    <span aria-hidden="true">{DUO_GESTURES[id].emoji}</span>
+                    <small>{t(DUO_GESTURES[id].label)}</small>
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {tab === 'solo' && GAME_EMOTES.map((emoji, i) => {
             const angle = (i / GAME_EMOTES.length) * Math.PI * 2 - Math.PI / 2;
             const x = Math.cos(angle) * 82;
             const y = Math.sin(angle) * 82;
@@ -88,8 +165,8 @@ export function EmoteWheel({ onPick, disabled }: EmoteWheelProps) {
                 }}
                 onClick={() => handlePick(i)}
                 disabled={cooling || disabled}
-                title={meta?.label ? `${meta.label} (${emoji})` : `Enviar ${emoji}`}
-                aria-label={`Enviar ${meta?.label ?? 'emoji'} ${emoji}`}
+                title={meta?.label ? `${t(meta.label)} (${emoji})` : emoji}
+                aria-label={`${meta ? t(meta.label) : 'emoji'} ${emoji}`}
               >
                 {emoji}
               </button>

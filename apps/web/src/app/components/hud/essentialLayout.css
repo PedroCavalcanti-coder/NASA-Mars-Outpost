@@ -2,25 +2,27 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
 }
 
 .hud-root .hud-event-controls .time-controls {
   flex-direction: column;
-  width: 190px;
-  margin-top: 16px;
-  padding: 6px;
-  border: 3px solid #20394b;
-  border-radius: 14px;
+  width: 140px;
+  margin-top: 0;
+  padding: 4px 5px;
+  border: 2px solid #20394b;
+  border-radius: 10px;
   background: #3c515a;
   box-shadow:
-    inset 0 0 0 2px #789aab,
-    0 3px 0 #152e3d;
+    inset 0 0 0 1.5px #789aab,
+    0 2px 0 #152e3d;
 }
 
 .hud-root .hud-event-controls .time-controls__speed-group {
   display: flex;
   flex: 1;
+  padding: 1px;
+  gap: 1px;
 }
 
 .hud-event-controls .time-controls__actions {
@@ -28,9 +30,24 @@
   width: 100%;
 }
 
+.hud-event-controls .time-controls__btn-pause {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+}
+
 .hud-event-controls .time-controls__speed-btn {
   flex: 1;
-  font-size: 15px;
+  min-width: 20px;
+  height: 22px;
+  padding: 0 4px;
+  font-size: 12px;
+}
+
+.hud-event-controls .time-controls__paused-badge {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  margin-top: 2px;
 }
 
 .hud-energy-anchor {
@@ -58,7 +75,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 .hud-research__heading span:first-child {
@@ -82,7 +99,7 @@
 
 .hud-resource-gauge {
   --gauge-color: #edce70;
-  width: 84px;
+  width: 58px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -135,7 +152,7 @@
 }
 .hud-resource-gauge__value {
   margin-top: -4px;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -146,7 +163,7 @@
     top: 24px;
   }
   .hud-resource-gauge {
-    width: 64px;
+    width: 46px;
   }
   .hud-resource-row {
     gap: 6px;
@@ -211,5 +228,15 @@
 }
 .hud-resource-gauge--dose .hud-resource-gauge__value {
   font-size: 13px;
+  white-space: nowrap;
+}
+
+.hud-research__goals {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 800;
   white-space: nowrap;
 }

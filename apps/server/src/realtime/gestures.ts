@@ -32,7 +32,7 @@ function distance(a: GameMotion, b: GameMotion) {
 
 /**
  * Convites de gestos em dupla de UMA sala. Tudo que chega da rede é validado aqui:
- * gesto da lista, alvo dentro da sala, os dois a pé e a ≤ 2,5 m, ~1 convite a cada 3 s.
+ * gesto da lista, alvo dentro da sala, os dois a pé e a ≤ 4 m, ~1 convite a cada 3 s.
  */
 export class GestureBroker {
   /** convites pendentes: alvo → (quem convidou → convite) */
@@ -94,7 +94,7 @@ export class GestureBroker {
       return { ok: false, reason: 'Gestos em dupla só valem fora do rover.' };
     }
     if (distance(a, b) > GESTURE_MAX_DISTANCE) {
-      return { ok: false, reason: 'Chegue mais perto do astronauta (até 2,5 m).' };
+      return { ok: false, reason: 'Chegue mais perto do astronauta (até 4 m).' };
     }
     return { ok: true };
   }

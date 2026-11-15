@@ -6,12 +6,16 @@ export interface RepairAnchor {
   point: THREE.Vector3;
   approach: THREE.Vector3;
   normal: THREE.Vector3;
+  /** a rachadura também aparece no lado de fora da parede (o reparo é feito lá) */
+  outer?: THREE.Vector3;
 }
 /** Raycast the actual shell, rather than guessing where the wall should be. */
 export class IntegrityVisuals {
   readonly anchors: RepairAnchor[] = [];
   readonly proxies: THREE.Object3D[] = [];
   private cracks = new Map<number, THREE.Group>();
+  /** a mesma rachadura vista de fora da base */
+  private outerCracks = new Map<number, THREE.Group>();
   private fx = new THREE.Group();
   private patches = new Map<number, { group: THREE.Group; sol: number }>();
   private currentSol = 1;
@@ -84,10 +88,13 @@ export class IntegrityVisuals {
     if (!generate) {
       const anchors = REPAIR_ANCHORS[grid.layout.id as keyof typeof REPAIR_ANCHORS];
       for (const a of anchors ?? []) {
+        const point = new THREE.Vector3(...a.point);
+        const normal = new THREE.Vector3(...a.normal);
         this.anchors.push({
-          point: new THREE.Vector3(...a.point),
+          point,
           approach: new THREE.Vector3(...a.approach),
-          normal: new THREE.Vector3(...a.normal),
+          normal,
+          outer: this.outerFace(shells, point, normal),
         });
       }
     }
@@ -129,6 +136,66 @@ export class IntegrityVisuals {
     }
     scene.add(this.fx);
   }
+  /** Esconde/mostra tudo que é da base (rachaduras, remendos e efeitos): a expedição é em outro mapa. */
+  setVisible(v: boolean) {
+    for (const g of [...this.cracks.values(), ...this.outerCracks.values(), this.fx]) g.visible = v;
+    for (const p of this.patches.values()) p.group.visible = v;
+  }
+
+  /** Atravessa a parede (do lado de dentro para fora) para achar a face externa. */
+  private outerFace(shells: THREE.Object3D[], point: THREE.Vector3, normal: THREE.Vector3) {
+    const out = normal.clone().negate();
+    const materials = new Map<THREE.Material, THREE.Side>();
+    for (const o of shells) {
+      const m = (o as THREE.Mesh).material;
+      for (const mat of Array.isArray(m) ? m : [m]) {
+        materials.set(mat, mat.side);
+        mat.side = THREE.DoubleSide;
+      }
+    }
+    const hits = new THREE.Raycaster(point, out, 0, 2.5).intersectObjects(shells, true);
+    for (const [mat, side] of materials) mat.side = side;
+    const last = hits[hits.length - 1];
+    return (last ? last.point.clone() : point.clone().addScaledVector(out, 0.4)).addScaledVector(
+      out,
+      0.05,
+    );
+  }
+
+  /** O desenho da rachadura (fundo clicável, riscos e ar escapando). */
+  private addCrackFace(g: THREE.Group, id: number) {
+    const back = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.9, 1.1),
+      new THREE.MeshBasicMaterial({ color: 0x20394b, side: THREE.DoubleSide }),
+    );
+    back.userData.pick = { kind: 'repair', id };
+    g.add(back);
+    for (let n = 0; n < 5; n++) {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.065, 0.28),
+        new THREE.MeshBasicMaterial({ color: 0x9ce8ee, side: THREE.DoubleSide }),
+      );
+      m.position.set(n % 2 ? -0.1 : 0.1, 0.4 - n * 0.2, 0.01);
+      m.rotation.z = n % 2 ? 0.65 : -0.65;
+      g.add(m);
+    }
+    for (let n = 0; n < 5; n++) {
+      const air = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.025, 0.22),
+        new THREE.MeshBasicMaterial({
+          color: 0xc5f6fa,
+          transparent: true,
+          opacity: 0.5,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+      );
+      air.name = 'leak';
+      air.userData.isParticle = true;
+      g.add(air);
+    }
+  }
+
   sync(s: IntegrityState) {
     for (const [id, g] of this.cracks)
       if (!s.fractures.some((f) => f.id === id)) {
@@ -146,6 +213,24 @@ export class IntegrityVisuals {
         g.add(plate);
         this.patches.set(id, { group: g, sol: this.currentSol });
         this.cracks.delete(id);
+        const out = this.outerCracks.get(id);
+        if (out) {
+          out.children.forEach((o) => {
+            if (o instanceof THREE.Mesh) {
+              o.geometry.dispose();
+              (o.material as THREE.Material).dispose();
+            }
+          });
+          out.clear();
+          out.add(
+            new THREE.Mesh(
+              new THREE.BoxGeometry(0.9, 1.1, 0.06),
+              new THREE.MeshStandardMaterial({ color: 0x9aafb4, roughness: 0.7 }),
+            ),
+          );
+          this.patches.set(id + 1_000_000, { group: out, sol: this.currentSol });
+          this.outerCracks.delete(id);
+        }
       }
     this.proxies.length = 0;
     for (const f of s.fractures) {
@@ -156,42 +241,26 @@ export class IntegrityVisuals {
         g = new THREE.Group();
         g.position.copy(a.point);
         g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), a.normal);
-        const back = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.9, 1.1),
-          new THREE.MeshBasicMaterial({ color: 0x20394b, side: THREE.DoubleSide }),
-        );
-        back.userData.pick = { kind: 'repair', id: f.id };
-        g.add(back);
-        for (let n = 0; n < 5; n++) {
-          const m = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.065, 0.28),
-            new THREE.MeshBasicMaterial({ color: 0x9ce8ee, side: THREE.DoubleSide }),
-          );
-          m.position.set(n % 2 ? -0.1 : 0.1, 0.4 - n * 0.2, 0.01);
-          m.rotation.z = n % 2 ? 0.65 : -0.65;
-          g.add(m);
-        }
-        for (let n = 0; n < 5; n++) {
-          const air = new THREE.Mesh(
-            new THREE.PlaneGeometry(0.025, 0.22),
-            new THREE.MeshBasicMaterial({
-              color: 0xc5f6fa,
-              transparent: true,
-              opacity: 0.5,
-              depthWrite: false,
-              side: THREE.DoubleSide,
-            }),
-          );
-          air.name = 'leak';
-          air.userData.isParticle = true;
-          g.add(air);
-        }
+        this.addCrackFace(g, f.id);
         this.scene.add(g);
         this.cracks.set(f.id, g);
+      }
+      let o = this.outerCracks.get(f.id);
+      if (!o && a.outer) {
+        o = new THREE.Group();
+        o.position.copy(a.outer);
+        o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), a.normal.clone().negate());
+        this.addCrackFace(o, f.id);
+        this.scene.add(o);
+        this.outerCracks.set(f.id, o);
       }
       g.scale.setScalar(0.65 + f.damage / 60);
       g.userData.damage = f.damage;
       this.proxies.push(g);
+      if (o) {
+        o.scale.setScalar(0.65 + f.damage / 60);
+        this.proxies.push(o);
+      }
     }
     if (this.ready && s.event && s.event.seq !== this.eventSeq) {
       this.eventSeq = s.event.seq;
@@ -244,8 +313,9 @@ export class IntegrityVisuals {
       }
     }
     if (!s) return;
-    for (const [id, g] of this.cracks) {
+    for (const [id, face] of [...this.cracks, ...[...this.outerCracks].map(([i, o]) => [i, o] as const)]) {
       const f = s.fractures.find((f) => f.id === id);
+      const g = face;
       if (f) {
         let n = 0;
         g.children
@@ -307,7 +377,7 @@ export class IntegrityVisuals {
   }
 
   dispose() {
-    for (const g of this.cracks.values()) {
+    for (const g of [...this.cracks.values(), ...this.outerCracks.values()]) {
       g.removeFromParent();
       g.traverse((o) => {
         if ((o as THREE.Mesh).isMesh) {

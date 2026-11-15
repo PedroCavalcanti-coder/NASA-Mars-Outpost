@@ -7,7 +7,9 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { DONKI_SOURCE, MARS_SITES, MARS_TREK_URL, RADIATION_SOURCES } from '@mars/shared';
 import { Link } from 'react-router';
+import { GAME_EVENTS } from '../../game/events/events';
 import '../../styles/publicPages.css';
 import { L } from '../../lib/i18n';
 
@@ -102,6 +104,49 @@ export default function About() {
             </p>
           </div>
         </div>
+
+        {/* Fontes e créditos: de onde vem cada dado real do jogo */}
+        <section className="public-card" id="fontes" style={{ padding: '36px 32px' }}>
+          <h2 style={{ fontSize: 24, margin: '0 0 8px' }}>{L('Fontes e créditos dos dados reais', 'Sources and credits for the real data')}</h2>
+          <p style={{ color: '#d0e2fc', fontSize: 15, lineHeight: 1.55, margin: '0 0 16px' }}>
+            {L('Nada aqui é inventado sem aviso: estes são os dados reais usados no jogo e onde você pode conferir cada um. Os números são cópias curadas, sem chamada a APIs ao vivo.', 'Nothing here is made up without saying so: these are the real data used in the game and where you can check each one. Numbers are curated copies, with no live API calls.')}
+          </p>
+          <h3 style={{ fontSize: 17, margin: '12px 0 6px' }}>☢️ {L('Radiação e clima espacial', 'Radiation and space weather')}</h3>
+          <ul style={{ color: '#c9dcf7', fontSize: 14.5, lineHeight: 1.6 }}>
+            <li>
+              <a href={DONKI_SOURCE.url} target="_blank" rel="noreferrer noopener">{DONKI_SOURCE.name}</a> {L('— explosões solares dos eventos de radiação', '— solar flares used in radiation events')}
+            </li>
+            {RADIATION_SOURCES.map((r) => (
+              <li key={r.label}>
+                <a href={r.url} target="_blank" rel="noreferrer noopener">{r.label}</a>
+              </li>
+            ))}
+          </ul>
+          <h3 style={{ fontSize: 17, margin: '12px 0 6px' }}>🗺️ {L('Mapas e lugares de Marte', 'Mars maps and places')}</h3>
+          <ul style={{ color: '#c9dcf7', fontSize: 14.5, lineHeight: 1.6 }}>
+            <li>
+              <a href={MARS_TREK_URL} target="_blank" rel="noreferrer noopener">NASA Mars Trek</a> {L('— mapas e coordenadas', '— maps and coordinates')}
+            </li>
+            {Object.values(MARS_SITES).map((m) => (
+              <li key={m.name}>
+                {m.name} ({m.lat}°, {m.lon}°)
+              </li>
+            ))}
+          </ul>
+          <h3 style={{ fontSize: 17, margin: '12px 0 6px' }}>📸 {L('Eventos, fotos e fatos', 'Events, photos and facts')}</h3>
+          <ul style={{ color: '#c9dcf7', fontSize: 14.5, lineHeight: 1.6 }}>
+            {GAME_EVENTS.filter((e) => e.sourceUrl).map((e) => (
+              <li key={e.id}>
+                {e.icon} {L(e.title, e.title)}{' '}
+                {e.credit && <span>({e.credit}) </span>}
+                <a href={e.sourceUrl} target="_blank" rel="noreferrer noopener">{L('fonte', 'source')}</a>
+              </li>
+            ))}
+          </ul>
+          <p style={{ color: '#9fb6d8', fontSize: 13, margin: '12px 0 0' }}>
+            {L('Também usamos fatos publicados pela NASA sobre MOXIE, Perseverance, Curiosity, a Estação Espacial e a Deep Space Network nos cartões “Você sabia?” e na vida real dos minigames.', 'We also use facts published by NASA about MOXIE, Perseverance, Curiosity, the Space Station and the Deep Space Network in the “Did you know?” cards and the real-life notes of the minigames.')}
+          </p>
+        </section>
 
         {/* Declaração e Agradecimentos */}
         <section className="public-card" style={{ padding: '36px 32px' }}>

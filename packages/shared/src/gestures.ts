@@ -80,11 +80,11 @@ export function isDuoGestureId(v: unknown): v is DuoGestureId {
 }
 
 /** Distância máxima (unidades do mundo) entre os dois jogadores para convidar/aceitar. */
-export const GESTURE_MAX_DISTANCE = 2.5;
+export const GESTURE_MAX_DISTANCE = 4;
 /** Intervalo mínimo entre convites do mesmo jogador (ms). */
 export const GESTURE_INVITE_COOLDOWN_MS = 3000;
 /** Tempo que o convite fica valendo (ms). */
-export const GESTURE_INVITE_TTL_MS = 5000;
+export const GESTURE_INVITE_TTL_MS = 8000;
 /** Escala do modelo no jogo: as medidas dos gestos (em metros do modelo) viram unidades do mundo. */
 export const ASTRONAUT_MODEL_SCALE = 0.75;
 

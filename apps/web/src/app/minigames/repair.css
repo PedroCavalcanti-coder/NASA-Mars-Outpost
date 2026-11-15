@@ -8,12 +8,62 @@
   align-items: center;
   justify-content: center;
   color: #fff3d0;
-  font-size: 22px;
-  padding: 24px;
+  font-size: clamp(15px, 2.6vmin, 22px);
+  padding: max(12px, env(safe-area-inset-top)) 16px max(12px, env(safe-area-inset-bottom));
   box-sizing: border-box;
+  overflow-y: auto;
+  gap: clamp(4px, 1.2vmin, 12px);
+}
+.repair-sub,
+.repair-how,
+.repair-fact,
+.repair-error,
+.repair-warn {
+  max-width: min(640px, 94vw);
+  margin: 0;
+}
+.repair-sub {
+  font-weight: 800;
+  color: #9ce8ee;
+}
+.repair-how {
+  font-size: 1.05em;
+}
+.repair-fact {
+  font-size: 0.78em;
+  opacity: 0.9;
+}
+.repair-error {
+  color: #ffb3a8;
+  font-weight: 800;
+}
+.repair-warn {
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: #8a2c20;
+  font-weight: 800;
+}
+.repair-dots {
+  display: flex;
+  gap: 8px;
+}
+.repair-dots i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+.repair-dots i.is-on {
+  background: #6fe58e;
+}
+@media (max-height: 520px) {
+  .repair-fact,
+  .repair-sub {
+    display: none;
+  }
 }
 .repair-mg h1 {
-  font-size: clamp(28px, 4vw, 48px);
+  font-size: clamp(22px, 5vmin, 44px);
   margin: 0;
 }
 .repair-mg p {

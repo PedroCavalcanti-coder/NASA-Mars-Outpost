@@ -28,7 +28,9 @@ export type WorldEffect =
   | { type: 'clog_filter' }
   | { type: 'wilt_crop' }
   /** dose de radiação na tripulação (mSv), multiplicada pela força da explosão solar real */
-  | { type: 'dose'; mSv: number };
+  | { type: 'dose'; mSv: number }
+  /** radiação ALTA lá fora por tantas horas de Marte (x a força da explosão): ninguém sai da base */
+  | { type: 'radiation'; hours: number };
 
 export type EventDeltas = Partial<
   Record<'energy' | 'supplies' | 'oxygen' | 'armor' | 'research', number>
@@ -219,7 +221,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           tone: 'info',
           text: 'A blindagem extra segurou quase toda a radiação, mas a bateria da noite ficou fraca.',
           deltas: { energy: -12 },
-          effects: [{ type: 'dose', mSv: 1 }],
+          effects: [{ type: 'dose', mSv: 1 }, { type: 'radiation', hours: 3 }],
         },
       },
       {
@@ -230,7 +232,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           tone: 'info',
           text: 'A tripulação esperou no módulo mais protegido. Sem ninguém cuidando, a base gastou comida e ar parada.',
           deltas: { supplies: -4, oxygen: -4 },
-          effects: [{ type: 'dose', mSv: 3 }],
+          effects: [{ type: 'dose', mSv: 3 }, { type: 'radiation', hours: 3 }],
         },
       },
       {
@@ -240,7 +242,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'bad',
           text: 'A energia ficou guardada, mas a tripulação levou uma dose alta de radiação.',
-          effects: [{ type: 'dose', mSv: 12 }],
+          effects: [{ type: 'dose', mSv: 12 }, { type: 'radiation', hours: 3 }],
         },
       },
     ],
@@ -495,6 +497,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'info',
           text: 'O desvio funcionou por enquanto.',
+          deltas: { supplies: -2 },
         },
         risk: {
           chance: 0.5,
@@ -800,32 +803,80 @@ function pickWeighted(
   seed: number,
   sol: number,
   salt: number,
+  recent: ReadonlyMap<string, number> = new Map(),
 ): GameEventDef {
-  const total = pool.reduce((n, e) => n + e.weight, 0);
+  const w = (e: GameEventDef) => e.weight * (recent.get(e.id) ?? 1);
+  const total = pool.reduce((n, e) => n + w(e), 0);
   let roll = seeded(seed, sol, salt) * total;
   for (const e of pool) {
-    roll -= e.weight;
+    roll -= w(e);
     if (roll < 0) return e;
   }
   return pool[pool.length - 1]!;
 }
 
+/** Eventos de clima: mudam o tempo lá fora (poeira, nevasca, meteoros, radiação...). */
+export const WEATHER_EVENT_IDS: readonly string[] = [
+  'co2_blizzard',
+  'meteor_shower',
+  'radiation_storm',
+  'giant_dust_devil',
+  'ice_clouds',
+  'dust_storm',
+];
+
+/** Chance de um evento grande no Sol: sobe 12 pontos por jogador a mais na sala (4 jogadores: 81%). */
+export function majorChance(players: number, bonus = 0) {
+  return Math.max(0.1, Math.min(0.95, MAJOR_EVENT_CHANCE + bonus + 0.12 * (Math.max(1, players) - 1)));
+}
+
 /**
  * Eventos do Sol, na ordem em que aparecem (grande primeiro). Vazio nos 3 primeiros Sóis.
- * Determinístico: depende só da semente da sala e do Sol.
+ * Determinístico: depende só da semente da sala, do Sol e de quantos jogadores há na sala.
+ * Com mais gente a base é maior e chama mais atenção: mais eventos climáticos (com 3 ou 4
+ * jogadores pode vir um segundo evento de clima no mesmo Sol).
  */
-export function eventsForSol(seed: number, sol: number): GameEventDef[] {
+const baselineMemo = new Map<string, GameEventDef[]>();
+
+/** Eventos dos dois Sóis anteriores: o que já veio pesa menos hoje (sem repetir tipo de evento). */
+function recentEvents(seed: number, sol: number): Map<string, number> {
+  const recent = new Map<string, number>();
+  for (const [back, factor] of [[1, 0.08], [2, 0.4]] as const) {
+    if (sol - back < EVENT_FIRST_SOL) continue;
+    const key = `${seed}:${sol - back}`;
+    let list = baselineMemo.get(key);
+    if (!list) {
+      list = eventsForSol(seed, sol - back);
+      if (baselineMemo.size > 5000) baselineMemo.clear();
+      baselineMemo.set(key, list);
+    }
+    for (const e of list) recent.set(e.id, Math.min(recent.get(e.id) ?? 1, factor));
+  }
+  return recent;
+}
+
+export function eventsForSol(seed: number, sol: number, players = 1, majorBonus = 0): GameEventDef[] {
   if (sol < EVENT_FIRST_SOL) return [];
+  const recent = recentEvents(seed, sol);
   const list: GameEventDef[] = [];
-  if (sol >= MAJOR_FIRST_SOL && seeded(seed, sol, 701) < MAJOR_EVENT_CHANCE) {
-    list.push(
-      pickWeighted(
-        GAME_EVENTS.filter((e) => e.kind === 'major'),
-        seed,
-        sol,
-        711,
-      ),
+  const weather = GAME_EVENTS.filter((e) => WEATHER_EVENT_IDS.includes(e.id));
+  if (sol >= MAJOR_FIRST_SOL && seeded(seed, sol, 701) < majorChance(players, majorBonus)) {
+    // com 2+ jogadores o evento grande é, quase sempre, de clima
+    const pool =
+      players >= 2 && seeded(seed, sol, 705) < 0.4 + 0.15 * players
+        ? weather
+        : GAME_EVENTS.filter((e) => e.kind === 'major');
+    list.push(pickWeighted(pool, seed, sol, 711, recent));
+  }
+  if (sol >= MAJOR_FIRST_SOL && players >= 3 && seeded(seed, sol, 731) < 0.12 * (players - 2) + 0.14) {
+    const second = pickWeighted(
+      weather.filter((e) => !list.some((x) => x.id === e.id)),
+      seed,
+      sol,
+      741,
+      recent,
     );
+    list.push(second);
   }
   list.push(
     pickWeighted(
@@ -833,6 +884,7 @@ export function eventsForSol(seed: number, sol: number): GameEventDef[] {
       seed,
       sol,
       721,
+      recent,
     ),
   );
   return list;

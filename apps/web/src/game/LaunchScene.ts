@@ -327,10 +327,10 @@ export class LaunchScene {
   setReducedMotion(reduced: boolean) {
     if (this.launchAt === null) this.reduced = reduced;
   }
-  setQuality(quality: 'low' | 'medium' | 'high' | 'standard') {
+  setQuality(quality: 'low' | 'medium' | 'high' | 'ultra' | 'standard') {
     this.runtime.profileRevision++;
     const isLow = quality === 'low';
-    const isHigh = quality === 'high';
+    const isHigh = quality === 'high' || quality === 'ultra';
     this.renderer.shadowMap.enabled = !isLow;
     this.renderer.setPixelRatio(
       isLow ? 1 : isHigh ? Math.min(devicePixelRatio, 2) : Math.min(devicePixelRatio, 1.5),

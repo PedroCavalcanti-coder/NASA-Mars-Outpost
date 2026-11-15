@@ -63,7 +63,7 @@ export const worldLinks = outpost.table(
     nickname: text('nickname').notNull().default(''),
     /** traje deste jogador NESTE mundo (escolhido ao criar/entrar pela primeira vez) */
     suit: jsonb('suit'),
-    linkedAt: createdAt(),
+    linkedAt: timestamp('linked_at', { withTimezone: true }).defaultNow().notNull(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [

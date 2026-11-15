@@ -1,0 +1,46 @@
+.dev-panel {
+  position: fixed;
+  z-index: 5000;
+  top: 8px;
+  left: 8px;
+  width: min(360px, 60vw);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  padding: 8px;
+  border: 2px solid #ffd34d;
+  border-radius: 10px;
+  background: rgba(10, 18, 30, 0.95);
+  color: #fff;
+  font-size: 12px;
+}
+.dev-panel header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+}
+.dev-panel h4 {
+  margin: 8px 0 4px;
+  color: #ffd34d;
+}
+.dev-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.dev-panel button {
+  padding: 4px 6px;
+  border: 1px solid #5b7c8c;
+  border-radius: 6px;
+  background: #23465b;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+body.ui-hidden .game__interface > *:not(.game__canvas):not(.dev-panel),
+body.ui-hidden > .bit-guide,
+body.ui-hidden .toaster,
+body.ui-hidden .rad-banner,
+body.ui-hidden .exp-hud {
+  display: none !important;
+}

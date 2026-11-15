@@ -306,8 +306,8 @@ export const LINES = {
     voice: false,
   },
   scout: {
-    text: 'Dirija o rover para os lados, desvie de pedras e buracos e pegue os pontos amarelos. Três batidas encerram a corrida. Depois, conserte o rover com o maçarico: toque em cada ponto quando o anel encostar nele.',
-    en: 'Steer the rover left and right, dodge rocks and holes and grab the yellow points. Three crashes end the run. Then repair the rover with the welding torch: tap each spot when the ring touches it.',
+    text: 'Estamos na neblina! O radar 📡 mostra onde estão as 3 pedras. Dirija até uma, saia do rover (botão Sair) e ande até ela para pegar. Você fica mais lento carregando: leve até o rover. Os faróis afastam a neblina.',
+    en: 'We are in the fog! The radar 📡 shows where the 3 rocks are. Drive to one, exit the rover (Exit button) and walk up to it to pick it up. You are slower while carrying it: take it to the rover. The headlights push the fog away.',
     expression: 'excited',
     voice: false,
   },
@@ -384,8 +384,8 @@ export const LINES = {
     voice: false,
   },
   scoutReal: {
-    text: 'Na vida real: rovers andam devagar e com cuidado, e pedras pontudas podem furar as rodas (as do Curiosity ganharam buracos). Por isso a equipe na Terra planeja cada rota e testa e repara as peças com soldas e ferramentas.',
-    en: 'In real life: rovers drive slowly and carefully, and sharp rocks can puncture wheels (Curiosity\'s got holes). That is why the team on Earth plans every route and tests and repairs parts with welding and tools.',
+    text: 'Na vida real: o Perseverance guarda amostras de rochas em tubos para trazê-las à Terra. Os cientistas escolhem cada rocha com cuidado, porque elas podem guardar pistas de vida antiga. E o rover anda devagar, para não furar as rodas!',
+    en: 'In real life: Perseverance seals rock samples in tubes to bring them to Earth. Scientists pick each rock carefully, because rocks may hold clues about ancient life. And the rover drives slowly so it does not puncture its wheels!',
     expression: 'thinking',
     voice: false,
   },

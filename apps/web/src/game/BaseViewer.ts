@@ -29,6 +29,7 @@ import {
   type IntegrityState,
   leakRate,
   normalizeTimeScale,
+  REPAIR_OUTSIDE,
   type RepairIntent,
 } from '@mars/shared';
 import {
@@ -64,6 +65,8 @@ import {
   STORM_SAFE_RADIUS,
 } from './BaseGrid';
 import { applyBoundaryFog, setEdgeFog } from './boundaryFog';
+import { chime } from '../lib/chime';
+import { ExpeditionController } from './expedition/ExpeditionController';
 import { CropSystem } from './Crops';
 import { DoorSystem } from './Doors';
 import { DustStorm, DustStormOverlay } from './DustStorm';
@@ -189,6 +192,7 @@ export interface BaseViewerOptions {
   createRoom?: boolean;
   /** o código foi sorteado agora: se já for de outro mundo, a sala sorteia outro */
   freshRoom?: boolean;
+  difficulty?: 'easy' | 'normal' | 'hard';
   /** a sala ganhou outro código (o sorteado já existia) */
   onRoomCodeChange?: (code: string) => void;
   initialHour?: number;
@@ -454,6 +458,32 @@ export class BaseViewer {
   private lastInputKey = '';
 
   // Rover
+  // Expedição com o rover (neblina, radar e pedras): ver expedition/ExpeditionController
+  private readonly expedition = new ExpeditionController({
+    scene: this.scene,
+    camera: this.camera,
+    gameplay: () => this.room?.gameplay,
+    selfId: () => this.room?.self?.id,
+    rover: () => this.rover,
+    remotePosition: (id) => this.remoteAstronauts.get(id)?.position ?? null,
+    groundY: (x, z) => this.grid?.groundY(x, z) ?? GROUND_Y,
+    notify: (m, k) => this.notify(m, k),
+    fade: (o, ms) => this.fadeScreen(o, ms),
+    snapCamera: () => {
+      this.snapCameraUntil = performance.now() + 2000;
+    },
+    setBaseVisible: (v) => this.setBaseVisible(v),
+    refreshAtmosphere: () => this.updateAtmosphere(true),
+  });
+  private baseModel: THREE.Object3D | null = null;
+
+  /** A expedição acontece em outro mapa: a base (e tudo dela) some enquanto ela dura. */
+  private setBaseVisible(v: boolean) {
+    for (const o of [this.baseModel, this.lifeSupportStations?.group, this.rocksGroup, this.stationMarkers?.group, this.soilPad])
+      if (o) o.visible = v;
+    this.integrityVisuals?.setVisible(v);
+  }
+  private snapCameraUntil = 0;
   private rover: Rover | null = null;
   private roverDriver: 'local' | string | null = null;
   /** o jogador local é o passageiro do rover (o rover tem 2 lugares: motorista e passageiro) */
@@ -847,6 +877,7 @@ export class BaseViewer {
     shade(model);
     sharpen(model);
     this.scene.add(model);
+    this.baseModel = model;
 
     model.traverse((o) => {
       if (o.name.endsWith('_Nave')) {
@@ -1170,6 +1201,7 @@ export class BaseViewer {
         suit: readSuitPreference(),
         create: this.options?.createRoom ?? true,
         fresh: this.options?.freshRoom ?? false,
+        difficulty: this.options?.difficulty,
         onCode: (code) => this.options?.onRoomCodeChange?.(code),
       });
     } catch (err) {
@@ -1622,6 +1654,8 @@ export class BaseViewer {
     this.updateMissions(dt);
     this.broadcastState(dt, local);
     this.checkStormAlert(local);
+    this.checkRadiationAlert(local);
+    this.expedition.update(dt, local);
 
     if (this.mixer && animate) this.mixer.update(dt);
 
@@ -1765,7 +1799,7 @@ export class BaseViewer {
         destination: !blocked && destination ? { x: destination.x, z: destination.z } : null,
         sleeping: blocked,
         speedScale: this.playerSpeedScale,
-        exitBlocked: this.exitBlocked,
+        exitBlocked: this.exitBlocked || this.radiationHigh,
         activity:
           activity === 'plant' || activity === 'harvest' || activity === 'clean'
             ? activity
@@ -2632,7 +2666,7 @@ export class BaseViewer {
       if (pending(id) && !TASK_MISSIONS[id]) tasks.push(pin('mission', MISSION_IDS.indexOf(id)));
     const critical = this.room?.gameplay?.critical;
     if (critical?.active && critical.kind === 'ducts') tasks.push(pin('filter', 0));
-    this.taskMarkers.sync(tasks, (kind, index) => {
+    this.taskMarkers.sync(this.expedition.active ? [] : tasks, (kind, index) => {
       if (kind === 'mission') {
         const id = MISSION_IDS[index];
         if (id && (this.busyByOther('station', id) || (id === 'drill' && this.busyByOther('drill')) || (id === 'soil_robot' && this.busyByOther('soil')))) return null;
@@ -3277,6 +3311,42 @@ export class BaseViewer {
   }
 
   /** "Ir" do painel de missões: anda até o local e começa a missão ao chegar. */
+  /** Radiação ALTA lá fora (explosão solar): ninguém sai da base até passar. */
+  get radiationHigh() {
+    return Boolean(this.room?.gameplay?.radiation);
+  }
+
+  /** Onde o astronauta fica, do lado de fora, para consertar a rachadura. */
+  private repairSpot(anchor: number) {
+    const p = REPAIR_OUTSIDE[this.grid?.layout.id ?? '']?.[anchor];
+    return p ? new THREE.Vector3(p[0], this.grid?.groundY(p[0], p[1]) ?? GROUND_Y, p[1]) : null;
+  }
+
+  /** Por que ainda não dá para consertar lá fora (ou `null` se pode). */
+  private repairBlock(): string | null {
+    if (this.roverDriver === 'local' || this.roverRider)
+      return 'Saia do rover primeiro para consertar a base.';
+    if (this.radiationHigh)
+      return '☢️ Radiação alta lá fora! Espere dentro da base até o aviso ficar verde.';
+    if (this.nightFactor > 0.55)
+      return '🌙 Está frio demais lá fora à noite. Conserte a base de dia!';
+    return null;
+  }
+
+  /** Avisa uma vez quando o astronauta está fora da base durante a radiação alta. */
+  private radiationAlertShown = false;
+  private checkRadiationAlert(local: AstronautActor | null) {
+    if (!local?.isRevealed) return;
+    const outside = !this.grid?.isInsideBase(local.position.x, local.position.z);
+    if (!this.radiationHigh || !outside) {
+      if (!this.radiationHigh) this.radiationAlertShown = false;
+      return;
+    }
+    if (this.radiationAlertShown) return;
+    this.radiationAlertShown = true;
+    this.options?.onStormAlert?.('☢️ Radiação alta! Volte para a base agora: lá fora a dose sobe rápido.');
+  }
+
   /** Alerta de crítico: leva o astronauta até o problema (rombo ou dutos). */
   goToCritical() {
     const cr = this.room?.gameplay?.critical;
@@ -3391,12 +3461,7 @@ export class BaseViewer {
       this.soilBlockWarned = true;
       return;
     }
-    const coop = this.soilCoop();
-    const block = missionBlock(
-      MISSIONS.soil_robot,
-      this.missionContext(),
-      coop ? COOP_COST_MULT : 1,
-    );
+    const block = missionBlock(MISSIONS.soil_robot, this.missionContext(), 1);
     if (block) {
       if (!this.soilBlockWarned) this.notify(block, 'error');
       this.soilBlockWarned = true;
@@ -3405,13 +3470,14 @@ export class BaseViewer {
     this.soilBlockWarned = false;
     rover.stopPath();
     rover.speed = 0;
-    const eid = `${this.currentSol}:${Date.now().toString(36)}`;
     this.soilArmed = false;
-    this.soil = { eid, coop, mine: null, partner: null };
-    useSoilCoop.getState().reset(coop);
-    publishMissionBoard({ soilPhase: 'sampling' });
-    this.notify('🚀 Ponto alcançado! Começa a corrida de reconhecimento.', 'ok');
-    this.options?.onMinigame?.({ kind: 'soil' });
+    // o servidor sorteia o mapa e leva o rover (e quem está nele) para a neblina
+    void gameplayCommand({ type: 'expedition', op: 'start' }).then((result) => {
+      if (!result.ok) {
+        this.soilArmed = false;
+        this.notify(result.error, 'error');
+      }
+    });
   }
 
   /** O parceiro (dentro do rover) mandou abrir a coleta em dupla. */
@@ -3495,8 +3561,13 @@ export class BaseViewer {
     }
     if (kind === 'repair') {
       const f = this.room?.world.integrity?.fractures.find((f) => f.id === index);
-      const a = f && this.integrityVisuals?.anchors[f.anchor];
-      if (a) this.goInteract(a.approach, { kind: 'repair', id: index, face: a.approach.clone() });
+      const spot = f ? this.repairSpot(f.anchor) : null;
+      const anchor = f && this.integrityVisuals?.anchors[f.anchor];
+      const why = this.repairBlock();
+      if (why) this.notify(why, 'error');
+      else if (spot && anchor)
+        this.goInteract(spot, { kind: 'repair', id: index, face: anchor.point.clone() });
+      else this.notify('Não dá para chegar a essa rachadura por fora.', 'error');
     } else if (kind === 'solar') {
       const panel = this.solarPanels[index];
       if (panel)
@@ -3990,12 +4061,17 @@ export class BaseViewer {
     if (!local || !this.grid) return false;
     // [seam:survival] não permite traçar caminho para fora da base se bloqueado por frio noturno
     if (
-      this.exitBlocked &&
+      (this.exitBlocked || this.radiationHigh) &&
       this.grid.isInsideBase(local.position.x, local.position.z) &&
       !this.grid.isInsideBase(target.x, target.z)
     ) {
       this.flashRing(target, false);
-      this.options?.onMessage?.('Frio extremo lá fora', 'error');
+      this.options?.onMessage?.(
+        this.radiationHigh
+          ? '☢️ Radiação alta lá fora! Espere na base até o aviso ficar verde.'
+          : 'Frio extremo lá fora',
+        'error',
+      );
       return false;
     }
     const { path, clampedByStorm } = this.grid.findPath(
@@ -4076,9 +4152,14 @@ export class BaseViewer {
     this.playTaskCompleteSound();
   }
   private async openRepair(id: number) {
+    const why = this.repairBlock();
+    if (why) return void this.notify(why, 'error');
+    const local = this.localAstronaut;
+    if (local && this.grid?.isInsideBase(local.position.x, local.position.z))
+      return void this.notify('🧑‍🚀 O reparo é feito do lado de fora da base. Saia com o traje!', 'info');
     if (await this.repairAction({ op: 'reserve', fracture: id }))
       this.options?.onMinigame?.({ kind: 'repair', id });
-    else this.notify('Outro astronauta está reparando esta fratura.', 'info');
+    else this.notify('Outro astronauta está reparando esta fratura (ou você está longe dela).', 'info');
   }
   private applyIntegrity(state: IntegrityState) {
     for(const proxy of this.integrityOutlines)this.interactionOutline.removeObject(proxy);
@@ -4117,10 +4198,12 @@ export class BaseViewer {
         : THREE.LinearToneMapping;
       this.renderer.toneMappingExposure = 1.15;
     } else {
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+      // alto (4096) e ultra (8192 e resolução nativa)
+      const ultra = video.quality === 'ultra';
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, ultra ? 3.0 : 2.0));
       this.renderer.shadowMap.enabled = true;
       this.sun.castShadow = true;
-      this.sun.shadow.mapSize.setScalar(4096);
+      this.sun.shadow.mapSize.setScalar(ultra ? 8192 : 4096);
       this.skyDome.mesh.visible = true;
       this.skyDome.setStarsVisible(true);
       this.renderer.toneMapping = video.postProcessing
@@ -4256,7 +4339,8 @@ export class BaseViewer {
           : local?.isRevealed
             ? local.position
             : this.cameraFocus;
-      const k = 1 - Math.exp(-dt * 6);
+      // logo depois de um teletransporte (expedição) a câmera pula direto, sem deslizar pelo mapa
+      const k = performance.now() < this.snapCameraUntil ? 1 : 1 - Math.exp(-dt * 6);
       this.controls.target.x += (p.x - this.controls.target.x) * k;
       this.controls.target.z += (p.z - this.controls.target.z) * k;
       this.controls.target.y += (0 - this.controls.target.y) * k;
@@ -4302,6 +4386,7 @@ export class BaseViewer {
     this.stopIntegritySubscription?.();
     this.room?.repairPause(false);
     this.integrityVisuals?.dispose();
+    this.expedition.dispose();
     this.stormAudio?.pause();
     for (const sound of this.doorSounds) sound.pause();
     this.doorSounds.clear();

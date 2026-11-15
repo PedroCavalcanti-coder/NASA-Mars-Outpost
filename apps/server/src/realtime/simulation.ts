@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   GAME_ERROR_MESSAGES, GAMEPLAY_TARGETS, GAMEPLAY_VERSION, gameCommandSchema, GAME_STEP_MS,
-  navigationData, neutralInput, REPAIR_ANCHORS, WORLD_AUTOSAVE_MS,
+  assignOuter, navigationData, neutralInput, outerAnchors, REPAIR_OUTSIDE, WORLD_AUTOSAVE_MS,
   type GameConfirmation, type GameplayMovement, type GameplaySnapshot, type GameplayState,
   type GameplayUpdate, type WorldSave, type RepairIntent,
 } from '@mars/shared';
@@ -32,6 +32,8 @@ export class RoomSimulation {
     if(!targets)throw new Error('Base desconhecida');
     const {state,corrections}=migrateWorldSave(raw,hashString(`${code}|${base}`),randomUUID(),targets);
     this.state=state;
+    // as rachaduras só nascem em paredes que dão para fora: o reparo é feito do lado de fora
+    assignOuter(this.state.integrity,outerAnchors(base));
     if(corrections.length && raw) console.info(`[game] ${code}: save corrigido: ${corrections.join(', ')}`);
     this.movementAdapter={
       context:(id)=>{
@@ -49,8 +51,11 @@ export class RoomSimulation {
         else if(target==='delivery')candidates=['station:lab','station:comms'].map(k=>points[k]!).filter(Boolean);
         else if(target.startsWith('repair:')) {
           const f=this.state.integrity.fractures.find(f=>f.id===Number(target.slice(7)));
-          const a=f&&REPAIR_ANCHORS[base as keyof typeof REPAIR_ANCHORS]?.[f.anchor];
-          if(a)candidates=[{x:a.approach[0],z:a.approach[2]}];
+          const a=f&&REPAIR_OUTSIDE[base]?.[f.anchor];
+          if(a)candidates=[{x:a[0],z:a[1]}];
+        } else if(target.startsWith('xrock:')) {
+          const r=this.state.expedition?.rocks[Number(target.slice(6))];
+          if(r)candidates=[r];
         } else if(target.startsWith('rock:')) {
           const i=Number(target.slice(5)),sol=this.state.mission.sol,seed=this.state.mission.seed;
           if(i<0||i>=4)return false;
@@ -62,7 +67,12 @@ export class RoomSimulation {
         } else if(points[target])candidates=[points[target]!];
         return candidates.some(t=>Math.hypot(p.x-t.x,p.z-t.z)<=distance);
       },
-      restrict:(id,blocked,cold)=>this.movement.restrict(id,{blocked,cold}),
+      restrict:(id,blocked,cold,slow)=>this.movement.restrict(id,{blocked,cold,slow}),
+      occupants:()=>({driver:this.movement.rover.driver,rider:this.movement.rover.rider}),
+      roverPose:()=>({x:this.movement.rover.x,z:this.movement.rover.z,h:this.movement.rover.h}),
+      teleport:(id,pose)=>{if(id==='rover')this.movement.teleportRover(pose);else this.movement.teleport(id,pose);},
+      spot:(x,z,profile)=>{const p=this.movement.grid.nearestWalkablePoint(x,z,14,profile);return p&&!this.movement.grid.isInsideBase(p.x,p.z)?{x:p.x,z:p.z}:null;},
+      lockExit:(on)=>{this.movement.exitLock=on;},
       rescue:(id)=>{this.movement.action(id,'infirmary');},
     };
   }

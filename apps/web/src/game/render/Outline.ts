@@ -24,7 +24,7 @@ export interface OutlineOptions {
   /** Cor do contorno em formato hexadecimal (ex.: '#0f141c') */
   color: string;
   /** Nível de qualidade gráfica do simulador */
-  quality?: 'low' | 'medium' | 'high';
+  quality?: 'low' | 'medium' | 'high' | 'ultra';
   /** Preferência de movimento reduzido para acessibilidade */
   reducedMotion?: boolean;
 }
@@ -171,7 +171,9 @@ export class InvertedHullManager {
         mesh.userData.isParticle ||
         mesh.name.startsWith('nametag') ||
         mesh.name.startsWith('emote') ||
-        mesh.type === 'Sprite'
+        mesh.type === 'Sprite' ||
+        // chama do foguete, fumaça e outros efeitos não têm superfície sólida: o casco ficava feio
+        isOutlineEffect(mesh)
       ) {
         continue;
       }
@@ -425,7 +427,9 @@ function isOutlineEffect(mesh: THREE.Mesh): boolean {
     if (o.userData.noOutline) return true;
   }
   const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-  return mats.some((m) => m.blending === THREE.AdditiveBlending);
+  return mats.some(
+    (m) => m.blending === THREE.AdditiveBlending || (m.transparent && m.depthWrite === false),
+  );
 }
 
 export class BaseOutlineRenderer {
@@ -633,7 +637,7 @@ export class OutlineSystem {
   }
 
   /** Atualiza perfil de qualidade gráfica e movimento reduzido */
-  setQuality(quality: 'low' | 'medium' | 'high', reducedMotion = false) {
+  setQuality(quality: 'low' | 'medium' | 'high' | 'ultra', reducedMotion = false) {
     this.updateOptions({ quality, reducedMotion });
     this.syncSize();
   }
@@ -674,7 +678,9 @@ export class OutlineSystem {
         ? 0.75
         : this.options.quality === 'medium'
           ? Math.min(devicePixelRatio, 1.25)
-          : Math.min(devicePixelRatio, 1.75);
+          : this.options.quality === 'ultra'
+            ? Math.min(devicePixelRatio, 2.5)
+            : Math.min(devicePixelRatio, 1.75);
 
     this.baseRenderer.setSize(w, h, dpr);
   }

@@ -157,6 +157,7 @@ afterEach(async () => {
 /** Clica em “Jogar agora” e pula a contagem regressiva do B.I.T. (os motores acendem na hora). */
 async function startLaunch() {
   await act(async () => button('Jogar agora').click());
+  await act(async () => button('Médio').click()); // escolha de dificuldade antes da animação
   if (container.querySelector('.bit-guide--launch .bit-countdown'))
     await act(async () => button('Pular animação →').click());
 }
@@ -232,6 +233,7 @@ describe('Home initialization and recovery', () => {
     await mount();
     expect(container.querySelector('[role="alert"]')).toBeNull();
     await act(async () => button('Jogar agora').click());
+    await act(async () => button('Médio').click());
     expect(container.querySelector('dialog')?.open).toBe(false);
     await act(async () => root.unmount());
     expect(fixture.retain).toHaveBeenCalledTimes(2);
@@ -254,6 +256,7 @@ describe('Home initialization and recovery', () => {
   it('o B.I.T. faz a contagem regressiva antes da decolagem e pular acende os motores', async () => {
     await mount();
     await act(async () => button('Jogar agora').click());
+    await act(async () => button('Médio').click());
     expect(container.querySelector('.bit-countdown strong')?.textContent).toBe('5');
     expect(FakeAudio.instances.find((a) => a.src.endsWith('/foguete.mp3'))).toBeUndefined();
     await act(async () => button('Pular animação →').click());

@@ -54,6 +54,7 @@ import {
   clearPlaySession,
   getPlaySession,
   savePlaySession,
+  getPendingDifficulty,
 } from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
@@ -71,13 +72,18 @@ import { SolReport } from '../components/mission/SolReport';
 import { LoreCard } from '../components/mission/LoreCard';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
+import { IntroTutorial, introSeenBefore } from '../components/intro/IntroTutorial';
+import { MinigameResult as ResultCard } from '../components/feedback/MinigameResult';
+import { DevPanel } from '../components/DevPanel';
+import { RadiationBanner } from '../components/hud/RadiationBanner';
+import { ExpeditionHud } from '../components/expedition/ExpeditionHud';
 import RepairMinigame from '../minigames/RepairMinigame';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
 import { Spinner } from '../../ui/Empty';
 // por último: o layout de celular deitado vence as regras de largura da HUD e do B.I.T.
 import '../components/hud/shortLandscape.css';
-import { L } from '../../lib/i18n';
+import { L, t } from '../../lib/i18n';
 
 // Minigames das tarefas do Sol: carregados só quando abertos
 
@@ -296,6 +302,19 @@ function ReadyGame() {
   const [restoreError, setRestoreError] = useState('');
   const touch = useIsTouch();
   const eventsPending = useGameEvents((s) => s.queue.length > 0);
+  // abre o tutorial uma vez por sala: sempre num mundo novo; num mundo já visto só na 1ª vez do aparelho
+  useEffect(() => {
+    if (loading || error || introFor.current === roomCode) return;
+    introFor.current = roomCode;
+    let shown = false;
+    try {
+      shown = sessionStorage.getItem(`mo_intro:${roomCode}`) === '1';
+      sessionStorage.setItem(`mo_intro:${roomCode}`, '1');
+    } catch {
+      /* sem sessionStorage: mostra só desta vez */
+    }
+    if (!shown && (freshRoom || !introSeenBefore())) setIntroOpen(true);
+  }, [loading, error, roomCode, freshRoom]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const startMission = useMission((m) => m.start);
@@ -339,6 +358,9 @@ function ReadyGame() {
 
   // Configurações do jogo
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // tutorial de abertura: o personagem fica parado enquanto os painéis estão na tela
+  const [introOpen, setIntroOpen] = useState(false);
+  const introFor = useRef('');
   // vídeo, áudio, jogabilidade e contorno: salvos no navegador (valem também na Home)
   const video = useGameSettings((s) => s.video);
   const setVideo = useGameSettings((s) => s.setVideo);
@@ -375,6 +397,7 @@ function ReadyGame() {
       roomCode,
       createRoom,
       freshRoom,
+      difficulty: getPendingDifficulty(),
       onRoomCodeChange: (code) => {
         if (alive) setRoomCode(code);
       },
@@ -689,7 +712,7 @@ function ReadyGame() {
           identity={String(name)}
           viewer={viewer.current}
           minigame={minigame}
-          suspended={settingsOpen || leaveOpen}
+          suspended={settingsOpen || leaveOpen || introOpen}
           driving={driving}
         />
       )}
@@ -722,7 +745,7 @@ function ReadyGame() {
           document.body,
         )}
       {/* `display: contents` mantém o layout; `inert` bloqueia a base enquanto o minigame está aberto */}
-      <div className="game__interface" style={{ display: 'contents' }} inert={minigame !== null}>
+      <div className="game__interface" style={{ display: 'contents' }} inert={minigame !== null || introOpen}>
         <div className="game__canvas" ref={mount} />
 
         <MissionVeil />
@@ -741,12 +764,14 @@ function ReadyGame() {
             onGo={() => viewer.current?.goToCritical()}
           />
         )}
-        {!loading && !error && !minigame && !eventsPending && <LoreCard />}
+        {!loading && !error && !minigame && !introOpen && <ExpeditionHud />}
+        {!loading && !error && !minigame && !introOpen && <RadiationBanner hour={marsTime.hour} sol={marsTime.sol} />}
+        {!loading && !error && !minigame && !eventsPending && !introOpen && <LoreCard />}
         {duoInvite && (
           <div className="duo-invite" role="alert">
             <span>
-              {duoInvite.name} quer fazer: {DUO_GESTURES[duoInvite.gesture].emoji}{' '}
-              {DUO_GESTURES[duoInvite.gesture].label}
+              {duoInvite.name} {L('quer fazer:', 'wants to do:')}{' '}
+              {DUO_GESTURES[duoInvite.gesture].emoji} {t(DUO_GESTURES[duoInvite.gesture].label)}
             </span>
             <button type="button" onClick={() => viewer.current?.acceptGesture()}>
               {L('Aceitar', 'Accept')}
@@ -889,7 +914,13 @@ function ReadyGame() {
           roomCode={roomCode}
           onCopyRoomCode={handleCopyInvite}
           onLeaveRoom={() => requestLeave()}
+          onReplayTutorial={() => setIntroOpen(true)}
         />
+        {import.meta.env.DEV && <DevPanel />}
+        <ResultCard />
+        {introOpen && (
+          <IntroTutorial canSkip={introSeenBefore()} onClose={() => setIntroOpen(false)} />
+        )}
       </div>
     </main>
   );

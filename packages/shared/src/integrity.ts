@@ -8,9 +8,14 @@ export const BASE_EVENTS = [
   { id: 'cleaning_wind', title: 'Vento de limpeza', weight: 10, damage: 0, duration: 20 },
 ] as const;
 export type BaseEventId = (typeof BASE_EVENTS)[number]['id'];
+/** Os 5 tipos de reparo (cada um é um minigame diferente, feito do lado de fora da base). */
+export const REPAIR_KINDS = ['patch', 'weld', 'seal', 'wires', 'heat'] as const;
+export type RepairKind = (typeof REPAIR_KINDS)[number];
 export interface Fracture {
   id: number;
   anchor: number;
+  /** índice em REPAIR_KINDS: qual minigame conserta esta rachadura */
+  kind?: number;
   damage: number;
   nextDecay: number;
   tutorial: boolean;
@@ -21,6 +26,8 @@ export interface Fracture {
   stepAt?: number;
 }
 export interface IntegrityState {
+  /** paredes que dão para fora (só nelas nasce rachadura: o reparo é do lado de fora) */
+  outer?: number[];
   revision: number;
   seed: number;
   seq: number;
@@ -73,10 +80,16 @@ function schedule(s: IntegrityState, t: number) {
   s.nextAt = t + 150 + 330 * random(s);
 }
 function fracture(s: IntegrityState, t: number, damage: number, tutorial = false) {
-  const available = [0, 1, 2, 3, 4, 5].filter((a) => !s.fractures.some((f) => f.anchor === a));
+  const available = (s.outer ?? [0, 1, 2, 3, 4, 5]).filter(
+    (a) => !s.fractures.some((f) => f.anchor === a),
+  );
   if (s.fractures.length >= 3 || !available.length) return;
+  // tipos de reparo variados: o novo nunca repete o que já está quebrado
+  const free = REPAIR_KINDS.map((_, i) => i).filter((k) => !s.fractures.some((f) => f.kind === k));
+  const kinds = free.length ? free : REPAIR_KINDS.map((_, i) => i);
   s.fractures.push({
     id: ++s.seq,
+    kind: kinds[Math.floor(random(s) * kinds.length)]!,
     anchor: available[Math.floor(random(s) * available.length)]!,
     damage,
     nextDecay: t + 120,
@@ -84,6 +97,21 @@ function fracture(s: IntegrityState, t: number, damage: number, tutorial = false
     plate: false,
     screws: [],
   });
+}
+/** Diz quais paredes dão para fora e leva rachaduras de paredes internas para uma externa. */
+export function assignOuter(s: IntegrityState, outer: number[]) {
+  s.outer = [...outer];
+  const used = new Set<number>();
+  s.fractures = s.fractures.filter((f) => {
+    if (!outer.includes(f.anchor) || used.has(f.anchor)) {
+      const free = outer.find((a) => !used.has(a) && !s.fractures.some((x) => x !== f && x.anchor === a));
+      if (free === undefined) return false;
+      f.anchor = free;
+    }
+    used.add(f.anchor);
+    return true;
+  });
+  for (const f of s.fractures) f.kind = Number.isInteger(f.kind) ? f.kind : f.id % REPAIR_KINDS.length;
 }
 export function tickIntegrity(s: IntegrityState, t: number, real: number, hour: number) {
   const before = JSON.stringify(s);
@@ -147,6 +175,7 @@ export function repairIntent(
     const next = newIntegrity(s.seed + 1);
     next.revision = s.revision + 1;
     next.seq = s.seq;
+    next.outer = s.outer;
     next.nextAt = t + 60;
     for (const key of Object.keys(s)) delete (s as unknown as Record<string, unknown>)[key];
     Object.assign(s, next);
@@ -255,6 +284,7 @@ export function restoreIntegrity(raw: unknown): IntegrityState | undefined {
     )
     .map((f) => ({
       ...f,
+      kind: Number.isInteger(f.kind) && f.kind! >= 0 && f.kind! < REPAIR_KINDS.length ? f.kind : f.id % REPAIR_KINDS.length,
       damage: Math.max(0, Math.min(40, Number(f.damage) || 0)),
       nextDecay: Number(f.nextDecay) || 120,
       screws: Array.isArray(f.screws)

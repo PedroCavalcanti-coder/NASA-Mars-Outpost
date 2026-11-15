@@ -4,6 +4,9 @@ import type { BaseViewer, MinigameRequest, MinigameResult } from '../../game/Bas
 import { gameplayCommand } from '../../store/gameplay';
 import './missions/missions.css';
 import { L } from '../../lib/i18n';
+import { showMinigameResult } from '../../game/minigameResult';
+import { chime } from '../../lib/chime';
+import '../components/feedback/feedback.css';
 
 const SolarCleaningPreview = lazy(() => import('./solar-cleaning/SolarCleaningPreview'));
 const OxygenFilterPreview = lazy(() => import('./oxygen-filter/OxygenFilterPreview'));
@@ -98,6 +101,7 @@ export default function ServerMinigame({
       if (done.current || finishing.current) return;
       if (serverless) {
         done.current = true;
+        showMinigameResult(request.kind, (result as { quality?: number }).quality ?? 1);
         onComplete(result);
         return;
       }
@@ -130,9 +134,10 @@ export default function ServerMinigame({
         return;
       }
       done.current = true;
+      showMinigameResult(request.kind, result.quality ?? 1);
       onComplete(result);
     },
-    [onComplete, onError, serverless],
+    [onComplete, onError, serverless, request.kind],
   );
 
   if (error)
@@ -185,5 +190,45 @@ export default function ServerMinigame({
         onComplete={(r) => void complete({ ...r, quality: r.hit ? 1 : 0.5 })}
       />
     );
-  return <>{game}</>;
+  return (
+    <>
+      {game}
+      <FirstTimeHand kind={request.kind} />
+    </>
+  );
+}
+
+/** Mãozinha que mostra onde tocar, só nos primeiros segundos da primeira vez de cada minigame. */
+function FirstTimeHand({ kind }: { kind: string }) {
+  const key = `mo_hand:${kind}`;
+  const [show, setShow] = useState(() => {
+    try {
+      return localStorage.getItem(key) !== '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (!show) return;
+    try {
+      localStorage.setItem(key, '1');
+    } catch {
+      /* opcional */
+    }
+    chime([660], 0, 'sine', 0.03);
+    const hide = () => setShow(false);
+    const id = window.setTimeout(hide, 6000);
+    window.addEventListener('pointerdown', hide, { once: true, capture: true });
+    return () => {
+      window.clearTimeout(id);
+      window.removeEventListener('pointerdown', hide, true);
+    };
+  }, [show, key]);
+  if (!show) return null;
+  return (
+    <div className="mg-hand" aria-hidden="true">
+      👆
+      <small>{L('Toque aqui!', 'Tap here!')}</small>
+    </div>
+  );
 }

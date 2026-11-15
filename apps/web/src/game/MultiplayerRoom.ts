@@ -16,6 +16,8 @@ export interface RoomJoinOptions {roomCode:string;baseId:string;name:string;suit
   create?:boolean;
   /** código recém-sorteado ("Jogar agora"): se já for de outro mundo, sorteia outro */
   fresh?:boolean;
+  /** dificuldade do mundo novo */
+  difficulty?:'easy'|'normal'|'hard';
   /** avisado quando a sala ganha outro código (o sorteado já existia) */
   onCode?:(code:string)=>void}
 
@@ -87,7 +89,7 @@ export class MultiplayerRoom {
       const enter=()=>{
         this.onlineReady=false;
         const connectionId=socket.id;
-        socket.timeout(12000).emit('room:join',{code:opts.roomCode,base:opts.baseId,name:opts.name,suit:opts.suit,create:opts.create,fresh:opts.fresh,movementVersion:MOVEMENT_VERSION,navigationHash:NAVIGATION_HASH,gameplayVersion:GAMEPLAY_VERSION,resumeToken:this.resumeToken},(error: Error | null,r: GameAck<GameJoinResult> | {ok:false;error:string;baseId:string} | {ok:false;error:string;taken:true})=>{
+        socket.timeout(12000).emit('room:join',{code:opts.roomCode,base:opts.baseId,name:opts.name,suit:opts.suit,create:opts.create,fresh:opts.fresh,difficulty:opts.difficulty,movementVersion:MOVEMENT_VERSION,navigationHash:NAVIGATION_HASH,gameplayVersion:GAMEPLAY_VERSION,resumeToken:this.resumeToken},(error: Error | null,r: GameAck<GameJoinResult> | {ok:false;error:string;baseId:string} | {ok:false;error:string;taken:true})=>{
           if(this.disposed||!socket.connected||socket.id!==connectionId)return;
           // o código sorteado já é de outro mundo: sorteia outro e tenta de novo
           if(!error&&!r.ok&&'taken'in r&&opts.fresh&&retries++<5){opts.roomCode=newRoomCode();opts.onCode?.(opts.roomCode);enter();return;}

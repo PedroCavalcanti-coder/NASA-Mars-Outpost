@@ -12,12 +12,22 @@ import { EN } from './i18n.en';
 export type Lang = 'en' | 'pt';
 const KEY = 'mo_lang';
 
+/** Idioma do aparelho: português ou espanhol começam em PT-BR; o resto, em inglês. */
+export function deviceLang(languages: readonly string[] | undefined): Lang {
+  const first = (languages ?? [])[0]?.toLowerCase() ?? '';
+  return first.startsWith('pt') || first.startsWith('es') ? 'pt' : 'en';
+}
+
 function readLang(): Lang {
   try {
-    return localStorage.getItem(KEY) === 'pt' ? 'pt' : 'en';
+    const saved = localStorage.getItem(KEY);
+    // quem já escolheu nas Configurações manda; senão vale o idioma do aparelho
+    if (saved === 'pt' || saved === 'en') return saved;
   } catch {
-    return 'en';
+    /* sem armazenamento: usa o idioma do aparelho */
   }
+  if (typeof navigator === 'undefined') return 'en';
+  return deviceLang(navigator.languages?.length ? navigator.languages : [navigator.language]);
 }
 
 let current: Lang = typeof window === 'undefined' ? 'en' : readLang();
@@ -49,6 +59,8 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => string]> = [
   [/^☢️ Dose da tripulação passou de (\d+) mSv$/, (m) => `☢️ Crew dose passed ${m[1]} mSv`],
   [/^🌄 O rover só sai entre (\d+)h e (\d+)h: precisa voltar antes de anoitecer\.$/, (m) => `🌄 The rover only goes out between ${m[1]}:00 and ${m[2]}:00: it must be back before nightfall.`],
   [/^🌄 O reconhecimento só vale entre (\d+)h e (\d+)h\.$/, (m) => `🌄 The scouting run only counts between ${m[1]}:00 and ${m[2]}:00.`],
+  [/^Fique dentro da base por cerca de (\d+) horas de Marte\. Quando o aviso ficar verde, é seguro sair\.$/, (m) => `Stay inside the base for about ${m[1]} Mars hours. When the warning turns green, it is safe to go out.`],
+  [/^As 3 pedras estão a bordo! Previsão do radar para amanhã: (.+)\.$/, (m) => `All 3 rocks are on board! Radar forecast for tomorrow: ${t(m[1]!)}.`],
   [/^Convite enviado a (.+): (.+)\.$/, (m) => `Invite sent to ${m[1]}: ${t(m[2]!)}.`],
   [/^📡 Ainda não há dados para enviar: (\d+)\/(\d+) pontos de pesquisa novos\.$/, (m) => `📡 No data to send yet: ${m[1]}/${m[2]} new research points.`],
   [/^(.+): nenhuma missão sua aqui hoje\.$/, (m) => `${t(m[1]!)}: none of your missions here today.`],

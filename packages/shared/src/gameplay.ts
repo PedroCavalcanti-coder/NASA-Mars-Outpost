@@ -62,6 +62,33 @@ export interface GameplayState {
   dose?: number;
   /** maior faixa de alerta de dose já avisada (a cada 25 mSv) */
   doseAlert?: number;
+  /** fração de ponto de ânimo ainda não cobrada pela radiação */
+  moraleDrain?: number;
+  /**
+   * Radiação ALTA lá fora (explosão solar): ninguém sai da base até `until` (tempo de jogo, ms).
+   * Quem está fora recebe dose rápido. Passou o prazo, é seguro sair de novo.
+   */
+  radiation?: { until: number; startedAt: number; source: string } | null;
+  /** dificuldade do mundo (ausente = normal) */
+  difficulty?: import('./difficulty').Difficulty;
+  /** expedição do rover em andamento (null/ausente = nenhuma) */
+  expedition?: ExpeditionState | null;
+}
+/**
+ * Expedição com o rover: os astronautas do carro vão para um mapa coberto de neblina, acham 3
+ * pedras com o radar, levam cada uma ao rover e voltam. Estourou o tempo: voltam sem perder nada.
+ */
+export interface ExpeditionState {
+  id: string;
+  /** tempo de interação (ms) em que começou e em que acaba */
+  startedAt: number;
+  deadline: number;
+  /** quem foi (motorista e passageiro do rover) */
+  members: string[];
+  rocks: { x: number; z: number; by: string | null; loaded: boolean }[];
+  /** onde o rover chegou e de onde saiu (para a volta) */
+  start: { x: number; z: number; h: number };
+  home: { x: number; z: number; h: number };
 }
 export interface CriticalState {
   kind: 'breach' | 'ducts';
@@ -114,8 +141,10 @@ export const gameCommandSchema = z.object({
     z.object({ type: z.literal('event:open'), eid: short }).strict(),
     z.object({ type: z.literal('event:choose'), eid: short, choice: index }).strict(),
     z.object({ type: z.literal('action'), action: z.enum(['research','expedition']) }).strict(),
+    // expedição com o rover: partir, pegar uma pedra, colocá-la no carro
+    z.object({ type: z.literal('expedition'), op: z.enum(['start','pick','load','abort']), rock: index.optional() }).strict(),
     // ferramentas de teste (o servidor só aceita fora de produção)
-    z.object({ type: z.literal('dev'), action: z.enum(['complete','event','catastrophe','storm','refill','next_sol','critical']), id: short.optional() }).strict(),
+    z.object({ type: z.literal('dev'), action: z.enum(['complete','event','catastrophe','storm','refill','next_sol','critical','radiation']), id: short.optional() }).strict(),
   ]),
 }).strict();
 export type GameCommand = z.infer<typeof gameCommandSchema>;
@@ -147,7 +176,17 @@ export interface GameplayContext {
 export interface GameplayMovement {
   context(id: string): GameplayContext | undefined;
   near(id: string, target: string, distance: number): boolean;
-  restrict(id: string, blocked: boolean, cold: boolean): void;
+  restrict(id: string, blocked: boolean, cold: boolean, slow?: boolean): void;
+  /** radiação alta: ninguém pode sair da base (o servidor segura quem está dentro) */
+  lockExit?(on: boolean): void;
+  /** quem está no rover (a expedição leva os dois) */
+  occupants?(): { driver: string | null; rider: string | null };
+  /** posição e direção atuais do rover */
+  roverPose?(): { x: number; z: number; h: number };
+  /** teleporta o rover (com quem está dentro) ou um astronauta */
+  teleport?(id: string, pose: { x: number; z: number; h: number }): void;
+  /** ponto livre mais próximo, fora da base (`null` se não houver) */
+  spot?(x: number, z: number, profile: 'foot' | 'vehicle'): { x: number; z: number } | null;
   rescue(id: string): void;
 }
 export interface WorldSaveV3 {

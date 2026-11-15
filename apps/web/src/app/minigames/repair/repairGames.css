@@ -1,0 +1,272 @@
+/* Minigames de reparo: tamanhos em clamp() para celular, tablet e PC. */
+.rg-board {
+  position: relative;
+  width: min(560px, 92vw);
+  min-height: clamp(180px, 38vh, 340px);
+  padding: clamp(10px, 2.4vmin, 22px);
+  border: clamp(8px, 1.6vmin, 14px) solid #192f39;
+  border-radius: 24px;
+  background: #7f999d;
+  box-shadow:
+    inset 0 8px #b8c9c5,
+    0 8px #152831;
+  display: grid;
+  place-items: center;
+}
+
+.rg-btn {
+  min-height: 52px;
+  padding: 10px clamp(16px, 4vmin, 30px);
+  border: 5px solid #243e48;
+  border-radius: 16px;
+  background: #b8cac5;
+  box-shadow: 0 5px #132a34;
+  color: #203943;
+  font: 800 clamp(15px, 2.6vmin, 22px) / 1.1 inherit;
+  cursor: pointer;
+}
+.rg-btn--go {
+  background: linear-gradient(180deg, #ffe27c, #f0a21c);
+}
+.rg-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.rg-prep {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+}
+.rg-prep__icon {
+  font-size: clamp(44px, 12vmin, 90px);
+}
+.rg-msg {
+  min-height: 1.4em;
+  margin: 6px 0 0;
+  font-weight: 800;
+  text-align: center;
+}
+.rg-progress {
+  position: absolute;
+  bottom: 8px;
+  left: 20%;
+  width: 60%;
+  height: 14px;
+  accent-color: #9bdaa7;
+}
+
+/* 1) chapa e parafusos */
+.rg-plate {
+  position: relative;
+  width: min(86%, 420px);
+  height: clamp(150px, 30vh, 260px);
+  border: 8px solid #405a64;
+  border-radius: 18px;
+  background: #a4b8bc;
+  box-shadow: inset 0 7px #dce6df;
+}
+.rg-screw {
+  position: absolute;
+  width: clamp(48px, 9vmin, 64px);
+  height: clamp(48px, 9vmin, 64px);
+  border: 6px solid #304751;
+  border-radius: 50%;
+  background: #d3dfd9;
+  color: #3d5961;
+  font-size: 30px;
+  line-height: 1;
+  touch-action: none;
+  cursor: pointer;
+}
+.rg-screw.is-done {
+  background: #92cd9b;
+}
+.rg-screw--0 { top: 10px; left: 10px; }
+.rg-screw--1 { top: 10px; right: 10px; }
+.rg-screw--2 { bottom: 10px; left: 10px; }
+.rg-screw--3 { bottom: 10px; right: 10px; }
+
+/* 2) solda */
+.rg-weld {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+.rg-seam {
+  position: relative;
+  height: clamp(130px, 26vh, 220px);
+  border-radius: 14px;
+  background: #5e787d;
+  touch-action: none;
+}
+.rg-seam svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.rg-seam polyline {
+  fill: none;
+  stroke: #182c36;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.rg-spot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: clamp(48px, 9vmin, 62px);
+  height: clamp(48px, 9vmin, 62px);
+  border: 4px solid #243e48;
+  border-radius: 50%;
+  background: #3a5560;
+  color: #fff;
+  font-size: 24px;
+  touch-action: none;
+  cursor: pointer;
+}
+.rg-spot.is-active {
+  background: #ffb347;
+  box-shadow: 0 0 18px #ffb347;
+  animation: rg-pulse 1s ease-in-out infinite;
+}
+.rg-spot.is-hot {
+  background: #ff6b3d;
+}
+.rg-spot.is-done {
+  background: #6fe58e;
+}
+.rg-gauge {
+  position: relative;
+  height: 26px;
+  border: 4px solid #243e48;
+  border-radius: 999px;
+  background: #2b3f48;
+  overflow: hidden;
+}
+.rg-gauge b {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, #ffd34d, #ff6b3d);
+}
+.rg-gauge__ok {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  background: rgba(111, 229, 142, 0.55);
+  border-inline: 3px solid #6fe58e;
+}
+
+/* 3) selante */
+.rg-seal {
+  display: grid;
+  grid-template-columns: repeat(3, clamp(64px, 16vmin, 110px));
+  gap: clamp(8px, 2vmin, 16px);
+}
+.rg-hole {
+  aspect-ratio: 1;
+  border: 5px solid #243e48;
+  border-radius: 50%;
+  background: #1b2e36;
+  color: #fff;
+  font-size: clamp(26px, 6vmin, 44px);
+  cursor: pointer;
+}
+.rg-hole.is-leaking {
+  background: #4aa3c7;
+  animation: rg-pulse 0.8s ease-in-out infinite;
+}
+.rg-hole.is-wrong {
+  background: #7c3a3a;
+}
+
+/* 4) fios */
+.rg-wires {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(20px, 8vmin, 70px);
+  width: 100%;
+  justify-items: center;
+}
+.rg-wires__col {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 190px);
+}
+.rg-wire,
+.rg-socket {
+  min-height: 48px;
+  border-radius: 12px;
+  font: 800 clamp(14px, 2.4vmin, 19px) / 1 inherit;
+  cursor: pointer;
+}
+.rg-wire {
+  border: 4px solid #243e48;
+  color: #10202a;
+}
+.rg-wire.is-picked {
+  outline: 4px solid #fff;
+  transform: translateX(8px);
+}
+.rg-wire.is-linked {
+  opacity: 0.45;
+}
+.rg-socket {
+  border: 4px solid;
+  background: #1b2e36;
+}
+.rg-socket.is-wrong {
+  background: #7c3a3a;
+}
+.rg-socket.is-linked {
+  background: #2f6b44;
+}
+
+/* 5) aquecedores */
+.rg-heat {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+.rg-plates {
+  display: grid;
+  grid-template-columns: repeat(2, clamp(84px, 20vmin, 140px));
+  gap: clamp(10px, 2.4vmin, 18px);
+}
+.rg-heatplate {
+  aspect-ratio: 1;
+  border: 6px solid #243e48;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--c) 35%, #1b2e36);
+  color: #fff;
+  font-size: clamp(32px, 8vmin, 56px);
+  cursor: pointer;
+}
+.rg-heatplate.is-lit {
+  background: var(--c);
+  box-shadow: 0 0 28px var(--c);
+}
+.rg-heatplate:disabled {
+  cursor: default;
+}
+
+@keyframes rg-pulse {
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+}
+.rg-hole.is-leaking {
+  animation-name: rg-pulse-flat;
+}
+@keyframes rg-pulse-flat {
+  50% {
+    transform: scale(1.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rg-spot.is-active,
+  .rg-hole.is-leaking {
+    animation: none;
+  }
+}

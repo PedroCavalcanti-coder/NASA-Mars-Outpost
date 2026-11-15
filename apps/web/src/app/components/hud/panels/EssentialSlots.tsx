@@ -146,6 +146,9 @@ export function ResearchSlot() {
   const pct = Math.max(0, Math.min(100, (research / RESEARCH_GOAL) * 100));
   const securedPct = Math.max(0, Math.min(100, (secured / RESEARCH_GOAL) * 100));
   const pending = Math.max(0, research - secured);
+  const board = useGameplay((g) => g.state?.board);
+  const missionsLeft = board ? board.ids.filter((id) => !board.done.includes(id)).length : 0;
+  const missionsTotal = board?.ids.length ?? 0;
   return (
     <div className="hud-research" data-bit-target="research" aria-label={L('Progresso da pesquisa', 'Research progress')}>
       <div className="hud-research__heading">
@@ -178,6 +181,12 @@ export function ResearchSlot() {
           className="hud-research__fill hud-research__fill--secured"
           style={{ width: `${securedPct}%` }}
         />
+      </div>
+      <div className="hud-research__goals" role="status">
+        <span>🎯 {L(`Faltam ${Math.max(0, RESEARCH_GOAL - research)} pontos`, `${Math.max(0, RESEARCH_GOAL - research)} points to go`)}</span>
+        <span>
+          📋 {L('Missões de hoje', 'Today')}: {missionsTotal - missionsLeft}/{missionsTotal}
+        </span>
       </div>
     </div>
   );

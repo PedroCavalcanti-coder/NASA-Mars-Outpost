@@ -93,6 +93,9 @@ function patchMaterial(material: THREE.Material, interiorFlag: 0 | 1) {
               uniform float dustInteriorClear;
               uniform float dustEdgeNear;
               uniform float dustEdgeFar;
+              uniform float expeditionFog;
+              uniform vec4 expeditionCar;
+              uniform vec4 expeditionMe;
 
               float marsDustHash(vec2 p) {
                 return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -136,13 +139,21 @@ function patchMaterial(material: THREE.Material, interiorFlag: 0 | 1) {
                 stormFog = 1.0 - exp(-density * pathLength * dustStormStrength);
               }
 
-              float totalDust = max(edgeFog, stormFog);
+              // expedição do rover: neblina cerrada, rala perto dos faróis e da lanterna do traje
+              float expeditionMist = 0.0;
+              if (expeditionFog > 0.5) {
+                float thick = smoothstep(3.0, 30.0, vFogDepth);
+                float nearCar = smoothstep(expeditionCar.w * 0.4, expeditionCar.w, distance(vDustWorld, expeditionCar.xyz));
+                float nearMe = smoothstep(expeditionMe.w * 0.45, expeditionMe.w, distance(vDustWorld, expeditionMe.xyz));
+                expeditionMist = thick * min(nearCar, nearMe);
+              }
+              float totalDust = max(max(edgeFog, stormFog), expeditionMist);
               ${interiorFlag ? 'totalDust *= 1.0 - dustInteriorClear;' : ''}
 
               gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, totalDust);
             #endif`,
       );
   };
-  material.customProgramCacheKey = () => `${key}|mars-boundary-dust-v4|interior:${interiorFlag}`;
+  material.customProgramCacheKey = () => `${key}|mars-boundary-dust-v5|interior:${interiorFlag}`;
   material.needsUpdate = true;
 }

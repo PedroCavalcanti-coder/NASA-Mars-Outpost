@@ -63,3 +63,15 @@ export function clearPlaySession() {
 export function clearMissionSnapshot() {
   write(MISSION_KEY, null);
 }
+
+const DIFFICULTY_KEY = 'mo_difficulty';
+
+/** Dificuldade escolhida no "Jogar agora" (vale só para o mundo novo que será criado). */
+export function setPendingDifficulty(d: 'easy' | 'normal' | 'hard') {
+  write(DIFFICULTY_KEY, d);
+}
+
+export function getPendingDifficulty(): 'easy' | 'normal' | 'hard' | undefined {
+  const v = read(DIFFICULTY_KEY);
+  return v === 'easy' || v === 'normal' || v === 'hard' ? v : undefined;
+}

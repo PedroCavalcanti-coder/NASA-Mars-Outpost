@@ -1,7 +1,7 @@
 .oxygen-orb {
   --oxygen-fill: #83dedc;
   position: relative;
-  width: clamp(230px, 22vw, 300px);
+  width: clamp(150px, 14vw, 185px);
 }
 .oxygen-orb[data-level="warning"] {
   --oxygen-fill: #edcc80;
@@ -64,20 +64,20 @@
 }
 .hud-oxygen-anchor {
   position: absolute;
-  bottom: -8px;
-  left: 16px;
+  bottom: -4px;
+  left: 12px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   pointer-events: auto;
 }
 @media (max-width: 767px) {
   .hud-oxygen-anchor {
-    bottom: 42px;
+    bottom: 40px;
     left: 8px;
   }
   .oxygen-orb {
-    width: min(200px, 42vw);
+    width: min(130px, 32vw);
   }
 }
 @media (prefers-reduced-motion: reduce) {
