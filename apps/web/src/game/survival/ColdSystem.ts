@@ -1,9 +1,11 @@
 import { create } from 'zustand';
+import { isGameOverlayOpenCached } from '../../lib/gameOverlay';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { registerDevAction } from '../dev/devActions';
 import type { SystemContext } from '../systems/context';
 import type { GameSystem } from '../systems/registry';
+import { adjustBaseOxygen } from './OxygenSystem';
 import { COLD_SETTINGS } from './types';
 
 export interface ColdState {
@@ -81,6 +83,8 @@ export class ColdSystem implements GameSystem {
 
   update(dt: number, ctx: SystemContext): void {
     if (dt <= 0) return;
+    // minigame aberto: o frio não conta enquanto o jogador resolve a tarefa
+    if (isGameOverlayOpenCached()) return;
 
     const override = useCold.getState().overrideNight;
     const isNight = override !== null ? override : ctx.night > COLD_SETTINGS.NIGHT_THRESHOLD;
@@ -135,19 +139,20 @@ export class ColdSystem implements GameSystem {
     // 1. Escurece a tela
     ctx.fadeScreen(1.0, 600);
 
-    // 2. Teleporta para o centro da enfermaria (sala Medicina ou Habitação)
-    const infirmary = ctx.getInfirmaryPoint();
-    ctx.teleportPlayerTo(infirmary);
+    // 2. Sem teleporte: o astronauta fica onde está (o aquecedor do traje o reanima)
 
-    // 3. Aplica penalidade leve de moral à equipe
-    adjustBaseMorale(-COLD_SETTINGS.COLD_MORALE_PENALTY);
+    // 3. Gasta um pouco do oxigênio da base no aquecimento de emergência
+    adjustBaseOxygen(-COLD_SETTINGS.COLD_OXYGEN_COST);
 
     // 4. Restaura a velocidade normal do astronauta
     ctx.setPlayerSpeedScale(1.0);
     this.isSlowed = false;
 
     // 5. Notifica o jogador
-    toast('Hipotermia severa: você desmaiou de frio e foi socorrido na enfermaria.', 'error');
+    toast(
+      'Hipotermia: o traje usou o aquecimento de emergência. Volte para dentro da base!',
+      'error',
+    );
 
     // 6. Clareia a tela de volta
     setTimeout(() => {

@@ -3,24 +3,19 @@ import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import type { SystemContext } from '../systems/context';
 import type { GameSystem } from '../systems/registry';
-import { adjustBaseMorale } from './ColdSystem';
 import { adjustBaseOxygen } from './OxygenSystem';
 import { NAP_SETTINGS } from './types';
 
 export interface NapState {
-  /** Se o astronauta está cochilando no momento */
+  /** O astronauta está dormindo (a tela escurece enquanto a noite passa) */
   isSleeping: boolean;
-  /** Se as condições ambientais atuais permitem iniciar um cochilo */
+  /** As condições atuais permitem dormir (noite, dentro da base, sem tempestade forte) */
   canNap: boolean;
-  /** Motivo descritivo quando o cochilo estiver bloqueado */
+  /** Motivo descritivo quando dormir estiver bloqueado */
   reasonBlocked: string | null;
-  /** Nível de moral atual da tripulação da missão (0 a 100) */
-  moraleLevel: number;
-  /** Inicia o cochilo caso permitido */
+  /** Dorme agora, se permitido */
   startNap: () => boolean;
-  /** Acorda o astronauta imediatamente */
-  wakeUp: () => void;
-  /** Alterna entre dormir e acordar */
+  /** Dorme agora, se permitido (acordar é automático ao amanhecer) */
   toggleNap: () => void;
 }
 
@@ -31,24 +26,22 @@ export const useNap = create<NapState>(() => ({
   isSleeping: false,
   canNap: false,
   reasonBlocked: null,
-  moraleLevel: 80,
   startNap: () => activeNapSystem?.requestStartNap() ?? false,
-  wakeUp: () => activeNapSystem?.wakeUp(),
   toggleNap: () => {
-    if (activeNapSystem?.isSleepingNow()) {
-      activeNapSystem.wakeUp();
-    } else {
-      activeNapSystem?.requestStartNap();
-    }
+    activeNapSystem?.requestStartNap();
   },
 }));
 
+const FADE_OUT_MS = 800;
+const BLACK_MS = 700;
+const FADE_IN_MS = 1000;
+
 /**
- * Sistema de Descanso, Cochilo e Moral (NapSystem).
- * - Permite ao astronauta cochilar (botão no painel de ações ou atalho 'Z') apenas DENTRO da base e sem tempestade forte.
- * - Durante o cochilo: `setPlayerSleeping(true)`, a moral geral (`morale`) sobe até o teto (100) e consome pouco oxigênio da base.
- * - Acorda a qualquer instante (Z, clique ou Esc) restaurando `setPlayerSleeping(false)`.
- * - Expõe continuamente `moraleLevel` para a HUD.
+ * Sistema de Sono (NapSystem).
+ * - Só se dorme à noite, DENTRO da base e sem tempestade forte (botão do painel, cama ou tecla Z).
+ * - Dormir faz a noite passar: a tela escurece, o relógio vai até o amanhecer e o astronauta acorda.
+ * - Custo: a base continua respirando (oxigênio por hora dormida) e há uma refeição (mantimentos).
+ * - Não mexe na moral.
  */
 export class NapSystem implements GameSystem {
   readonly id = 'survival-nap';
@@ -57,6 +50,7 @@ export class NapSystem implements GameSystem {
   private canNapCurrent = false;
   private reasonBlockedCurrent: string | null = null;
   private lastContext: SystemContext | null = null;
+  private timers: ReturnType<typeof setTimeout>[] = [];
 
   constructor() {
     activeNapSystem = this;
@@ -77,132 +71,117 @@ export class NapSystem implements GameSystem {
 
   requestStartNap(): boolean {
     if (this.isSleeping) return true;
-
-    if (!this.canNapCurrent) {
-      if (this.reasonBlockedCurrent) {
-        toast(this.reasonBlockedCurrent, 'error');
-      }
+    const ctx = this.lastContext;
+    if (!this.canNapCurrent || !ctx) {
+      if (this.reasonBlockedCurrent) toast(this.reasonBlockedCurrent, 'error');
       return false;
     }
 
     this.isSleeping = true;
-    if (this.lastContext) {
-      this.lastContext.setPlayerSleeping(true);
-    }
-    toast('💤 Você começou a cochilar. A moral da equipe está se recuperando.', 'ok');
+    ctx.setPlayerSleeping(true);
+    ctx.fadeScreen(1.0, FADE_OUT_MS);
     this.syncState();
+
+    this.later(FADE_OUT_MS, () => {
+      const hours = ctx.sleepUntil(NAP_SETTINGS.WAKE_HOUR);
+      if (hours <= 0) {
+        // sem permissão para mexer no relógio (outro jogador coordena a sala)
+        this.finish(ctx, 0);
+        return;
+      }
+      adjustBaseOxygen(-Math.round(hours * NAP_SETTINGS.OXYGEN_PER_HOUR));
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'info',
+        title: 'Noite de sono',
+        text: `Você dormiu ${Math.round(hours)} h. A base gastou oxigênio e uma refeição.`,
+        deltas: { supplies: -NAP_SETTINGS.SUPPLIES_COST },
+      });
+      this.later(BLACK_MS, () => this.finish(ctx, hours));
+    });
     return true;
   }
 
-  wakeUp(): void {
-    if (!this.isSleeping) return;
-
+  private finish(ctx: SystemContext, hours: number) {
+    ctx.fadeScreen(0.0, FADE_IN_MS);
+    ctx.setPlayerSleeping(false);
     this.isSleeping = false;
-    if (this.lastContext) {
-      this.lastContext.setPlayerSleeping(false);
+    if (hours > 0) {
+      toast(`☀️ Você dormiu ${Math.round(hours)} h e acordou ao amanhecer.`, 'ok');
     }
-    toast('☀️ Você acordou descansado e pronto para o trabalho.', 'ok');
     this.syncState();
   }
 
-  update(dt: number, ctx: SystemContext): void {
+  private later(ms: number, fn: () => void) {
+    this.timers.push(setTimeout(fn, ms));
+  }
+
+  update(_dt: number, ctx: SystemContext): void {
     this.lastContext = ctx;
 
-    // Avalia restrições para cochilar
     if (!ctx.insideBase || ctx.driving) {
       this.canNapCurrent = false;
-      this.reasonBlockedCurrent = 'Cochilar requer estar protegido no interior da base.';
+      this.reasonBlockedCurrent = 'Dormir requer estar protegido no interior da base.';
+    } else if (ctx.night < NAP_SETTINGS.MIN_NIGHT_TO_SLEEP) {
+      this.canNapCurrent = false;
+      this.reasonBlockedCurrent = 'Ainda não é noite: só dá para dormir depois que o sol se põe.';
     } else if (ctx.storm >= NAP_SETTINGS.MAX_STORM_FOR_NAP) {
       this.canNapCurrent = false;
       this.reasonBlockedCurrent = 'A tempestade de areia está muito forte e ruidosa para dormir.';
+    } else if ((useMission.getState().state.resources.supplies?.value ?? 0) < 1) {
+      this.canNapCurrent = false;
+      this.reasonBlockedCurrent = 'Sem mantimentos para a refeição da noite.';
     } else {
       this.canNapCurrent = true;
       this.reasonBlockedCurrent = null;
     }
 
-    if (this.isSleeping) {
-      // Se as condições mínimas de segurança foram violadas, acorda o astronauta
-      if (!ctx.insideBase || ctx.driving || ctx.storm >= 0.85) {
-        this.wakeUp();
-        toast('⚠️ Condições adversas acordaram você abruptamente!', 'error');
-        return;
-      }
-
-      ctx.setPlayerSleeping(true);
-
-      if (dt > 0) {
-        // 1. Moral sobe progressivamente com o descanso até o teto de 100
-        const moraleDelta = NAP_SETTINGS.MORALE_RECOVERY_RATE * dt;
-        adjustBaseMorale(moraleDelta);
-
-        // 2. Cochilo consome suavemente o oxigênio da base
-        const o2Cost = NAP_SETTINGS.BASE_OXYGEN_NAP_DRAIN * dt;
-        adjustBaseOxygen(-o2Cost);
-      }
-    }
-
+    if (this.isSleeping) ctx.setPlayerSleeping(true);
     this.syncState();
   }
 
   private syncState(): void {
-    const currentMorale = useMission.getState().state.morale;
+    const cur = useNap.getState();
+    if (
+      cur.isSleeping === this.isSleeping &&
+      cur.canNap === this.canNapCurrent &&
+      cur.reasonBlocked === this.reasonBlockedCurrent
+    )
+      return;
     useNap.setState({
       isSleeping: this.isSleeping,
       canNap: this.canNapCurrent,
       reasonBlocked: this.reasonBlockedCurrent,
-      moraleLevel: currentMorale,
     });
   }
 
   private handleKeyDown = (e: KeyboardEvent): void => {
     // Ignora se estiver digitando em campo de texto
     const target = e.target as HTMLElement | null;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
-      return;
-    }
-
-    if (e.key === 'z' || e.key === 'Z') {
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+    if ((e.key === 'z' || e.key === 'Z') && !e.repeat) {
       e.preventDefault();
-      if (this.isSleeping) {
-        this.wakeUp();
-      } else {
-        this.requestStartNap();
-      }
-    } else if (e.key === 'Escape' && this.isSleeping) {
-      e.preventDefault();
-      this.wakeUp();
-    }
-  };
-
-  private handlePointerDown = (): void => {
-    // Clique do mouse ou toque na tela desperta o astronauta se estiver dormindo
-    if (this.isSleeping) {
-      this.wakeUp();
+      this.requestStartNap();
     }
   };
 
   private setupListeners(): void {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', this.handleKeyDown);
-      window.addEventListener('pointerdown', this.handlePointerDown);
-    }
+    if (typeof window !== 'undefined') window.addEventListener('keydown', this.handleKeyDown);
   }
 
   private removeListeners(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('keydown', this.handleKeyDown);
-      window.removeEventListener('pointerdown', this.handlePointerDown);
-    }
+    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.handleKeyDown);
   }
 
   dispose(): void {
     this.removeListeners();
+    for (const t of this.timers) clearTimeout(t);
+    this.timers = [];
     if (this.isSleeping && this.lastContext) {
       this.lastContext.setPlayerSleeping(false);
+      this.lastContext.fadeScreen(0.0, 200);
     }
     this.isSleeping = false;
-    if (activeNapSystem === this) {
-      activeNapSystem = null;
-    }
+    if (activeNapSystem === this) activeNapSystem = null;
   }
 }

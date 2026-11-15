@@ -10,3 +10,16 @@ export function isGameOverlayOpen(): boolean {
     typeof document !== 'undefined' && document.querySelector('.game__interface[inert]') !== null
   );
 }
+
+let cachedAt = 0;
+let cachedValue = false;
+
+/** Igual a `isGameOverlayOpen`, mas consulta o DOM no máximo a cada 150 ms (para o laço da simulação). */
+export function isGameOverlayOpenCached(): boolean {
+  const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+  if (now - cachedAt > 150) {
+    cachedAt = now;
+    cachedValue = isGameOverlayOpen();
+  }
+  return cachedValue;
+}

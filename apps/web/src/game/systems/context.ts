@@ -30,6 +30,12 @@ export interface SystemContext {
   /** Modo de câmera atual ('follow' segue o jogador, 'free' câmera livre). */
   readonly cameraMode: 'follow' | 'free';
 
+  /**
+   * Faz o relógio do mundo avançar até a hora dada (0..24), como ao dormir.
+   * Devolve quantas horas passaram (0 se não for permitido, ex.: outro jogador coordena a sala).
+   */
+  sleepUntil(hour: number): number;
+
   // ---- Ações permitidas para os sistemas ----
 
   /**

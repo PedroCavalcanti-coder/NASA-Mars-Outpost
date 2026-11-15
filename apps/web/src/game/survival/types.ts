@@ -36,15 +36,19 @@ export const COLD_SETTINGS = {
   COLD_EXPOSURE_LIMIT: 6.0,
   /** Penalidade de moral sofrida pela tripulação após resgate por congelamento */
   COLD_MORALE_PENALTY: 6,
+  /** Oxigênio da base gasto no aquecimento de emergência do traje */
+  COLD_OXYGEN_COST: 4,
 } as const;
 
 export const NAP_SETTINGS = {
-  /** Taxa de recuperação de moral por segundo de cochilo */
-  MORALE_RECOVERY_RATE: 2.0,
-  /** Teto máximo de moral alcançável pelo cochilo */
-  MAX_MORALE: 100,
-  /** Consumo de oxigênio da base por segundo durante o sono do astronauta */
-  BASE_OXYGEN_NAP_DRAIN: 0.2,
+  /** Só dá para dormir quando já é noite (fator de noite acima disto) */
+  MIN_NIGHT_TO_SLEEP: 0.5,
+  /** Hora do dia (0..24) em que o astronauta acorda */
+  WAKE_HOUR: 6.5,
+  /** Oxigênio da base gasto por hora de sono (a base segue respirando) */
+  OXYGEN_PER_HOUR: 1.2,
+  /** Mantimentos gastos pela refeição da noite, uma vez por sono */
+  SUPPLIES_COST: 2,
   /** Limite de intensidade de tempestade que ainda permite adormecer */
   MAX_STORM_FOR_NAP: 0.5,
 } as const;

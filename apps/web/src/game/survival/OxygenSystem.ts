@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isGameOverlayOpenCached } from '../../lib/gameOverlay';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import type { SystemContext } from '../systems/context';
@@ -143,6 +144,8 @@ export class OxygenSystem implements GameSystem {
 
   update(dt: number, ctx: SystemContext): void {
     if (dt <= 0 || this.isFainting) return;
+    // minigame aberto: o tempo de traje não corre (terminar a tarefa não pode custar o tanque)
+    if (isGameOverlayOpenCached()) return;
 
     // Dirigir o rover conta como estar fora da base (no exterior)
     const insideSafe = (ctx.insideBase && !ctx.driving) || ctx.sheltered === true;
@@ -202,9 +205,7 @@ export class OxygenSystem implements GameSystem {
     // 1. Escurece a tela suavemente
     ctx.fadeScreen(1.0, 600);
 
-    // 2. Teleporta para a enfermaria central (sala de Medicina ou Habitação)
-    const infirmary = ctx.getInfirmaryPoint();
-    ctx.teleportPlayerTo(infirmary);
+    // 2. Sem teleporte: o astronauta fica onde está e só recebe a reserva de emergência
 
     // 3. Tanque pessoal recebe oxigênio emergencial de reanimação (25%)
     this.tank = OXYGEN_SETTINGS.FAINT_RESPAWN_TANK;
@@ -213,7 +214,10 @@ export class OxygenSystem implements GameSystem {
     adjustBaseOxygen(-OXYGEN_SETTINGS.FAINT_BASE_OXYGEN_COST);
 
     // 5. Notifica o jogador
-    toast('Você desmaiou e foi socorrido na enfermaria.', 'error');
+    toast(
+      'Tanque vazio! A reserva de emergência foi usada (-5 de O₂ da base). Volte à base.',
+      'error',
+    );
 
     // 6. Clareia a tela de volta após o socorro
     setTimeout(() => {

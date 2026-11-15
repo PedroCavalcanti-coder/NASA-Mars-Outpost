@@ -53,7 +53,7 @@ export function registerSurvivalModule(): () => void {
     registerPanel({
       id: 'nap',
       group: 'missao',
-      title: 'Descanso e Moral',
+      title: 'Sono',
       icon: Moon,
       component: NapPanel,
       defaultOpen: false,

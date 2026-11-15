@@ -24,6 +24,7 @@ function createMockContext(overrides?: Partial<SystemContext>): SystemContext {
     setPlayerSleeping: vi.fn(),
     fadeScreen: vi.fn(),
     getInfirmaryPoint: vi.fn(() => dummyPoint),
+    sleepUntil: vi.fn(() => 0),
     ...overrides,
   };
 }
@@ -87,11 +88,11 @@ describe('ColdSystem - Lógica Pura', () => {
       system.dispose();
     });
 
-    it('ao atingir 6s de exposição ao frio à noite: teleporta à enfermaria, aplica penalidade de moral e fadeScreen', () => {
+    it('ao atingir 6s de exposição ao frio à noite: NÃO teleporta, gasta oxigênio da base e fadeScreen', () => {
       const system = new ColdSystem();
       const ctx = createMockContext({ night: 0.8, insideBase: false });
 
-      const initialMorale = useMission.getState().state.morale;
+      const initialOxygen = useMission.getState().state.resources.oxygen.value;
 
       // 4 segundos de frio
       system.update(4.0, ctx);
@@ -101,12 +102,11 @@ describe('ColdSystem - Lógica Pura', () => {
       system.update(2.5, ctx);
 
       expect(ctx.fadeScreen).toHaveBeenCalledWith(1.0, expect.any(Number));
-      expect(ctx.getInfirmaryPoint).toHaveBeenCalled();
-      expect(ctx.teleportPlayerTo).toHaveBeenCalledWith(expect.anything());
+      expect(ctx.teleportPlayerTo).not.toHaveBeenCalled();
 
-      // Penalidade de moral
-      expect(useMission.getState().state.morale).toBe(
-        initialMorale - COLD_SETTINGS.COLD_MORALE_PENALTY,
+      // Aquecimento de emergência gasta oxigênio da base
+      expect(useMission.getState().state.resources.oxygen.value).toBe(
+        initialOxygen - COLD_SETTINGS.COLD_OXYGEN_COST,
       );
 
       // Velocidade restaurada

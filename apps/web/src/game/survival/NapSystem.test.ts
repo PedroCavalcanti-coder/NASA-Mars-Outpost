@@ -1,10 +1,9 @@
 // @vitest-environment happy-dom
 import * as THREE from 'three';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMission } from '../../store/mission';
 import type { SystemContext } from '../systems/context';
 import { NapSystem } from './NapSystem';
-import { NAP_SETTINGS } from './types';
 
 vi.mock('../../ui/toast', () => ({
   toast: vi.fn(),
@@ -16,7 +15,7 @@ function createMockContext(overrides?: Partial<SystemContext>): SystemContext {
     playerPosition: { x: 0, y: 0.24, z: 0 },
     insideBase: true,
     driving: false,
-    night: 0,
+    night: 0.9,
     storm: 0,
     cameraMode: 'follow',
     teleportPlayerTo: vi.fn(),
@@ -25,146 +24,89 @@ function createMockContext(overrides?: Partial<SystemContext>): SystemContext {
     setPlayerSleeping: vi.fn(),
     fadeScreen: vi.fn(),
     getInfirmaryPoint: vi.fn(() => dummyPoint),
+    sleepUntil: vi.fn(() => 7),
     ...overrides,
   };
 }
 
-describe('NapSystem - Lógica Pura', () => {
+describe('NapSystem - dormir pula a noite', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     useMission.getState().start();
   });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-  it('permite cochilar apenas dentro da base e sem tempestade forte', () => {
+  it('só permite dormir à noite, dentro da base e sem tempestade forte', () => {
     const system = new NapSystem();
 
-    // 1. Fora da base: bloqueado
-    const ctxOutside = createMockContext({ insideBase: false, storm: 0 });
-    system.update(0.1, ctxOutside);
+    system.update(0.1, createMockContext({ insideBase: false }));
     expect(system.canNap()).toBe(false);
     expect(system.getReasonBlocked()).toContain('interior da base');
 
-    // 2. Dirigindo rover: bloqueado
-    const ctxRover = createMockContext({ insideBase: true, driving: true, storm: 0 });
-    system.update(0.1, ctxRover);
+    system.update(0.1, createMockContext({ driving: true }));
     expect(system.canNap()).toBe(false);
 
-    // 3. Sob tempestade forte: bloqueado
-    const ctxStorm = createMockContext({ insideBase: true, driving: false, storm: 0.7 });
-    system.update(0.1, ctxStorm);
+    system.update(0.1, createMockContext({ night: 0.1 }));
+    expect(system.canNap()).toBe(false);
+    expect(system.getReasonBlocked()).toContain('noite');
+
+    system.update(0.1, createMockContext({ storm: 0.7 }));
     expect(system.canNap()).toBe(false);
     expect(system.getReasonBlocked()).toContain('tempestade');
 
-    // 4. Seguro dentro da base: liberado
-    const ctxSafe = createMockContext({ insideBase: true, driving: false, storm: 0.2 });
-    system.update(0.1, ctxSafe);
+    system.update(0.1, createMockContext());
     expect(system.canNap()).toBe(true);
     expect(system.getReasonBlocked()).toBeNull();
 
     system.dispose();
   });
 
-  it('ao cochilar: setPlayerSleeping(true), aumenta a moral e consome pouco oxigênio da base', () => {
+  it('dormir escurece a tela, avança o relógio até o amanhecer e cobra O₂ e uma refeição', () => {
     const system = new NapSystem();
-    const ctx = createMockContext({ insideBase: true, storm: 0 });
-
-    useMission.setState((s) => ({
-      state: {
-        ...s.state,
-        morale: 70,
-        resources: {
-          ...s.state.resources,
-          oxygen: { ...s.state.resources.oxygen, value: 80 },
-        },
-      },
-    }));
-
+    const ctx = createMockContext();
     system.update(0.1, ctx);
-    const started = system.requestStartNap();
-    expect(started).toBe(true);
+
+    const before = useMission.getState().state.resources;
+    expect(system.requestStartNap()).toBe(true);
     expect(system.isSleepingNow()).toBe(true);
+    expect(ctx.fadeScreen).toHaveBeenCalledWith(1.0, expect.any(Number));
 
-    const baseO2Before = useMission.getState().state.resources.oxygen.value;
-    const moraleBefore = useMission.getState().state.morale;
+    vi.advanceTimersByTime(5000);
 
-    // 2 segundos de sono
-    system.update(2.0, ctx);
-
-    expect(ctx.setPlayerSleeping).toHaveBeenCalledWith(true);
-
-    // Moral subiu
-    const moraleAfter = useMission.getState().state.morale;
-    expect(moraleAfter).toBeGreaterThan(moraleBefore);
-    expect(moraleAfter).toBeCloseTo(moraleBefore + NAP_SETTINGS.MORALE_RECOVERY_RATE * 2.0);
-
-    // Oxigênio da base foi consumido suavemente
-    const baseO2After = useMission.getState().state.resources.oxygen.value;
-    expect(baseO2After).toBeLessThan(baseO2Before);
-
-    system.dispose();
-  });
-
-  it('respeita o teto máximo de moral (100) durante o cochilo', () => {
-    const system = new NapSystem();
-    const ctx = createMockContext({ insideBase: true, storm: 0 });
-
-    useMission.setState((s) => ({
-      state: {
-        ...s.state,
-        morale: 99,
-      },
-    }));
-
-    system.update(0.1, ctx);
-    system.requestStartNap();
-
-    // 5 segundos de sono
-    system.update(5.0, ctx);
-
-    expect(useMission.getState().state.morale).toBe(100);
-
-    system.dispose();
-  });
-
-  it('acorda imediatamente ao chamar wakeUp ou se for exposto a condições perigosas', () => {
-    const system = new NapSystem();
-    const ctxSafe = createMockContext({ insideBase: true, storm: 0 });
-
-    system.update(0.1, ctxSafe);
-    system.requestStartNap();
-    expect(system.isSleepingNow()).toBe(true);
-
-    // Acorda voluntariamente
-    system.wakeUp();
+    expect(ctx.sleepUntil).toHaveBeenCalled();
+    expect(ctx.fadeScreen).toHaveBeenLastCalledWith(0.0, expect.any(Number));
     expect(system.isSleepingNow()).toBe(false);
-    expect(ctxSafe.setPlayerSleeping).toHaveBeenCalledWith(false);
+    const after = useMission.getState().state.resources;
+    expect(after.oxygen.value).toBeLessThan(before.oxygen.value);
+    expect(after.supplies.value).toBeLessThan(before.supplies.value);
+    // a moral não é mexida pelo sono
+    expect(useMission.getState().state.morale).toBe(80);
 
-    // Dorme de novo
+    system.dispose();
+  });
+
+  it('se o relógio não puder ser adiantado, acorda sem cobrar nada', () => {
+    const system = new NapSystem();
+    const ctx = createMockContext({ sleepUntil: vi.fn(() => 0) });
+    system.update(0.1, ctx);
+    const before = useMission.getState().state.resources.supplies.value;
+
     system.requestStartNap();
-    expect(system.isSleepingNow()).toBe(true);
-
-    // Repentinamente sai da base (ou é teletransportado)
-    const ctxDanger = createMockContext({ insideBase: false, storm: 0 });
-    system.update(0.1, ctxDanger);
+    vi.advanceTimersByTime(5000);
 
     expect(system.isSleepingNow()).toBe(false);
-
+    expect(useMission.getState().state.resources.supplies.value).toBe(before);
     system.dispose();
   });
 
-  it('responde a atalhos de teclado (tecla Z e Escape)', () => {
+  it('responde ao atalho Z', () => {
     const system = new NapSystem();
-    const ctx = createMockContext({ insideBase: true, storm: 0 });
-    system.update(0.1, ctx);
-
-    // Dispara tecla 'z'
+    system.update(0.1, createMockContext());
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z' }));
     expect(system.isSleepingNow()).toBe(true);
-
-    // Dispara tecla 'Escape' para acordar
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    expect(system.isSleepingNow()).toBe(false);
-
     system.dispose();
   });
 });

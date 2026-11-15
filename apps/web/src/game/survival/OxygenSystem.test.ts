@@ -25,6 +25,7 @@ function createMockContext(overrides?: Partial<SystemContext>): SystemContext {
     setPlayerSleeping: vi.fn(),
     fadeScreen: vi.fn(),
     getInfirmaryPoint: vi.fn(() => dummyPoint),
+    sleepUntil: vi.fn(() => 0),
     ...overrides,
   };
 }
@@ -142,7 +143,7 @@ describe('OxygenSystem - Lógica Pura', () => {
       expect(system.getTank()).toBe(50);
     });
 
-    it('quando o tanque chega a 0: dispara desmaio, fadeScreen, socorro na enfermaria e restaura 25%', () => {
+    it('quando o tanque chega a 0: dispara desmaio, fadeScreen, reserva de emergência (sem teleporte) e restaura 25%', () => {
       const system = new OxygenSystem(2.0); // quase vazio
       const ctx = createMockContext({ insideBase: false, driving: false });
 
@@ -150,8 +151,7 @@ describe('OxygenSystem - Lógica Pura', () => {
       system.update(1.0, ctx);
 
       expect(ctx.fadeScreen).toHaveBeenCalledWith(1.0, expect.any(Number));
-      expect(ctx.getInfirmaryPoint).toHaveBeenCalled();
-      expect(ctx.teleportPlayerTo).toHaveBeenCalledWith(expect.anything());
+      expect(ctx.teleportPlayerTo).not.toHaveBeenCalled();
 
       // Tanque volta com o mínimo de reanimação (25%)
       expect(system.getTank()).toBe(OXYGEN_SETTINGS.FAINT_RESPAWN_TANK);

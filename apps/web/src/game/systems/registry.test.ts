@@ -21,6 +21,7 @@ function createMockContext(): SystemContext {
     setPlayerSleeping: vi.fn(),
     fadeScreen: vi.fn(),
     getInfirmaryPoint: vi.fn(),
+    sleepUntil: vi.fn(() => 0),
   };
 }
 
