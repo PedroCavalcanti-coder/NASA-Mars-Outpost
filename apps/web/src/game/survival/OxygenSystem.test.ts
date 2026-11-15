@@ -143,15 +143,15 @@ describe('OxygenSystem - Lógica Pura', () => {
       expect(system.getTank()).toBe(50);
     });
 
-    it('quando o tanque chega a 0: dispara desmaio, fadeScreen, reserva de emergência (sem teleporte) e restaura 25%', () => {
-      const system = new OxygenSystem(2.0); // quase vazio
+    it('quando o tanque chega a 0: dispara desmaio, fadeScreen, reserva de emergência (com teleporte à enfermaria) e restaura 25%', () => {
+      const system = new OxygenSystem(0.5); // quase vazio
       const ctx = createMockContext({ insideBase: false, driving: false });
 
       // 1s de simulação com taxa de 2.5 consome mais do que 2.0, esvaziando o tanque
       system.update(1.0, ctx);
 
       expect(ctx.fadeScreen).toHaveBeenCalledWith(1.0, expect.any(Number));
-      expect(ctx.teleportPlayerTo).not.toHaveBeenCalled();
+      expect(ctx.teleportPlayerTo).toHaveBeenCalledWith(expect.anything());
 
       // Tanque volta com o mínimo de reanimação (25%)
       expect(system.getTank()).toBe(OXYGEN_SETTINGS.FAINT_RESPAWN_TANK);

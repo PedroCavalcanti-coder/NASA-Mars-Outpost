@@ -88,7 +88,7 @@ describe('ColdSystem - Lógica Pura', () => {
       system.dispose();
     });
 
-    it('ao atingir 6s de exposição ao frio à noite: NÃO teleporta, gasta oxigênio da base e fadeScreen', () => {
+    it('ao atingir 6s de exposição ao frio à noite: teleporta à enfermaria, gasta oxigênio da base e fadeScreen', () => {
       const system = new ColdSystem();
       const ctx = createMockContext({ night: 0.8, insideBase: false });
 
@@ -102,7 +102,7 @@ describe('ColdSystem - Lógica Pura', () => {
       system.update(2.5, ctx);
 
       expect(ctx.fadeScreen).toHaveBeenCalledWith(1.0, expect.any(Number));
-      expect(ctx.teleportPlayerTo).not.toHaveBeenCalled();
+      expect(ctx.teleportPlayerTo).toHaveBeenCalledWith(expect.anything());
 
       // Aquecimento de emergência gasta oxigênio da base
       expect(useMission.getState().state.resources.oxygen.value).toBe(

@@ -8,10 +8,10 @@ export const OXYGEN_SETTINGS = {
   MAX_TANK: 100,
   /** Nível inicial do tanque */
   INITIAL_TANK: 100,
-  /** Taxa de consumo de oxigênio fora da base (% por segundo em tempo normal). ~40s de autonomia */
-  DRAIN_RATE_OUTSIDE: 2.5,
+  /** Taxa de consumo de oxigênio fora da base (% por segundo em tempo normal). ~2 min de autonomia */
+  DRAIN_RATE_OUTSIDE: 0.8,
   /** Fator multiplicador de consumo sob tempestade de poeira marciana (até 1.8x) */
-  STORM_DRAIN_MULTIPLIER: 1.8,
+  STORM_DRAIN_MULTIPLIER: 1.5,
   /** Taxa de recarga do tanque pessoal dentro da base (% por segundo). ~10s de 0 a 100 */
   REFILL_RATE_INSIDE: 10.0,
   /**

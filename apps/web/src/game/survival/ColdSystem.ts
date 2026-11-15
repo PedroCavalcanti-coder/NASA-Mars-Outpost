@@ -139,7 +139,8 @@ export class ColdSystem implements GameSystem {
     // 1. Escurece a tela
     ctx.fadeScreen(1.0, 600);
 
-    // 2. Sem teleporte: o astronauta fica onde está (o aquecedor do traje o reanima)
+    // 2. Teleporta para a enfermaria (sala Medicina ou Habitação)
+    ctx.teleportPlayerTo(ctx.getInfirmaryPoint());
 
     // 3. Gasta um pouco do oxigênio da base no aquecimento de emergência
     adjustBaseOxygen(-COLD_SETTINGS.COLD_OXYGEN_COST);
@@ -150,7 +151,7 @@ export class ColdSystem implements GameSystem {
 
     // 5. Notifica o jogador
     toast(
-      'Hipotermia: o traje usou o aquecimento de emergência. Volte para dentro da base!',
+      'Hipotermia severa: você desmaiou de frio e foi socorrido na enfermaria.',
       'error',
     );
 

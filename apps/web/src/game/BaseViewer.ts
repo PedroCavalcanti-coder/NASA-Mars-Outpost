@@ -2277,7 +2277,7 @@ export class BaseViewer {
     switch (fx.type) {
       case 'storm':
         this.setStormStrength(fx.strength);
-        this.eventStormLeft = 150;
+        this.eventStormLeft = 50;
         break;
       case 'storm_end':
         this.setStormStrength(0);
