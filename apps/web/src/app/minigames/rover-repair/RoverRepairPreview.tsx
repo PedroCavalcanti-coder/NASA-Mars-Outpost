@@ -4,6 +4,7 @@ import { usePreviewClose } from '../usePreviewClose';
 import { RoverRepairIllustration } from './RoverRepairIllustration';
 import { initialRepair, type RepairAction, repairInstructions, repairReducer } from './repairState';
 import './roverRepair.css';
+import { L } from '../../../lib/i18n';
 
 /** Standalone preview; onComplete lets a future equipment interaction report the repair. */
 export default function RoverRepairPreview({
@@ -49,12 +50,12 @@ export default function RoverRepairPreview({
     }
   }, [complete, onComplete]);
   return (
-    <main className="rover-repair-preview" aria-label="Reparo do rover" data-complete={complete}>
+    <main className="rover-repair-preview" aria-label={L('Reparo do rover', 'Rover repair')} data-complete={complete}>
       <RoverRepairIllustration state={state} dispatch={interact} activeBolt={activeBolt} />
       <div className="rover-repair-instruction" role="status" aria-live="polite">
         <p>
           {state.phase === 'complete' && !mounted
-            ? 'Recolocando a roda no rover…'
+            ? L('Recolocando a roda no rover…', 'Putting the wheel back on the rover…')
             : repairInstructions[state.phase]}
         </p>
         {complete && (
@@ -71,7 +72,7 @@ export default function RoverRepairPreview({
             }
           >
             <RotateCcw size={18} aria-hidden="true" />
-            {onComplete ? 'Voltar à base' : 'Reparar novamente'}
+            {onComplete ? L('Voltar à base', 'Back to base') : L('Reparar novamente', 'Repair again')}
           </button>
         )}
       </div>
@@ -80,8 +81,8 @@ export default function RoverRepairPreview({
         className="rover-repair-close"
         type="button"
         onClick={close}
-        aria-label="Fechar prévia"
-        title="Fechar prévia (Esc)"
+        aria-label={L('Fechar prévia', 'Close')}
+        title={L('Fechar prévia (Esc)', 'Close (Esc)')}
       >
         <X size={22} aria-hidden="true" />
       </button>

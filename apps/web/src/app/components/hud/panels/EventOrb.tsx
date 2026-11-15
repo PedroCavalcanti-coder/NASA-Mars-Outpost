@@ -17,6 +17,7 @@ import { useCold } from '../../../../game/survival/ColdSystem';
 import { useBaseOps } from '../../../../game/tasks/store';
 import { useMission } from '../../../../store/mission';
 import './eventOrb.css';
+import { L } from '../../../../lib/i18n';
 
 const FX_ICON: Record<string, LucideIcon> = {
   blizzard: Snowflake,
@@ -38,17 +39,17 @@ export function EventOrb({ stormActive, isDay }: { stormActive: boolean; isDay: 
   const event = pending
     ? { kind: 'tablet', label: pending.title, Icon: FX_ICON[pending.fx ?? ''] ?? Tablet }
     : damage >= 100
-      ? { kind: 'blackout', label: 'Emergência: repare a blindagem', Icon: ShieldAlert }
+      ? { kind: 'blackout', label: L('Emergência: repare a blindagem', 'Emergency: repair the shielding'), Icon: ShieldAlert }
       : integrity?.event
         ? {
             kind: 'storm',
             label: {
-              micrometeorite: 'Micrometeoritos',
-              dust_storm: 'Tempestade de poeira',
-              thermal_crack: 'Fratura térmica',
-              discovery: 'Achado geológico',
-              supply_drop: 'Cápsula de mantimentos',
-              cleaning_wind: 'Vento de limpeza',
+              micrometeorite: L('Micrometeoritos', 'Micrometeorites'),
+              dust_storm: L('Tempestade de poeira', 'Dust storm'),
+              thermal_crack: L('Fratura térmica', 'Thermal crack'),
+              discovery: L('Achado geológico', 'Geological find'),
+              supply_drop: L('Cápsula de mantimentos', 'Supply capsule'),
+              cleaning_wind: L('Vento de limpeza', 'Cleaning wind'),
             }[integrity.event.id],
             Icon: ShieldAlert,
           }
@@ -59,16 +60,16 @@ export function EventOrb({ stormActive, isDay }: { stormActive: boolean; isDay: 
               Icon: ShieldAlert,
             }
           : stormActive
-            ? { kind: 'storm', label: 'Tempestade de areia', Icon: Wind }
+            ? { kind: 'storm', label: L('Tempestade de areia', 'Sandstorm'), Icon: Wind }
             : extremeCold
-              ? { kind: 'cold', label: 'Frio extremo', Icon: Snowflake }
+              ? { kind: 'cold', label: L('Frio extremo', 'Extreme cold'), Icon: Snowflake }
               : blackout
-                ? { kind: 'blackout', label: 'Apagão na base', Icon: ZapOff }
+                ? { kind: 'blackout', label: L('Apagão na base', 'Base blackout'), Icon: ZapOff }
                 : clogged
-                  ? { kind: 'filter', label: 'Filtro de ar entupido', Icon: Fan }
+                  ? { kind: 'filter', label: L('Filtro de ar entupido', 'Air filter clogged'), Icon: Fan }
                   : {
                       kind: 'calm',
-                      label: 'Sem eventos ativos',
+                      label: L('Sem eventos ativos', 'No active events'),
                       Icon: isDay ? Sun : Moon,
                     };
   const Icon = event.Icon;

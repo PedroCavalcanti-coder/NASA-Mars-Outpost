@@ -181,3 +181,16 @@
     inset-block-start: 40%;
   }
 }
+.solar-progress {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #0d0b12cc;
+  color: #fff7e2;
+  font-weight: 800;
+  white-space: nowrap;
+}

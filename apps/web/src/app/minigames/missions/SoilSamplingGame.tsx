@@ -4,6 +4,7 @@ import { useSoilCoop } from '../../../game/missions/soilCoop';
 import { usePreviewClose } from '../usePreviewClose';
 import { soilQuality } from './scoring';
 import './missions.css';
+import { L } from '../../../lib/i18n';
 
 const SAMPLES = 6;
 /** em dupla cada jogador colhe a sua metade */
@@ -76,15 +77,15 @@ export default function SoilSamplingGame({
 
   const current = spots[got];
   return (
-    <main className="msn-mg msn-mg--soil" aria-label="Coleta de amostras de solo">
+    <main className="msn-mg msn-mg--soil" aria-label={L('Coleta de amostras de solo', 'Soil sample collection')}>
       <div className="msn-mg__bg" aria-hidden="true" />
       <section className="msn-mg__card">
         <div className="msn-mg__head">
           <div>
-            <h2>{coop ? 'Coleta de solo em dupla' : 'Coleta de solo'}</h2>
+            <h2>{coop ? L('Coleta de solo em dupla', 'Soil collection for two') : L('Coleta de solo', 'Soil collection')}</h2>
             <p>
               {coop
-                ? `Vocês chegaram ao ponto. ${role === 'driver' ? 'Você é o motorista' : 'Você é o passageiro'}: colha as ${total} amostras da sua parte tocando em cada ponto. A nota final é a média dos dois.`
+                ? `Vocês chegaram ao ponto. ${role === 'driver' ? L('Você é o motorista', 'You are the driver') : L('Você é o passageiro', 'You are the passenger')}: colha as ${total} amostras da sua parte tocando em cada ponto. A nota final é a média dos dois.`
                 : `Você chegou ao ponto de coleta. Colha as ${total} amostras tocando em cada ponto marcado.`}
             </p>
           </div>
@@ -93,7 +94,7 @@ export default function SoilSamplingGame({
             type="button"
             className="msn-mg__close"
             onClick={close}
-            aria-label="Cancelar a coleta (o rover volta sem amostras)"
+            aria-label={L('Cancelar a coleta (o rover volta sem amostras)', 'Cancel (the rover returns without samples)')}
           >
             <X size={18} />
           </button>
@@ -105,20 +106,20 @@ export default function SoilSamplingGame({
           aria-valuemin={0}
           aria-valuemax={total}
           aria-valuenow={got}
-          aria-label="Tubo de amostras"
+          aria-label={L('Tubo de amostras', 'Sample tube')}
         >
           <div className="msn-tube__fill" style={{ width: `${(got / total) * 100}%` }} />
         </div>
 
         {done ? (
           <div className="msn-mg__result">
-            <strong>Amostras lacradas!</strong>
+            <strong>{L('Amostras lacradas!', 'Samples sealed!')}</strong>
             <span>
               {coop
                 ? partnerDone
-                  ? 'Seu parceiro também terminou!'
+                  ? L('Seu parceiro também terminou!', 'Your partner finished too!')
                   : `Aguardando seu parceiro terminar… (${Math.max(0, WAIT_PARTNER_S - waited)} s para concluir sem ele)`
-                : 'Volte dirigindo à base com o material.'}
+                : L('Volte dirigindo à base com o material.', 'Drive back to the base with the samples.')}
             </span>
             <button
               type="button"
@@ -131,7 +132,7 @@ export default function SoilSamplingGame({
                 close();
               }}
             >
-              {role === 'passenger' ? 'Concluir' : 'Levar as amostras'}
+              {role === 'passenger' ? 'Concluir' : L('Levar as amostras', 'Take the samples')}
             </button>
           </div>
         ) : (

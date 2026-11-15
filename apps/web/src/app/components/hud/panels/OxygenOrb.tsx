@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, useContext, useId } from 'react';
 import './oxygenOrb.css';
+import { L } from '../../../../lib/i18n';
 
 export interface MarsCycleTime {
   sol: number;
@@ -53,7 +54,7 @@ export function OxygenOrb({
       data-bit-target="day-cycle"
       data-level={state}
       title={title}
-      aria-label="Oxigênio e ciclo do Sol"
+      aria-label={L('Oxigênio e ciclo do Sol', 'Oxygen and sol cycle')}
     >
       <svg viewBox="0 0 260 264" role="img" aria-labelledby={`${id}-title ${id}-desc`}>
         <title id={`${id}-title`}>

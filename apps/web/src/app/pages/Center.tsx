@@ -1,7 +1,8 @@
 import { Compass, Dices, Globe, Rocket, Shield, Users, Zap } from 'lucide-react';
 import { Link } from 'react-router';
-import { BASE_IDS, baseThumbUrl } from '../../lib/bases';
+import { BASE_IDS, type BaseId, baseThumbUrl, requestBase } from '../../lib/bases';
 import '../../styles/publicPages.css';
+import { L, t } from '../../lib/i18n';
 
 const BASE_NAMES: Record<string, { title: string; region: string; desc: string }> = {
   jezero: {
@@ -76,19 +77,19 @@ export default function Center() {
 
         <nav className="public-nav">
           <Link to="/" className="public-nav-link">
-            Início
+            {L('Início', 'Home')}
           </Link>
           <Link to="/centro" className="public-nav-link is-active">
-            Centro
+            {L('Centro', 'Center')}
           </Link>
           <Link to="/suporte" className="public-nav-link">
-            Suporte
+            {L('Suporte', 'Support')}
           </Link>
           <Link to="/sobre" className="public-nav-link">
-            Sobre
+            {L('Sobre', 'About')}
           </Link>
           <Link to="/" className="public-nav-cta">
-            <Rocket size={16} /> Jogar
+            <Rocket size={16} /> {L('Jogar', 'Play')}
           </Link>
         </nav>
       </header>
@@ -97,12 +98,11 @@ export default function Center() {
       <main className="public-main-content">
         <section className="public-hero">
           <span className="public-eyebrow">
-            <Globe size={15} /> CENTRO DE CONTROLE DE MISSÃO
+            <Globe size={15} /> {L('CENTRO DE CONTROLE DE MISSÃO', 'MISSION CONTROL CENTER')}
           </span>
-          <h1>Comando da Expedição Ares</h1>
+          <h1>{L('Comando da Expedição Ares', 'Ares Expedition Command')}</h1>
           <p>
-            Monitore os assentamentos humanos na superfície de Marte, conheça os 8 postos avançados
-            modelados em 3D e prepare sua tripulação para a sobrevivência planetária.
+            {L('Monitore os assentamentos humanos na superfície de Marte, conheça os 8 postos avançados modelados em 3D e prepare sua tripulação para a sobrevivência planetária.', 'Watch the human settlements on the surface of Mars, meet the 8 outposts modeled in 3D and get your crew ready to survive on another planet.')}
           </p>
         </section>
 
@@ -111,33 +111,30 @@ export default function Center() {
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Zap size={22} color="#ffb511" />
-              <h3 style={{ margin: 0, fontSize: 18 }}>Matriz Energética</h3>
+              <h3 style={{ margin: 0, fontSize: 18 }}>{L('Matriz Energética', 'Power Grid')}</h3>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-              Painéis solares fotovoltaicos otimizados e baterias de lítio de alta densidade
-              alimentam os habitats contra as noites frias de até -125 °C.
+              {L('Painéis solares fotovoltaicos otimizados e baterias de lítio de alta densidade alimentam os habitats contra as noites frias de até -125 °C.', 'Optimized solar panels and high-density lithium batteries power the habitats through cold nights down to -125 °C.')}
             </p>
           </div>
 
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Shield size={22} color="#78ace1" />
-              <h3 style={{ margin: 0, fontSize: 18 }}>Suporte de Vida (ECLSS)</h3>
+              <h3 style={{ margin: 0, fontSize: 18 }}>{L('Suporte de Vida (ECLSS)', 'Life Support (ECLSS)')}</h3>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-              Sistemas de eletrólise MOXIE produzem oxigênio a partir do dióxido de carbono
-              atmosférico, enquanto recicladores recuperam 98% da água.
+              {L('Sistemas de eletrólise MOXIE produzem oxigênio a partir do dióxido de carbono atmosférico, enquanto recicladores recuperam 98% da água.', 'MOXIE electrolysis systems make oxygen from atmospheric carbon dioxide, while recyclers recover 98% of the water.')}
             </p>
           </div>
 
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Users size={22} color="#7fd6a0" />
-              <h3 style={{ margin: 0, fontSize: 18 }}>Tripulação e Estufas</h3>
+              <h3 style={{ margin: 0, fontSize: 18 }}>{L('Tripulação e Estufas', 'Crew and Greenhouses')}</h3>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, margin: 0 }}>
-              Estufas hidropônicas pressurizadas cultivam batatas, tomates e alfaces frescas para
-              manter a nutrição e moral dos astronautas em solo marciano.
+              {L('Estufas hidropônicas pressurizadas cultivam batatas, tomates e alfaces frescas para manter a nutrição e moral dos astronautas em solo marciano.', 'Pressurized hydroponic greenhouses grow fresh potatoes, tomatoes and lettuce to keep astronauts fed and in good spirits on Mars.')}
             </p>
           </div>
         </div>
@@ -146,13 +143,13 @@ export default function Center() {
         <section>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <span className="public-eyebrow">
-              <Compass size={14} /> TOPOGRAFIA RECONHECIDA
+              <Compass size={14} /> {L('TOPOGRAFIA RECONHECIDA', 'MAPPED TERRAIN')}
             </span>
             <h2 style={{ fontSize: 32, margin: '4px 0 8px', color: '#fff' }}>
-              As 8 Bases Marcianas em 3D
+              {L('As 8 Bases Marcianas em 3D', 'The 8 Mars Bases in 3D')}
             </h2>
             <p style={{ color: '#c5dcf7', maxWidth: 600, margin: '0 auto' }}>
-              Cada partida sorteia uma das regiões reais mapeadas por sondas e rovers da NASA.
+              {L('Cada partida sorteia uma das regiões reais mapeadas por sondas e rovers da NASA.', 'Each game picks one of the real regions mapped by NASA probes and rovers.')}
             </p>
           </div>
 
@@ -176,7 +173,7 @@ export default function Center() {
                 >
                   <img
                     src={baseThumbUrl(id)}
-                    alt={meta.title}
+                    alt={t(meta.title)}
                     style={{
                       width: '100%',
                       height: 160,
@@ -205,9 +202,9 @@ export default function Center() {
                         marginBottom: 4,
                       }}
                     >
-                      {meta.region}
+                      {t(meta.region)}
                     </span>
-                    <h3 style={{ margin: '0 0 8px', fontSize: 20 }}>{meta.title}</h3>
+                    <h3 style={{ margin: '0 0 8px', fontSize: 20 }}>{t(meta.title)}</h3>
                     <p
                       style={{
                         color: '#c5dcf7',
@@ -217,17 +214,11 @@ export default function Center() {
                         margin: '0 0 16px',
                       }}
                     >
-                      {meta.desc}
+                      {t(meta.desc)}
                     </p>
                     <Link
                       to="/"
-                      onClick={() => {
-                        try {
-                          sessionStorage.setItem('mo_base', id);
-                        } catch {
-                          /* sem armazenamento */
-                        }
-                      }}
+                      onClick={() => requestBase(id as BaseId)}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -244,7 +235,7 @@ export default function Center() {
                         transition: 'all 0.2s',
                       }}
                     >
-                      Explorar Esta Base
+                      {L('Explorar Esta Base', 'Explore This Base')}
                     </Link>
                   </div>
                 </div>
@@ -258,11 +249,11 @@ export default function Center() {
       <footer className="public-footer">
         <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
-          <Link to="/">Início</Link>
-          <Link to="/centro">Centro</Link>
-          <Link to="/suporte">Suporte</Link>
-          <Link to="/sobre">Sobre</Link>
-          <Link to="/">Jogar</Link>
+          <Link to="/">{L('Início', 'Home')}</Link>
+          <Link to="/centro">{L('Centro', 'Center')}</Link>
+          <Link to="/suporte">{L('Suporte', 'Support')}</Link>
+          <Link to="/sobre">{L('Sobre', 'About')}</Link>
+          <Link to="/">{L('Jogar', 'Play')}</Link>
         </div>
       </footer>
     </div>

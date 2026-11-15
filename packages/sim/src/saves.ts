@@ -61,6 +61,14 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
   mission.eventCredits={...state.integrity.credits};
   mission.resources.armor.value=armorValue(state.integrity);
   state.wind=state.integrity.wind;
+  // dose de radiação da tripulação (mSv)
+  state.dose=number(object(source).dose,0,0,100000);
+  state.doseAlert=Math.floor(state.dose/25);
+  // crítico do dia: só vale no mesmo Sol e com números válidos
+  const cr=object(object(source).critical);
+  state.critical=(cr.kind==='breach'||cr.kind==='ducts') && cr.sol===sol
+    ? {kind:cr.kind,sol,at:number(cr.at,0,0,1e12),active:cr.active===true,deadline:number(cr.deadline,0,0,1e12),overdue:cr.overdue===true}
+    : null;
   state.solar=Array.isArray(source.solar) ? list(source.solar,defaults.solar.length||32,4) : defaults.solar;
   while(state.solar.length<defaults.solar.length) state.solar.push(0);
   state.crops=Array.isArray(source.crops) && source.crops.length ? list(source.crops,defaults.crops.length||64,3,true) : [...defaults.crops];

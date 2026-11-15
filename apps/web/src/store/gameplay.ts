@@ -28,5 +28,5 @@ export function projectGameplay(state:GameplayState,selfId:string,entries=state.
   const visible=state.event && !store.dismissed.includes(state.event.eid) ? state.event : null;
   const queue=[...(visible?[visible]:[]),...state.eventQueue.filter(q=>q.eid!==visible?.eid)].map(q=>GAME_EVENTS.find(d=>d.id===q.id)).filter((d):d is NonNullable<typeof d>=>!!d);
   const event=visible;
-  useGameEvents.setState({queue,session:event?{eid:event.eid,mode:event.mode,selfId,deciderId:event.deciderId,deciderName:event.voters.find(p=>p.id===event.deciderId)?.name??'',voters:event.voters,votes:event.votes,deadline:Date.now()+event.remainingMs,result:event.result}:null});
+  useGameEvents.setState({queue,session:event?{eid:event.eid,mode:event.mode,selfId,deciderId:event.deciderId,deciderName:event.voters.find(p=>p.id===event.deciderId)?.name??'',voters:event.voters,votes:event.votes,deadline:Date.now()+event.remainingMs,result:event.result,flare:event.flare}:null});
 }

@@ -198,3 +198,18 @@
   content: " !";
   color: #ff9d85;
 }
+
+/* dose de radiação da tripulação */
+.hud-resource-gauge--dose {
+  --gauge-color: #b6e86a;
+}
+.hud-resource-gauge--dose[data-level="warning"] {
+  --gauge-color: #f4cc70;
+}
+.hud-resource-gauge--dose[data-level="critical"] {
+  --gauge-color: #f28670;
+}
+.hud-resource-gauge--dose .hud-resource-gauge__value {
+  font-size: 13px;
+  white-space: nowrap;
+}

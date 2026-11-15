@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import { useSolarCleaning } from './useSolarCleaning';
+import { L } from '../../../lib/i18n';
 
 const PARTICLES = Array.from({ length: 24 }, (_, id) => ({
   id: `dust-${id}`,
@@ -24,14 +25,12 @@ export function SolarPanelIllustration({ onComplete }: { onComplete: () => void 
       aria-roledescription="minigame de limpeza"
       aria-labelledby={`${id}-title ${id}-desc`}
     >
-      <title id={`${id}-title`}>Painel solar com poeira marciana e uma escova</title>
+      <title id={`${id}-title`}>{L('Painel solar com poeira marciana e uma escova', 'Solar panel with Mars dust and a brush')}</title>
       <desc id={`${id}-desc`}>
-        Células azuis brilham à esquerda de um painel inclinado. Poeira alaranjada cobre o restante
-        da superfície. Uma escova de cerdas claras repousa sobre a borda.
+        {L('Células azuis brilham à esquerda de um painel inclinado. Poeira alaranjada cobre o restante da superfície. Uma escova de cerdas claras repousa sobre a borda.', 'Blue cells shine on the left of a tilted panel. Orange dust covers the rest. A light-bristled brush rests on the edge.')}
       </desc>
       <desc id={`${id}-instructions`}>
-        Segure o botão do mouse ou arraste o dedo para limpar com a escova. No teclado, mova a
-        escova com as setas e segure Espaço para limpar.
+        {L('Segure o botão do mouse ou arraste o dedo para limpar com a escova. No teclado, mova a escova com as setas e segure Espaço para limpar.', 'Hold the mouse button or drag your finger to clean with the brush. On the keyboard, move the brush with the arrows and hold Space to clean.')}
       </desc>
       <defs>
         <linearGradient id={`${id}-cell`} x2="0.7" y2="1">

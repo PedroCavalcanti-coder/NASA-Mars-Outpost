@@ -4,11 +4,12 @@ import type { ReactNode } from 'react';
 import { useBaseOps } from '../../../game/tasks/store';
 import { useMission } from '../../../store/mission';
 import { DeltaChip } from './DeltaChip';
+import { L } from '../../../lib/i18n';
 
 const RESOURCES: { id: ResourceId; name: string; icon: ReactNode }[] = [
-  { id: 'energy', name: 'Bateria', icon: <Zap size={16} /> },
-  { id: 'supplies', name: 'Mantimentos', icon: <Wheat size={16} /> },
-  { id: 'armor', name: 'Blindagem', icon: <Shield size={16} /> },
+  { id: 'energy', name: L('Bateria', 'Battery'), icon: <Zap size={16} /> },
+  { id: 'supplies', name: L('Mantimentos', 'Supplies'), icon: <Wheat size={16} /> },
+  { id: 'armor', name: L('Blindagem', 'Shielding'), icon: <Shield size={16} /> },
 ];
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
@@ -62,7 +63,7 @@ export function ResourceHud() {
 
       <div className="mission-morale">
         <HeartPulse size={14} aria-hidden="true" />
-        <span>Moral</span>
+        <span>{L('Moral', 'Morale')}</span>
         <strong className={s.morale < 30 ? 'is-low' : ''}>{s.morale}%</strong>
         {delta('morale')}
         <span className="mission-morale__solar">
@@ -74,7 +75,7 @@ export function ResourceHud() {
         <div className="mission-crisis" role="alert">
           {active.map((c) => (
             <span key={c}>
-              {c === 'blackout' ? 'APAGÃO' : c === 'famine' ? 'FOME' : 'EMERGÊNCIA ESTRUTURAL'}
+              {c === 'blackout' ? L('APAGÃO', 'BLACKOUT') : c === 'famine' ? 'FOME' : L('EMERGÊNCIA ESTRUTURAL', 'STRUCTURAL EMERGENCY')}
             </span>
           ))}
         </div>

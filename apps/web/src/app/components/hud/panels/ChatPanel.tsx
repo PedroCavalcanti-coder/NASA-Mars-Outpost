@@ -9,6 +9,7 @@ import { DUO_GESTURE_IDS, DUO_GESTURES, EMOTE_ANIMATIONS, GAME_EMOTES } from '@m
 import { MessageSquare, Smile } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useHudContext } from '../HudContext';
+import { L } from '../../../../lib/i18n';
 
 export function ChatPanel() {
   const { chat, onSendEmote, viewer } = useHudContext();
@@ -34,11 +35,11 @@ export function ChatPanel() {
     <div className="hud-panel-content hud-panel-chat">
       <div className="hud-panel-intro">
         <Smile size={18} className="hud-panel-intro-icon" />
-        <p>Envie reações expressivas e veja as mensagens recentes transmitidas pela tripulação.</p>
+        <p>{L('Envie reações expressivas e veja as mensagens recentes transmitidas pela tripulação.', 'Send quick reactions and see the crew\'s recent messages.')}</p>
       </div>
 
       <div className="hud-chat-section">
-        <h4 className="hud-chat-heading">Enviar Reação Rápida</h4>
+        <h4 className="hud-chat-heading">{L('Enviar Reação Rápida', 'Send a Quick Reaction')}</h4>
         <div className="hud-emote-grid">
           {GAME_EMOTES.map((emoji, index) => (
             <button
@@ -57,7 +58,7 @@ export function ChatPanel() {
 
       {duoAvailable && (
         <div className="hud-chat-section">
-          <h4 className="hud-chat-heading">Gestos em Dupla</h4>
+          <h4 className="hud-chat-heading">{L('Gestos em Dupla', 'Two-Person Gestures')}</h4>
           {chosen ? (
             <>
               {nearby.length > 1 && (
@@ -65,7 +66,7 @@ export function ChatPanel() {
                   className="hud-duo-target"
                   value={chosen.id}
                   onChange={(e) => setTarget(e.target.value)}
-                  aria-label="Astronauta convidado"
+                  aria-label={L('Astronauta convidado', 'Invited astronaut')}
                 >
                   {nearby.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -91,7 +92,7 @@ export function ChatPanel() {
             </>
           ) : (
             <div className="hud-chat-empty">
-              Chegue perto de outro astronauta (a pé) para convidar para um gesto.
+              {L('Chegue perto de outro astronauta (a pé) para convidar para um gesto.', 'Walk close to another astronaut to invite them to a gesture.')}
             </div>
           )}
         </div>
@@ -100,15 +101,15 @@ export function ChatPanel() {
       <div className="hud-chat-section">
         <div className="hud-chat-header">
           <MessageSquare size={14} />
-          <h4>Transmissões Recentes</h4>
+          <h4>{L('Transmissões Recentes', 'Recent Messages')}</h4>
         </div>
 
         {chat.length === 0 ? (
           <div className="hud-chat-empty">
-            Nenhuma mensagem recente. Clique em um emoji acima para transmitir!
+            {L('Nenhuma mensagem recente. Clique em um emoji acima para transmitir!', 'No recent messages. Click an emoji above to send one!')}
           </div>
         ) : (
-          <ul className="hud-chat-list" aria-label="Lista de mensagens">
+          <ul className="hud-chat-list" aria-label={L('Lista de mensagens', 'Message list')}>
             {chat.map((msg) => (
               <li
                 key={msg.id}

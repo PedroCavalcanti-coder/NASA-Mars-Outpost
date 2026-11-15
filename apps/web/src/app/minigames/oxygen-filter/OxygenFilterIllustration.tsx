@@ -1,4 +1,5 @@
 import { type KeyboardEvent, type PointerEvent, useId } from 'react';
+import { L } from '../../../lib/i18n';
 
 export const OXYGEN_DEBRIS = [
   { x: 90, y: 74, size: 29, angle: -18 },
@@ -59,11 +60,9 @@ export function OxygenFilterIllustration({
       viewBox="0 0 460 360"
       aria-labelledby={`${id}-title ${id}-desc`}
     >
-      <title id={`${id}-title`}>Filtro de oxigênio parcialmente obstruído</title>
+      <title id={`${id}-title`}>{L('Filtro de oxigênio parcialmente obstruído', 'Partly clogged oxygen filter')}</title>
       <desc id={`${id}-desc`}>
-        Filtro de dobras claras com partes limpas visíveis, coberto por poeira alaranjada,
-        fragmentos de rocha. Arraste os detritos até o descarte. No teclado, selecione um detrito
-        com Enter e ative o descarte.
+        {L('Filtro de dobras claras com partes limpas visíveis, coberto por poeira alaranjada, fragmentos de rocha. Arraste os detritos até o descarte. No teclado, selecione um detrito com Enter e ative o descarte.', 'A pleated filter with some clean parts, covered in orange dust and rock fragments. Drag the debris to the disposal bin. On the keyboard, select a piece with Enter and activate the bin.')}
       </desc>
       <defs>
         <linearGradient id={`${id}-pleat`}>

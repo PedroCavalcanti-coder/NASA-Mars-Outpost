@@ -8,14 +8,19 @@ import {
   CheckCircle2,
   Circle,
   Drill,
+  Droplets,
+  Fan,
   FlaskConical,
   Footprints,
   Leaf,
   MapPin,
   Navigation,
   Radio,
+  Sprout,
   Stethoscope,
+  Sun,
   Truck,
+  Wind,
   Zap,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -34,6 +39,7 @@ import {
 import { useMissionBoard } from '../../../../game/missions/store';
 import { useMission } from '../../../../store/mission';
 import { useHudContext } from '../HudContext';
+import { L, t } from '../../../../lib/i18n';
 
 const SITE_ICON: Record<MissionSite, ReactNode> = {
   rover: <Truck size={16} />,
@@ -44,6 +50,11 @@ const SITE_ICON: Record<MissionSite, ReactNode> = {
   comms: <Radio size={16} />,
   power: <Zap size={16} />,
   medical: <Stethoscope size={16} />,
+  moxie: <Wind size={16} />,
+  water: <Droplets size={16} />,
+  filter: <Fan size={16} />,
+  garden: <Sprout size={16} />,
+  solar: <Sun size={16} />,
 };
 
 function MissionRow({ id }: { id: MissionId }) {
@@ -67,8 +78,13 @@ function MissionRow({ id }: { id: MissionId }) {
   const where = site ? describeDirection(board.player.x, board.player.z, site.x, site.z) : null;
   const angle = site ? bearingTo(board.player.x, board.player.z, site.x, site.z) : 0;
   const canGo = !done && !soilBusy && (delivering || !block);
+  // só as missões de pesquisa dão pontos; as de manutenção devolvem recursos à base
   const reward =
-    id === 'soil_robot' ? `+${soilReward(0)} a ${soilReward(1)} (×3 em dupla)` : `+${def.research}`;
+    id === 'soil_robot'
+      ? `🔬 +${soilReward(0)} a ${soilReward(1)}`
+      : def.research > 0
+        ? `🔬 +${def.research}`
+        : `+${costText(def.reward ?? {})}`;
 
   return (
     <li className={`hud-task hud-mission ${done ? 'is-done' : ''} ${block ? 'is-blocked' : ''}`}>
@@ -80,21 +96,21 @@ function MissionRow({ id }: { id: MissionId }) {
       </span>
       <span className="hud-task__text">
         <span className="hud-task__title">
-          {def.title}
+          {t(def.title)}
           <span className="sr-only">{done ? ' (concluída)' : ' (pendente)'}</span>
         </span>
         <span className="hud-task__detail">
           {delivering
             ? `Leve as ${board.carrying} amostras de solo a um computador da base (laboratório).`
             : soilBusy
-              ? 'Coleta em andamento…'
-              : def.summary}
+              ? L('Coleta em andamento…', 'Run in progress…')
+              : t(def.summary)}
         </span>
         {site && !done && (
           <span className="hud-mission__where">
             <MapPin size={12} aria-hidden="true" />
             <span>
-              {delivering && board.sites.lab ? board.sites.lab.label : site.label}
+              {t(delivering && board.sites.lab ? board.sites.lab.label : site.label)}
               {where ? ` · ${where.text}` : ''}
             </span>
             {where && where.meters >= 3 && (
@@ -107,15 +123,18 @@ function MissionRow({ id }: { id: MissionId }) {
           </span>
         )}
         <span className="hud-mission__chips">
-          <span className="hud-chip" title="Custo em recursos da base">
+          <span className="hud-chip" title={L('Custo em recursos da base', 'Cost in base resources')}>
             Custo {costText(def.cost)}
           </span>
-          <span className="hud-chip hud-chip--good" title="Pontos de pesquisa">
-            🔬 {reward}
+          <span
+            className="hud-chip hud-chip--good"
+            title={def.research > 0 ? L('Pontos de pesquisa', 'Research points') : L('Recursos que a missão devolve à base', 'Resources the mission gives back to the base')}
+          >
+            {reward}
           </span>
           {def.daytimeOnly && (
-            <span className="hud-chip" title="Não pode ser feita à noite">
-              ☀️ só de dia
+            <span className="hud-chip" title={L('Não pode ser feita à noite', 'Cannot be done at night')}>
+              {L('☀️ só de dia', '☀️ daytime only')}
             </span>
           )}
         </span>
@@ -131,12 +150,12 @@ function MissionRow({ id }: { id: MissionId }) {
             block && !delivering
               ? block
               : id === 'soil_robot'
-                ? 'O astronauta vai ao rover e entra; dirija até o ponto marcado'
-                : 'O astronauta vai até lá e a missão começa ao chegar'
+                ? L('O astronauta vai ao rover e entra; dirija até o ponto marcado', 'The astronaut walks to the rover and gets in; drive to the yellow square')
+                : L('O astronauta vai até lá e a missão começa ao chegar', 'The astronaut walks there and the mission starts on arrival')
           }
         >
           <Footprints size={14} />
-          <span>{delivering ? 'Entregar' : 'Ir'}</span>
+          <span>{delivering ? L('Entregar', 'Deliver') : 'Ir'}</span>
         </button>
       )}
     </li>
@@ -154,7 +173,7 @@ export function MissionsSection() {
   return (
     <>
       <h4 className="hud-tasks__heading">
-        <span>Missões de pesquisa</span>
+        <span>{L('Missões de pesquisa', 'Research missions')}</span>
         <span className={doneCount === ids.length ? 'is-ok' : ''}>
           {doneCount}/{ids.length}
         </span>
@@ -172,10 +191,10 @@ export function MissionsSection() {
               <Leaf size={16} />
             </span>
             <span className="hud-task__text">
-              <span className="hud-task__title">Horta em dia</span>
+              <span className="hud-task__title">{L('Horta em dia', 'Garden up to date')}</span>
               <span className="hud-task__detail">
                 Cuide de todos os canteiros plantados no mesmo Sol e a estufa devolve{' '}
-                {GARDEN_OXYGEN_BONUS} de oxigênio à base. Cada cuidado gasta 1 🍞.
+                {GARDEN_OXYGEN_BONUS} de oxigênio à base. Cada cuidado gasta 1 🌾 de mantimento.
               </span>
               <span className="hud-mission__chips">
                 <span className={`hud-chip ${gardenDone ? 'hud-chip--good' : ''}`}>
@@ -192,7 +211,7 @@ export function MissionsSection() {
           checked={beacons}
           onChange={(e) => viewer?.setMissionBeacons(e.target.checked)}
         />
-        <span>Mostrar marcadores das missões na base</span>
+        <span>{L('Mostrar marcadores das missões na base', 'Show mission markers on the base')}</span>
       </label>
     </>
   );

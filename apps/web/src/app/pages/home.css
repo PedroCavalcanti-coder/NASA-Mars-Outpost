@@ -198,6 +198,7 @@
   font:
     600 15px "Barlow",
     sans-serif;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   transition:
@@ -845,6 +846,44 @@
   cursor: pointer;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   transition: all 0.2s;
+}
+.launch-skip-button[data-cta="true"] {
+  padding: 16px 34px;
+  border-color: #ffb27a;
+  background: linear-gradient(135deg, #ff7a3d, #d9431c);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow:
+    0 0 0 4px rgba(255, 122, 61, 0.25),
+    0 10px 30px rgba(217, 67, 28, 0.55);
+  animation: launch-cta-pulse 1.8s ease-in-out infinite;
+}
+.launch-skip-button[data-cta="true"]:hover {
+  background: linear-gradient(135deg, #ff8f55, #e8522a);
+  border-color: #ffd2b0;
+}
+@keyframes launch-cta-pulse {
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(255, 122, 61, 0),
+      0 12px 36px rgba(217, 67, 28, 0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .launch-skip-button[data-cta="true"] {
+    animation: none;
+  }
+}
+/* Durante a viagem só ficam logos, textos e o botão de pular: os links somem */
+.is-launching .launch-nav,
+.is-launching .launch-footer-nav {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.is-launching .launch-brand {
+  pointer-events: none;
 }
 .launch-skip-button:hover {
   background: rgba(35, 70, 140, 0.9);

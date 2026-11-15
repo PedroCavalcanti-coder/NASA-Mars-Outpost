@@ -1,5 +1,6 @@
 import { type ReactNode, useId, useSyncExternalStore } from 'react';
 import type { RepairAction, RepairState } from './repairState';
+import { L } from '../../../lib/i18n';
 
 const portraitQuery = '(max-aspect-ratio: 4/5)';
 const subscribe = (notify: () => void) => {
@@ -189,7 +190,7 @@ export function RoverRepairIllustration({
           </g>
         ))}
         <Part
-          label={removed ? 'Encaixar cubo novo' : 'Retirar cubo danificado'}
+          label={removed ? L('Encaixar cubo novo', 'Fit the new hub') : L('Retirar cubo danificado', 'Remove the damaged hub')}
           enabled={state.phase === 'remove' || state.phase === 'install'}
           onActivate={() => dispatch({ type: 'hub' })}
         >

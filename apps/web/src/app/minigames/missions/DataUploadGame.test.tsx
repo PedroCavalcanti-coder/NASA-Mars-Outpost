@@ -22,6 +22,7 @@ describe('envio de dados à Terra', () => {
     });
   const button = (text: string) =>
     [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(text));
+  const science = ['ChemCam', 'poeira', 'MOXIE'];
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -35,32 +36,24 @@ describe('envio de dados à Terra', () => {
     vi.useRealTimers();
   });
 
-  it('manda os 6 arquivos de pesquisa um a um e só então libera "Concluir envio"', () => {
+  it('escolhe os 3 cartões de ciência, envia e só então libera "Concluir envio"', () => {
     const onComplete = vi.fn();
     act(() => root.render(<DataUploadGame onComplete={onComplete} />));
-
-    for (const folder of ['/pesquisa/amostras', '/pesquisa/atmosfera']) {
-      click(button(folder));
-      for (const file of [...container.querySelectorAll('.msn-up__file')]) {
-        const label = file.textContent ?? '';
-        if (/tmp|bak/.test(label)) continue;
-        click(file);
-        act(() => {
-          vi.advanceTimersByTime(5500);
-        });
-      }
-    }
-    expect(container.querySelectorAll('.msn-up__received li').length).toBe(6);
+    expect((button('Enviar') as HTMLButtonElement).disabled).toBe(true);
+    for (const name of science) click(button(name));
+    click(button('Enviar'));
+    expect(button('Concluir envio')).toBeUndefined();
+    act(() => {
+      vi.advanceTimersByTime(4500);
+    });
     click(button('Concluir envio'));
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
-  it('arquivo que não é de pesquisa trava o enlace e não conta', () => {
+  it('cartão que não é ciência só mostra uma dica e não conta', () => {
     act(() => root.render(<DataUploadGame />));
-    click(button('/sistema'));
-    click(container.querySelector('.msn-up__file'));
-    expect(container.querySelector('.msn-up__error')).not.toBeNull();
-    expect(container.querySelectorAll('.msn-up__received .is-live').length).toBe(0);
-    expect(button('Concluir envio')).toBeUndefined();
+    click(button('Jogo do computador'));
+    expect(container.querySelector('.msn-up__error')?.textContent).toContain('não é pesquisa');
+    expect((button('Enviar') as HTMLButtonElement).disabled).toBe(true);
   });
 });

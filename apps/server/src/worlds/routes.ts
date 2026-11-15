@@ -1,15 +1,20 @@
 import { GAME_ROOM_CODE_RE, NICKNAME_MAX, NICKNAME_MIN } from '@mars/shared';
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
-import { isNicknameTaken } from '../realtime/game';
+import { isNicknameTaken, roomBase } from '../realtime/game';
 import {
+  ensurePlayer,
+  forgetPlayer,
+  linkSuit,
   listRecent,
   newPlayerKey,
-  ownerFromCookies,
   PLAYER_KEY_COOKIE,
   parseCookies,
+  playerFromCookies,
   purgeExpired,
   unlink,
+  worldBase,
+  validPlayerKey,
 } from './service';
 
 const cookieOpts = {
@@ -22,32 +27,32 @@ const cookieOpts = {
 } as const;
 
 export async function worldRoutes(app: FastifyInstance) {
-  /** O visitante aceitou o cookie: nasce a chave que o liga aos mundos salvos. */
+  /** O visitante aceitou o cookie: nasce o jogador temporário e a chave que o liga aos mundos. */
   app.post('/api/worlds/consent', async (req, reply) => {
     const existing = parseCookies(req.headers.cookie)[PLAYER_KEY_COOKIE];
-    if (!existing || !/^[a-f0-9]{48}$/.test(existing)) {
-      reply.setCookie(PLAYER_KEY_COOKIE, newPlayerKey(), cookieOpts);
-    } else {
-      reply.setCookie(PLAYER_KEY_COOKIE, existing, cookieOpts); // renova a validade
-    }
+    const key = validPlayerKey(existing) ? existing : newPlayerKey();
+    await ensurePlayer(key); // cria ou renova a validade
+    reply.setCookie(PLAYER_KEY_COOKIE, key, cookieOpts);
     return { ok: true };
   });
 
-  /** O visitante recusou/revogou: apaga a chave (os mundos dele deixam de ter dono). */
-  app.delete('/api/worlds/consent', async (_req, reply) => {
+  /** O visitante recusou/revogou: o jogador e os vínculos dele são apagados (mundo sem ninguém some). */
+  app.delete('/api/worlds/consent', async (req, reply) => {
+    const owner = await playerFromCookies(req.headers.cookie).catch(() => null);
+    if (owner) await forgetPlayer(owner);
     reply.clearCookie(PLAYER_KEY_COOKIE, { ...cookieOpts, maxAge: undefined });
     return { ok: true };
   });
 
   app.get('/api/worlds/recent', async (req) => {
-    const owner = await ownerFromCookies(req.headers.cookie);
+    const owner = await playerFromCookies(req.headers.cookie);
     if (!owner) return { canSave: false, worlds: [] };
     void purgeExpired().catch(() => {});
     return { canSave: true, worlds: await listRecent(owner) };
   });
 
   app.delete<{ Params: { code: string } }>('/api/worlds/:code', async (req, reply) => {
-    const owner = await ownerFromCookies(req.headers.cookie);
+    const owner = await playerFromCookies(req.headers.cookie);
     const code = req.params.code.toUpperCase();
     if (!owner || !GAME_ROOM_CODE_RE.test(code))
       return reply.code(404).send({ error: 'Não encontrado' });
@@ -59,6 +64,7 @@ export async function worldRoutes(app: FastifyInstance) {
   app.post<{ Body: { code?: string; name?: string } }>(
     '/api/worlds/check-nickname',
     async (req) => {
+      const owner = await playerFromCookies(req.headers.cookie).catch(() => null);
       const code = String(req.body?.code ?? '')
         .trim()
         .toUpperCase();
@@ -76,7 +82,12 @@ export async function worldRoutes(app: FastifyInstance) {
           error: 'Já há um astronauta com esse apelido neste mundo. Escolha outro.',
         };
       }
-      return { ok: true };
+      // Quem entra só pelo código recebe a base real do mundo e, se já jogou nele, o traje que escolheu.
+      const baseId = roomBase(code) ?? (await worldBase(code).catch(() => null)) ?? undefined;
+      if (!baseId)
+        return { ok: false, error: 'Sala não encontrada. Confira o código ou peça um novo convite.' };
+      const suit = owner ? await linkSuit(owner, code).catch(() => null) : null;
+      return { ok: true, baseId, hasSuit: Boolean(suit) };
     },
   );
 }

@@ -273,8 +273,10 @@ export class GameClock {
     if (this.paused !== paused) {
       this.paused = paused;
       this.notify();
-      this.room?.sendTime(this.paused, this.scale);
     }
+    // sempre avisa o servidor: o estado local pode ter sido sobrescrito por uma atualização da sala
+    // entre pausar e despausar, e sem este envio a sala ficava pausada para sempre (jogo travado)
+    this.room?.sendTime(this.paused, this.scale);
     return true;
   }
 

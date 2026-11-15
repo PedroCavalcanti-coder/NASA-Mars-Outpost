@@ -1,5 +1,6 @@
-import OfficialActivity from '../minigames/OfficialActivity';
-import { DUO_GESTURES, type DuoGestureId, WORLD_AUTOSAVE_MS } from '@mars/shared';
+import ServerMinigame from '../minigames/ServerMinigame';
+import { newRoomCode } from '../../lib/roomCode';
+import { DUO_GESTURES, type DuoGestureId, WORLD_VISIBLE_AUTOSAVE_MS } from '@mars/shared';
 import { ensureShielding, migrateMission } from '@mars/sim';
 import { TriangleAlert } from 'lucide-react';
 import {
@@ -21,7 +22,6 @@ import type {
   MinigameResult,
   BaseViewer as Viewer,
 } from '../../game/BaseViewer';
-import { registerDevAction } from '../../game/dev/devActions';
 import { type EventOutcome, GAME_EVENTS, type GameEventDef } from '../../game/events/events';
 import {
   onRemoteResult,
@@ -31,7 +31,7 @@ import {
 } from '../../game/events/flow';
 import { useGameEvents } from '../../game/events/store';
 import { emitGuideEvent } from '../../game/guide/events';
-import { LORE } from '../../game/lore/lore';
+import { LORE, type LoreId } from '../../game/lore/lore';
 import { useLore } from '../../game/lore/store';
 import { MISSIONS, type MissionId } from '../../game/missions/rules';
 import {
@@ -46,6 +46,7 @@ import {
   type BaseInfo,
   loadBaseInfo,
   pickRandomBase,
+  requestBase,
 } from '../../lib/bases';
 import { copyText } from '../../lib/clipboard';
 import {
@@ -56,7 +57,6 @@ import {
 } from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
-import { useAuth } from '../../store/auth';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { BitGuide } from '../components/bit/BitGuide';
@@ -65,6 +65,9 @@ import { MissionVeil } from '../components/hud/MissionVeil';
 import { TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
 import { EventFx } from '../components/mission/EventFx';
 import { EventTablet } from '../components/mission/EventTablet';
+import { CriticalAlert } from '../components/mission/CriticalAlert';
+import { IncidentCard } from '../components/mission/IncidentCard';
+import { SolReport } from '../components/mission/SolReport';
 import { LoreCard } from '../components/mission/LoreCard';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
@@ -72,15 +75,11 @@ import RepairMinigame from '../minigames/RepairMinigame';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
 import { Spinner } from '../../ui/Empty';
+// por último: o layout de celular deitado vence as regras de largura da HUD e do B.I.T.
+import '../components/hud/shortLandscape.css';
+import { L } from '../../lib/i18n';
 
 // Minigames das tarefas do Sol: carregados só quando abertos
-const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/SolarCleaningPreview'));
-const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/OxygenFilterPreview'));
-const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
-const DrillingMinigame = lazy(() => import('../minigames/drilling/DrillingMinigame'));
-const StationConsoleGame = lazy(() => import('../minigames/missions/StationConsoleGame'));
-const DataUploadGame = lazy(() => import('../minigames/missions/DataUploadGame'));
-const SoilSamplingGame = lazy(() => import('../minigames/missions/SoilSamplingGame'));
 
 /**
  * Jogo (base marciana):
@@ -93,13 +92,11 @@ const SoilSamplingGame = lazy(() => import('../minigames/missions/SoilSamplingGa
  */
 export default function Game() {
   useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
-  const authReady = useAuth((s) => s.ready);
   const session = peekExpedition();
   if (session?.entered && session.ready) return <ReadyGame />;
   // sem partida em andamento (digitou /jogar na barra de endereço): volta ao início, onde se
   // escolhe o traje e se faz a viagem; recarregar DENTRO do jogo continua a mesma partida
   if (!getPlaySession() && !session?.entered) return <RedirectHome />;
-  if (!authReady) return <Spinner />;
   return <ResumeGame />;
 }
 
@@ -111,22 +108,42 @@ function RedirectHome() {
   const [params] = useSearchParams();
   const sala = params.get('sala')?.trim();
   const base = params.get('base');
-  if (base && BASE_IDS.includes(base as BaseId)) {
-    try {
-      sessionStorage.setItem('mo_base', base);
-    } catch {
-      /* navegação privada: usa a base sorteada */
-    }
-  }
+  if (base && BASE_IDS.includes(base as BaseId)) requestBase(base as BaseId);
   return <Navigate to={sala ? `/?sala=${encodeURIComponent(sala)}` : '/'} replace />;
 }
 
-/** Código de sala de 4 caracteres (sem o nome da base). */
-function newRoomCode() {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  const bytes = crypto.getRandomValues(new Uint32Array(4));
-  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+/** Curiosidade ligada ao equipamento de cada minigame (aparece no primeiro uso). */
+function loreForMinigame(req: MinigameRequest): LoreId | null {
+  switch (req.kind) {
+    case 'solar':
+      return 'solar';
+    case 'oxygen':
+      return 'oxygen';
+    case 'greenhouse':
+      return 'garden';
+    case 'drill':
+      return 'drill';
+    case 'soil':
+      return 'rover';
+    case 'moxie':
+      return 'oxygen';
+    case 'water':
+      return 'water';
+    case 'upload':
+      return 'antenna';
+    case 'station': {
+      const site = MISSIONS[req.mission]?.site;
+      if (site === 'lab') return 'lab';
+      if (site === 'comms') return 'antenna';
+      if (site === 'power') return 'power';
+      if (site === 'medical') return 'medical';
+      return null;
+    }
+    default:
+      return null;
+  }
 }
+
 
 /** Recarregou a página no meio do jogo: reabre a mesma base e a mesma sala, sem o pouso. */
 function ResumeGame() {
@@ -152,7 +169,7 @@ function ResumeGame() {
         {error ? (
           <>
             <TriangleAlert size={28} />
-            <h2 className="game__loading-title">Não foi possível retomar</h2>
+            <h2 className="game__loading-title">{L('Não foi possível retomar', 'Could not resume')}</h2>
             <p>{error}</p>
             <button
               type="button"
@@ -162,13 +179,13 @@ function ResumeGame() {
                 nav('/', { replace: true });
               }}
             >
-              Voltar ao início
+              {L('Voltar ao início', 'Back to start')}
             </button>
           </>
         ) : (
           <>
-            <span className="game__loading-kicker">RETOMANDO A MISSÃO</span>
-            <h2 className="game__loading-title">Voltando para a sua base…</h2>
+            <span className="game__loading-kicker">{L('RETOMANDO A MISSÃO', 'RESUMING THE MISSION')}</span>
+            <h2 className="game__loading-title">{L('Voltando para a sua base…', 'Heading back to your base…')}</h2>
           </>
         )}
       </div>
@@ -177,9 +194,7 @@ function ResumeGame() {
 }
 
 function ReadyGame() {
-  const user = useAuth((s) => s.user);
-  const guestName = getGuestName();
-  const name = user?.name ?? guestName;
+  const name = getGuestName();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -212,7 +227,13 @@ function ReadyGame() {
     return peekExpedition()?.id ?? resumed ?? pickRandomBase();
   });
 
-  const [roomCode] = useState(() => {
+  // Quem só tem o código (convite) nunca cria a sala; quem a abriu ou já estava nela pode recriá-la.
+  const [createRoom] = useState(
+    () => !queryRoom || getPlaySession()?.room === queryRoom.toUpperCase(),
+  );
+  // Código sorteado aqui (ou no "Mundo novo"): o servidor confirma que não é de outro mundo.
+  const [freshRoom] = useState(() => !queryRoom && (!getPlaySession() || !!getPlaySession()?.fresh));
+  const [roomCode, setRoomCode] = useState(() => {
     if (queryRoom) return queryRoom.toUpperCase();
     // recarregou a página: continua na mesma sala (o mesmo mundo e o mesmo save)
     const resumedRoom = getPlaySession()?.room;
@@ -226,12 +247,18 @@ function ReadyGame() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
+  /** minigame esperando o jogador fechar a curiosidade do equipamento */
+  const [pendingMinigame, setPendingMinigame] = useState<MinigameRequest | null>(null);
+  const loreOpen = useLore((s) => s.queue.length > 0);
+  useEffect(() => {
+    if (loreOpen || !pendingMinigame) return;
+    setMinigame(pendingMinigame);
+    setPendingMinigame(null);
+  }, [loreOpen, pendingMinigame]);
   const uploadDone = useRef(false);
   const closeMinigame = useCallback(() => {
-    // fechar a coleta de solo sem terminar faz o rover voltar sem amostras
+    // fechar no meio só libera a tarefa no servidor (o ServerMinigame cancela a tentativa)
     if (minigame?.kind === 'soil') viewer.current?.abortSoilRun();
-    // fechar o envio de dados no meio corrompe os arquivos (a conclusão já chamou o onComplete)
-    if (minigame?.kind === 'upload' && !uploadDone.current) viewer.current?.abortUpload();
     uploadDone.current = false;
     setMinigame(null);
   }, [minigame]);
@@ -280,7 +307,6 @@ function ReadyGame() {
 
   const [emoteCooling, setEmoteCooling] = useState(false);
   // força o DevPanel a atualizar rótulos de ações que mudam de estado
-  const [devTick, setDevTick] = useState(0);
   // convite de outro jogador para um gesto em dupla (some em ~5 s)
   const [duoInvite, setDuoInvite] = useState<{
     fromId: string;
@@ -347,6 +373,11 @@ function ReadyGame() {
     const options: BaseViewerOptions = {
       onGuideEvent: emitGuideEvent,
       roomCode,
+      createRoom,
+      freshRoom,
+      onRoomCodeChange: (code) => {
+        if (alive) setRoomCode(code);
+      },
       videoSettings: video,
       outlineSettings: outline,
       onTimeUpdate: (t) => {
@@ -364,7 +395,7 @@ function ReadyGame() {
           if (remote && prev !== active) {
             toast(
               active
-                ? '🌪️ Um colega iniciou uma tempestade de poeira marciana!'
+                ? '🌪️ Tempestade de poeira chegando à base!'
                 : '🌤️ A tempestade passou. Céu limpo.',
               active ? 'error' : 'ok',
             );
@@ -422,7 +453,13 @@ function ReadyGame() {
         toast('✨ Painel solar limpo! Ele volta a gerar 100% da energia.', 'ok');
       },
       onMinigame: (req) => {
-        if (alive) setMinigame(req);
+        if (!alive) return;
+        // primeira vez neste equipamento: a curiosidade dele abre antes do minigame
+        const lore = loreForMinigame(req);
+        if (lore && !useLore.getState().seen.includes(lore)) {
+          useLore.getState().request(lore);
+          setPendingMinigame(req);
+        } else setMinigame(req);
       },
       onCameraModeChange: (m) => {
         if (alive) setCameraMode(m);
@@ -445,11 +482,6 @@ function ReadyGame() {
           const previous = session.viewer;
           session.viewer = replacement;
           session.info = meta;
-          try {
-            sessionStorage.setItem('mo_base', meta.id);
-          } catch {
-            /* Private browsing. */
-          }
           previous?.dispose();
           replacement.activate(el, options);
           viewer.current = replacement;
@@ -460,7 +492,7 @@ function ReadyGame() {
           if (!alive) return;
           replacement?.dispose();
           console.error(e);
-          setError('Não foi possível preparar outra base.');
+          setError(L('Não foi possível preparar outra base.', 'Could not prepare another base.'));
           setLoading(false);
         });
     }
@@ -496,6 +528,20 @@ function ReadyGame() {
     return r.ok;
   }
 
+  // Salvamento automático a cada 10 minutos (com aviso). Sem cookie de salvamento o servidor
+  // continua guardando o mundo, mas ele não entra em "Meus mundos".
+  const saveRef = useRef(saveWorld);
+  saveRef.current = saveWorld;
+  useEffect(() => {
+    if (!persist.canSave) return;
+    const id = window.setInterval(() => {
+      void saveRef.current(true).then((ok) => {
+        if (ok) toast('💾 Jogo salvo automaticamente.', 'ok');
+      });
+    }, WORLD_VISIBLE_AUTOSAVE_MS);
+    return () => window.clearInterval(id);
+  }, [persist.canSave]);
+
   /** Sair: pergunta se quer salvar (o último jogador a salvar deixa o estado do mundo). */
   function requestLeave() {
     setSaveError('');
@@ -511,10 +557,10 @@ function ReadyGame() {
     if (await saveWorld()) leaveToHome();
   }
 
-  /** Mundo novo: sala nova e missão do zero (recarrega a base já na sala nova). */
+  /** Mundo novo: sala nova, missão do zero e outra base sorteada. */
   function newWorld() {
     clearMissionSnapshot();
-    savePlaySession({ room: newRoomCode(), base: baseId });
+    savePlaySession({ room: newRoomCode(), base: pickRandomBase(baseId), fresh: true });
     window.location.replace('/jogar');
   }
 
@@ -553,7 +599,7 @@ function ReadyGame() {
   }, []);
 
   function rollBase() {
-    if (missionStarted && !window.confirm('Sortear outra base reinicia a missão atual. Continuar?'))
+    if (missionStarted && !window.confirm(L('Sortear outra base reinicia a missão atual. Continuar?', 'Picking another base restarts the current mission. Continue?')))
       return;
     setBaseId((cur) => pickRandomBase(cur));
   }
@@ -632,106 +678,6 @@ function ReadyGame() {
     return ok;
   };
 
-  // Registra as ferramentas e comandos de teste como devActions para o DevPanel
-  // biome-ignore lint/correctness/useExhaustiveDependencies: atualiza rótulos ao mudar estados
-  useEffect(() => {
-    const unregs = [
-      registerDevAction({
-        id: 'dev:storm',
-        label: stormActive ? 'Parar Tempestade' : 'Simular Tempestade',
-        group: 'Ambiente & Clima',
-        run: () => toggleStorm(),
-      }),
-      registerDevAction({
-        id: 'dev:grid',
-        label: gridVisible ? 'Ocultar Grade' : 'Exibir Grade',
-        group: 'Visualização & Terreno',
-        run: () => toggleGrid(),
-      }),
-      registerDevAction({
-        id: 'dev:nav',
-        label: navDebug ? 'Ocultar Células (?nav)' : 'Exibir Células (?nav)',
-        group: 'Visualização & Terreno',
-        run: () => toggleNavDebug(),
-      }),
-      registerDevAction({
-        id: 'dev:coords',
-        label: showCoords ? 'Ocultar Coordenadas' : 'Exibir Coordenadas',
-        group: 'Visualização & Terreno',
-        run: () => toggleCoords(),
-      }),
-      registerDevAction({
-        id: 'dev:roofs',
-        label: roofsHidden ? 'Teto Automático' : 'Teto Sempre Oculto (Corte)',
-        group: 'Visualização & Terreno',
-        run: () => toggleRoofs(),
-      }),
-      registerDevAction({
-        id: 'dev:mission-test',
-        label: viewer.current?.isMissionTestMode
-          ? 'Teste de Missões: DESLIGAR'
-          : 'Teste de Missões: LIGAR (todas, sem custo/horário)',
-        group: 'Missões & Minigames',
-        run: () => {
-          const v = viewer.current;
-          v?.setMissionTestMode(!v.isMissionTestMode);
-          setDevTick((n) => n + 1);
-        },
-      }),
-      ...(Object.keys(MISSIONS) as MissionId[]).map((id) =>
-        registerDevAction({
-          id: `dev:mission-done:${id}`,
-          label: `Concluir: ${MISSIONS[id].title}`,
-          group: 'Missões & Minigames',
-          run: () => viewer.current?.devCompleteMission(id),
-        }),
-      ),
-      ...(
-        [
-          ['Painel solar', { kind: 'solar', index: 0 }],
-          ['Filtro de ar', { kind: 'oxygen', index: 0 }],
-          ['Horta (estufa)', { kind: 'greenhouse', index: 0 }],
-          ['Coleta de solo (rover)', { kind: 'soil' }],
-          ['Envio de dados à Terra', { kind: 'upload' }],
-        ] as Array<[string, MinigameRequest]>
-      ).map(([label, req]) =>
-        registerDevAction({
-          id: `dev:minigame:${req.kind}`,
-          label: `Abrir minigame: ${label}`,
-          group: 'Missões & Minigames',
-          run: () => setMinigame(req),
-        }),
-      ),
-      ...GAME_EVENTS.map((ev) =>
-        registerDevAction({
-          id: `dev:event:${ev.id}`,
-          label: `Evento (${ev.kind === 'major' ? 'grande' : 'fácil'}): ${ev.title}`,
-          group: 'Eventos',
-          run: () => useGameEvents.getState().push([ev]),
-        }),
-      ),
-      ...Object.values(LORE).map((l) =>
-        registerDevAction({
-          id: `dev:lore:${l.id}`,
-          label: `Curiosidade: ${l.title}`,
-          group: 'Eventos',
-          run: () => useLore.setState((st) => ({ queue: [...st.queue, l.id] })),
-        }),
-      ),
-      registerDevAction({
-        id: 'dev:roll-base',
-        label: 'Sortear Outra Base Marciana',
-        group: 'Mundo & Missão',
-        run: () => rollBase(),
-      }),
-    ];
-
-    return () => {
-      for (const unreg of unregs) {
-        unreg();
-      }
-    };
-  }, [stormActive, gridVisible, navDebug, showCoords, roofsHidden, devTick]);
 
   if (!name) return <Navigate to="/" replace />;
 
@@ -739,8 +685,8 @@ function ReadyGame() {
     <main className={`game ${touch ? 'game--touch' : ''}`}>
       {!loading && !error && (
         <BitGuide
-          key={`${user?.id ?? name}:${baseId}`}
-          identity={String(user?.id ?? name)}
+          key={`${name}:${baseId}`}
+          identity={String(name)}
           viewer={viewer.current}
           minigame={minigame}
           suspended={settingsOpen || leaveOpen}
@@ -753,9 +699,26 @@ function ReadyGame() {
             {minigame.kind === 'repair' ? (
               <RepairMinigame id={minigame.id} viewer={viewer.current} onClose={closeMinigame} />
             ) : (
-              <OfficialActivity request={minigame} onClose={closeMinigame} onComplete={()=>finishMinigame()} />
+              <ServerMinigame
+                request={minigame}
+                viewer={viewer.current}
+                onClose={closeMinigame}
+                onComplete={finishMinigame}
+                onError={(message) => toast(`Tarefa não registrada: ${message}`, 'error')}
+              />
             )}
           </Suspense>,
+          document.body,
+        )}
+      {/* votação da sala aberta durante um minigame: o tablet vem por cima (ninguém perde o voto) */}
+      {!loading &&
+        !error &&
+        minigame &&
+        eventsPending &&
+        createPortal(
+          <div style={{ position: 'fixed', inset: 0, zIndex: 3000 }}>
+            <EventTablet />
+          </div>,
           document.body,
         )}
       {/* `display: contents` mantém o layout; `inert` bloqueia a base enquanto o minigame está aberto */}
@@ -770,6 +733,14 @@ function ReadyGame() {
         {/* Tablet de eventos: só com a base à vista (sem minigame nem fim de missão) */}
         {!loading && !error && !minigame && eventsPending && <EventTablet />}
         {/* Curiosidades: só quando nada mais está na tela (eventos e minigames têm prioridade) */}
+        {!loading && !error && <IncidentCard hidden={!!minigame || eventsPending} />}
+        {!loading && !error && <SolReport hidden={!!minigame || eventsPending} />}
+        {!loading && !error && (
+          <CriticalAlert
+            hidden={!!minigame || eventsPending}
+            onGo={() => viewer.current?.goToCritical()}
+          />
+        )}
         {!loading && !error && !minigame && !eventsPending && <LoreCard />}
         {duoInvite && (
           <div className="duo-invite" role="alert">
@@ -778,7 +749,7 @@ function ReadyGame() {
               {DUO_GESTURES[duoInvite.gesture].label}
             </span>
             <button type="button" onClick={() => viewer.current?.acceptGesture()}>
-              Aceitar
+              {L('Aceitar', 'Accept')}
             </button>
           </div>
         )}
@@ -803,6 +774,16 @@ function ReadyGame() {
             viewer={viewer.current}
             onOpenSettings={() => setSettingsOpen(true)}
             onRequestLeave={requestLeave}
+            onSaveWorld={() => {
+              if (!persist.canSave) {
+                toast('Para salvar, permita o cookie de salvamento na tela inicial.', 'error');
+                return;
+              }
+              void saveWorld(true).then((ok) => {
+                toast(ok ? '💾 Mundo salvo!' : 'Não foi possível salvar agora. Tente de novo.', ok ? 'ok' : 'error');
+                if (ok) emitGuideEvent({ type: 'saved' });
+              });
+            }}
             rollBase={rollBase}
             onGoToTask={(kind, index) => viewer.current?.goToTask(kind, index)}
             driving={driving}
@@ -833,11 +814,11 @@ function ReadyGame() {
               aria-labelledby="leave-title"
               aria-modal="true"
             >
-              <h2 id="leave-title">Salvar o mundo antes de sair?</h2>
+              <h2 id="leave-title">{L('Salvar o mundo antes de sair?', 'Save the world before leaving?')}</h2>
               <p>
                 {persist.canSave
-                  ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O servidor preserva o progresso da sala.'
-                  : 'Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.'}
+                  ? L('O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O servidor preserva o progresso da sala.', 'The world stays linked to your browser for 30 days (joining again renews it). The server keeps the room\'s progress.')
+                  : L('Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.', 'To save you need to allow the save cookie on the home screen. You can leave without saving.')}
               </p>
               {saveError && (
                 <p className="game__leave-error" role="alert">
@@ -846,10 +827,10 @@ function ReadyGame() {
               )}
               <div className="game__leave-actions">
                 <button type="button" onClick={() => setLeaveOpen(false)} disabled={saving}>
-                  Continuar jogando
+                  {L('Continuar jogando', 'Keep playing')}
                 </button>
                 <button type="button" onClick={leaveToHome} disabled={saving}>
-                  Sair sem salvar
+                  {L('Sair sem salvar', 'Leave without saving')}
                 </button>
                 {persist.canSave && (
                   <button
@@ -858,7 +839,7 @@ function ReadyGame() {
                     onClick={() => void saveAndLeave()}
                     disabled={saving}
                   >
-                    {saving ? 'Salvando…' : 'Salvar e sair'}
+                    {saving ? L('Salvando…', 'Saving…') : L('Salvar e sair', 'Save and leave')}
                   </button>
                 )}
               </div>
@@ -868,7 +849,7 @@ function ReadyGame() {
 
         {loading && !error && (
           <div className="game__loading" role="status">
-            <h2 className="game__loading-title">Preparando a base…</h2>
+            <h2 className="game__loading-title">{L('Preparando a base…', 'Preparing the base…')}</h2>
           </div>
         )}
 
@@ -878,7 +859,7 @@ function ReadyGame() {
             <div className="game__error-card" role="alert">
               <TriangleAlert size={28} className="game__error-icon" />
               <div>
-                <h3>Falha no carregamento</h3>
+                <h3>{L('Falha no carregamento', 'Loading failed')}</h3>
                 <p>{error}</p>
               </div>
               <button
@@ -886,7 +867,7 @@ function ReadyGame() {
                 className="game__action-btn"
                 onClick={() => setBaseId((cur) => pickRandomBase(cur))}
               >
-                Tentar outra base
+                {L('Tentar outra base', 'Try another base')}
               </button>
             </div>
           </div>

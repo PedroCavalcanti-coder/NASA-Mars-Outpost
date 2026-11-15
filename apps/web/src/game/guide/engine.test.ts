@@ -80,10 +80,24 @@ describe('B.I.T. individual learning', () => {
   });
   it('ships an offline voice clip for every line and excludes retired mechanics', () => {
     for (const [id, line] of Object.entries(LINES)) {
+      if ((line as { voice?: boolean }).voice === false) continue;
       expect(existsSync(resolve('apps/web/public/assets/audio/bit/en', `${id}.mp3`)), id).toBe(
         true,
       );
       expect(line.text).not.toMatch(/materials|armor|shielding|blindagem/i);
     }
+  });
+});
+
+describe('apresentação dos minigames e briefing', () => {
+  it('todo minigame tem fala de ajuda e de vida real, e o briefing cobre objetivo, recursos, eventos, salvar e enviar dados', () => {
+    for (const topic of ['moxie', 'water', 'antenna', 'lab', 'power', 'medical', 'upload', 'scout', 'ducts', 'oxygen', 'solar', 'greenhouse', 'drill'])
+      for (const id of [topic, `${topic}Real`]) {
+        const line = (LINES as Record<string, { text: string; en?: string }>)[id];
+        expect(line, id).toBeTruthy();
+        expect(line!.text.length).toBeGreaterThan(20);
+        expect(line!.en?.length ?? 0, id).toBeGreaterThan(20);
+      }
+    for (const id of ['goal', 'resources', 'events', 'save', 'sendData']) expect((LINES as Record<string, unknown>)[id], id).toBeTruthy();
   });
 });

@@ -691,7 +691,8 @@ export class LaunchScene {
     this.onSpaceChange(false);
     if (!this.landing)
       this.landing = new MarsLanding(this.rocket, this.flames, this.onLandingAudio);
-    this.landingStarted = this.elapsed - 12;
+    // vai direto ao FINAL da animação (pouso concluído); o próximo quadro dispara onComplete
+    this.landingStarted = this.elapsed - 1000;
     this.container.dataset.flightScene = 'landing';
     if (this.copyElement) this.copyElement.style.visibility = 'hidden';
     this.onFlight(1);

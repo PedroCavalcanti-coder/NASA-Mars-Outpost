@@ -18,6 +18,7 @@ export const KNOWN_PANEL_META: Record<string, PanelMeta> = {
   missao: { shortcut: 'M', order: 20 },
   tarefas: { shortcut: 'T', order: 15 },
   sala: { shortcut: 'P', order: 30 },
+  dados: { shortcut: 'N', order: 35 },
   camera: { shortcut: 'C', order: 40 },
   chat: { shortcut: 'Y', order: 50 },
   sistema: { shortcut: 'O', order: 60 },

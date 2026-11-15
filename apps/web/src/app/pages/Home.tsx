@@ -1,4 +1,4 @@
-import { ArrowRight, LogIn, LogOut, Settings, Users } from 'lucide-react';
+import { ArrowRight, Globe, Settings, Users } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
@@ -11,20 +11,19 @@ import {
 import { clearPlaySession } from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
-import { useAuth } from '../../store/auth';
 import { SuitModal } from '../components/astronaut/SuitModal';
 import { CookieConsent } from '../components/CookieConsent';
+import { LaunchBit } from '../components/bit/LaunchBit';
 import { JoinWorldModal } from '../components/JoinWorldModal';
 import { SettingsModal } from '../components/SettingsModal';
 import './home.css';
+import { L } from '../../lib/i18n';
 
 const DECOMPRESSION_GAIN = 0.5;
 
 export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean }) {
   useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
   const session = peekExpedition();
-  const user = useAuth((s) => s.user);
-  const logout = useAuth((s) => s.logout);
   const nav = useNavigate();
   const canvas = useRef<HTMLDivElement>(null);
   const target = useRef<HTMLButtonElement>(null);
@@ -39,17 +38,21 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
   const scene = useRef<LaunchScene | null>(null);
   const started = useRef(false);
 
-  const [phase, setPhase] = useState<'ready' | 'ignition' | 'flight' | 'complete'>('ready');
+  const [phase, setPhase] = useState<'ready' | 'countdown' | 'ignition' | 'flight' | 'complete'>('ready');
+  const [count, setCount] = useState(5);
+  const countdownTimer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const [fallback, setFallback] = useState(false);
   const [initializationError, setInitializationError] = useState<string | null>(null);
 
   const [suitModalOpen, setSuitModalOpen] = useState(false);
+  const skipSuit = useRef(false);
   // Modal para entrar em um mundo compartilhado (o destino vale depois da viagem e da suit)
   // convite aberto por link (/jogar?sala=CODIGO volta aqui): a janela abre com o código preenchido
   const [searchParams] = useSearchParams();
   const inviteCode = searchParams.get('sala')?.trim().toUpperCase() ?? '';
   const [joinModalOpen, setJoinModalOpen] = useState(() => Boolean(inviteCode) && !arrivalOnly);
   const [destinationUrl, setDestinationUrl] = useState('/jogar');
+  const [joinTab, setJoinTab] = useState<'code' | 'recent'>('code');
 
   // Menu de Configurações com sub-painéis
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -74,6 +77,9 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
     let emittedFlightPhase: string | null = null;
     let releaseSession: (() => void) | undefined;
     try {
+      // Voltou ao início: a partida anterior acabou. A próxima viagem sorteia base e sala novas
+      // (sem isso, a sessão da aba fazia o "Jogar agora" repetir a base da última partida).
+      if (!arrivalOnly) clearPlaySession();
       const lease = retainExpedition();
       releaseSession = lease.release;
       if (!arrivalOnly && lease.session.entered) lease.session.restart();
@@ -157,7 +163,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
       canvas.current.replaceChildren();
       setFallback(true);
       if (!releaseSession) {
-        setInitializationError('Não foi possível iniciar o modo 3D neste dispositivo.');
+        setInitializationError(L('Não foi possível iniciar o modo 3D neste dispositivo.', 'Could not start 3D mode on this device.'));
       } else if (arrivalOnly) {
         setPhase('complete');
       }
@@ -177,11 +183,12 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
   useEffect(() => {
     if (phase !== 'complete' || !session?.ready) return;
-    if (arrivalOnly && (user?.name || getGuestName())) {
+    if (arrivalOnly && getGuestName()) {
       session.enter();
       nav('/jogar', { replace: true });
-    } else setSuitModalOpen(true);
-  }, [phase, session, session?.ready, arrivalOnly, nav, user?.name]);
+    } else if (arrivalOnly) setSuitModalOpen(true);
+    // após a viagem, quem decide é o botão em destaque: nada abre sozinho
+  }, [phase, session, session?.ready, arrivalOnly, nav]);
 
   useEffect(() => {
     if (session) session.runtime.paused = suitModalOpen;
@@ -232,6 +239,25 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
     }
     if (!scene.current) return;
     started.current = true;
+    // contagem regressiva do B.I.T. antes de acender os motores
+    const from = video.reducedMotion ? 3 : 5;
+    setCount(from);
+    setPhase('countdown');
+    let left = from;
+    countdownTimer.current = setInterval(() => {
+      left -= 1;
+      setCount(left);
+      if (left <= 0) {
+        clearInterval(countdownTimer.current);
+        ignite();
+      }
+    }, 1000);
+  };
+
+  /** Acende os motores: sons e animação da decolagem. */
+  const ignite = () => {
+    clearInterval(countdownTimer.current);
+    if (!scene.current) return;
     spaceAudio.current = new Audio('/assets/audio/foguete2.mp3');
     spaceAudio.current.volume = audio.muted
       ? 0
@@ -249,17 +275,28 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
     scene.current.launch();
   };
 
+  useEffect(() => () => clearInterval(countdownTimer.current), []);
+
   const handleSuitLaunch = () => {
     if (!session?.ready) return;
     // viagem nova: nunca reaproveita a sala/missão da partida anterior
     clearPlaySession();
+    skipSuit.current = false;
     session.enter();
     nav(destinationUrl);
   };
 
   // Entrar em um mundo: mesma viagem do "Jogar agora", mas o destino é a sala informada
-  const handleJoinWorld = (roomCode: string) => {
-    setDestinationUrl(`/jogar?sala=${encodeURIComponent(roomCode)}`);
+  const handleJoinWorld = (
+    roomCode: string,
+    _nickname: string,
+    baseId?: string,
+    hasSuit?: boolean,
+  ) => {
+    // já tem personagem neste mundo: não personaliza de novo
+    skipSuit.current = Boolean(hasSuit);
+    const base = baseId ? `&base=${encodeURIComponent(baseId)}` : '';
+    setDestinationUrl(`/jogar?sala=${encodeURIComponent(roomCode)}${base}`);
     launch();
   };
 
@@ -288,7 +325,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
       <header className="launch-header">
         <div className="launch-brands">
-          <Link to="/" className="launch-brand" aria-label="Mars Outpost, início">
+          <Link to="/" className="launch-brand" aria-label={L('Mars Outpost, início', 'Mars Outpost, home')}>
             <img
               className="launch-brand-mark"
               src="/assets/branding/mars-outpost-logo.svg"
@@ -314,54 +351,55 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           />
         </div>
 
-        <nav className="launch-nav" aria-label="Navegação inicial">
+        <nav className="launch-nav" aria-label={L('Navegação inicial', 'Main navigation')}>
           <button
             className="launch-nav-button"
             type="button"
-            aria-label="Entrar em um mundo compartilhado"
-            onClick={() => setJoinModalOpen(true)}
-            title="Conectar a uma sala marciana com código de convite"
+            aria-label={L('Entrar em um mundo compartilhado', 'Join a shared world')}
+            onClick={() => {
+              setJoinTab('code');
+              setJoinModalOpen(true);
+            }}
+            title={L('Conectar a uma sala marciana com código de convite', 'Join a Mars room with an invite code')}
           >
             <Users size={20} aria-hidden="true" />
-            <span>Entrar em um Mundo</span>
+            <span>{L('Entrar em um Mundo', 'Join a World')}</span>
           </button>
 
           <button
             className="launch-nav-button"
             type="button"
-            aria-label="Configurações"
+            aria-label={L('Ver meus mundos salvos', 'See my saved worlds')}
+            onClick={() => {
+              setJoinTab('recent');
+              setJoinModalOpen(true);
+            }}
+            title={L('Seus 5 mundos mais recentes', 'Your 5 most recent worlds')}
+          >
+            <Globe size={20} aria-hidden="true" />
+            <span>{L('Meus mundos', 'My worlds')}</span>
+          </button>
+
+          <button
+            className="launch-nav-button"
+            type="button"
+            aria-label={L('Configurações', 'Settings')}
             onClick={() => setSettingsOpen(true)}
           >
             <Settings size={21} aria-hidden="true" />
-            <span>Configurações</span>
+            <span>{L('Configurações', 'Settings')}</span>
           </button>
-          {user ? (
-            <button
-              className="launch-nav-button"
-              type="button"
-              aria-label="Sair"
-              onClick={() => void logout()}
-            >
-              <LogOut size={20} aria-hidden="true" />
-              <span>Sair</span>
-            </button>
-          ) : (
-            <Link className="launch-nav-button" to="/login" aria-label="Entrar">
-              <LogIn size={20} aria-hidden="true" />
-              <span>Entrar</span>
-            </Link>
-          )}
         </nav>
       </header>
 
       <section
         ref={copy}
         className="launch-copy"
-        aria-label="Sua expedição começa aqui"
+        aria-label={L('Sua expedição começa aqui', 'Your expedition starts here')}
         inert={launching}
       >
         <div className="launch-eyebrow">
-          BASE ESPACIAL ARES <span>·</span> TERRA <i />
+          {L('BASE ESPACIAL ARES', 'ARES SPACE BASE')} <span>·</span> {L('TERRA', 'EARTH')} <i />
         </div>
         <h1>
           <img
@@ -373,15 +411,15 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           />
         </h1>
         <p>
-          Construa e mantenha uma base em Marte
-          <br className="launch-desktop-break" /> com um clima de exploração e descoberta.
+          {L('Construa e mantenha uma base em Marte', 'Build and run a base on Mars')}
+          <br className="launch-desktop-break" /> {L('com um clima de exploração e descoberta.', 'full of exploration and discovery.')}
         </p>
 
         <div className="launch-cta-row">
           <button
             className="launch-cta"
             type="button"
-            aria-label="Jogar agora"
+            aria-label={L('Jogar agora', 'Play now')}
             onClick={() => {
               setDestinationUrl('/jogar');
               launch();
@@ -392,7 +430,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
               <ArrowRight />
             </span>
             <span className="launch-cta-label">
-              Jogar Agora
+              {L('Jogar Agora', 'Play Now')}
             </span>
           </button>
         </div>
@@ -403,23 +441,26 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           ref={target}
           type="button"
           className="rocket-hit-target"
-          aria-label="Lançar foguete"
-          title="Lançar foguete"
+          aria-label={L('Lançar foguete', 'Launch rocket')}
+          title={L('Lançar foguete', 'Launch rocket')}
           onClick={launch}
           disabled={launching}
         />
       )}
 
+      {launching && !arrivalOnly && !fallback && <LaunchBit phase={phase as 'countdown'} count={count} />}
       <div className="launch-flight-status" role="status" aria-live="polite">
         {launching && (
           <>
-            <span className="launch-eyebrow">SUA MISSÃO COMEÇA AQUI</span>
+            <span className="launch-eyebrow">{L('SUA MISSÃO COMEÇA AQUI', 'YOUR MISSION STARTS HERE')}</span>
             <strong>
-              {phase === 'ignition'
-                ? 'Ignição'
-                : phase === 'complete'
-                  ? 'Rumo a Marte'
-                  : 'Decolando'}
+              {phase === 'countdown'
+                ? L('Contagem regressiva', 'Countdown')
+                : phase === 'ignition'
+                  ? L('Ignição', 'Ignition')
+                  : phase === 'complete'
+                    ? L('Rumo a Marte', 'Off to Mars')
+                    : L('Decolando', 'Lifting off')}
             </strong>
             <div className="launch-flight-actions">
               <button
@@ -428,11 +469,20 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
                 disabled={phase === 'complete' && !session?.ready}
                 onClick={() => {
                   if (phase === 'complete') {
-                    if (session?.ready) setSuitModalOpen(true);
-                  } else scene.current?.skip();
+                    if (!session?.ready) return;
+                    // mundo em que já tenho personagem: entra com o traje guardado no servidor
+                    if (skipSuit.current && getGuestName()) handleSuitLaunch();
+                    else setSuitModalOpen(true);
+                  } else if (phase === 'countdown') ignite();
+                  else scene.current?.skip();
                 }}
+                data-cta={phase === 'complete' ? 'true' : undefined}
               >
-                {phase === 'complete' ? 'Personalizar astronauta' : 'Pular animação →'}
+                {phase === 'complete'
+                  ? skipSuit.current
+                    ? L('Entrar na base', 'Enter the base')
+                    : L('Personalizar astronauta', 'Customize astronaut')
+                  : L('Pular animação →', 'Skip animation →')}
               </button>
             </div>
           </>
@@ -440,10 +490,10 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
       </div>
 
       <footer className="launch-footer">
-        <nav className="launch-footer-nav" aria-label="Links do projeto">
-          <Link to="/centro">Centro</Link>
-          <Link to="/suporte">Suporte</Link>
-          <Link to="/sobre">Sobre</Link>
+        <nav className="launch-footer-nav" aria-label={L('Links do projeto', 'Project links')}>
+          <Link to="/centro">{L('Centro', 'Center')}</Link>
+          <Link to="/suporte">{L('Suporte', 'Support')}</Link>
+          <Link to="/sobre">{L('Sobre', 'About')}</Link>
         </nav>
       </footer>
 
@@ -460,7 +510,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         <div className="expedition-error" role="alert">
           <p>{initializationError}</p>
           <button type="button" onClick={() => window.location.reload()}>
-            Tentar novamente
+            {L('Tentar novamente', 'Try again')}
           </button>
         </div>
       )}
@@ -469,10 +519,10 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         <div className="expedition-error" role="alert">
           <p>{session.error}</p>
           <button type="button" onClick={() => void session.prepare()}>
-            Tentar novamente
+            {L('Tentar novamente', 'Try again')}
           </button>
           <button type="button" onClick={() => window.location.assign('/')}>
-            Voltar ao início
+            {L('Voltar ao início', 'Back to start')}
           </button>
         </div>
       )}
@@ -485,6 +535,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         onClose={() => setJoinModalOpen(false)}
         onJoin={handleJoinWorld}
         initialCode={inviteCode}
+        initialTab={joinTab}
       />
 
       {/* Menu de Configurações avançado com Sub-Painéis */}

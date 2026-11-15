@@ -54,10 +54,8 @@ export class TaskMarkers {
       if (task.done) continue;
       const point = position(task.kind, task.index);
       if (!point) continue;
-      const key = task.kind === 'crop' || task.kind === 'plant'
-        ? 'greenhouse'
-        : `${task.kind}:${task.index}`;
-      // A estufa usa um único ponto; prioriza a primeira tarefa pendente.
+      // cada bancada da horta, painel e missão tem o próprio marcador
+      const key = `${task.kind}:${task.index}`;
       if (this.markers.get(key)?.active) continue;
       let marker = this.markers.get(key);
       if (!marker) {

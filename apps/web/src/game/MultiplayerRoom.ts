@@ -8,9 +8,17 @@ import {
   type GameJoinResult, type GameAck, type GameCommand, type GamePayload, type GameConfirmation, type GameplaySnapshot, type GameplayState, type GameplayUpdate,
 } from '@mars/shared';
 import { io,type Socket } from 'socket.io-client';
+import { newRoomCode } from '../lib/roomCode';
 import { bindGameplay, projectGameplay, useGameplay } from '../store/gameplay';
 export type RoomMode='online'|'local';
-export interface RoomJoinOptions {roomCode:string;baseId:string;name:string;suit:SuitConfig;local?:boolean}
+export interface RoomJoinOptions {roomCode:string;baseId:string;name:string;suit:SuitConfig;local?:boolean;
+  /** pode criar a sala se ela não existir (quem abriu a sala ou já estava nela) */
+  create?:boolean;
+  /** código recém-sorteado ("Jogar agora"): se já for de outro mundo, sorteia outro */
+  fresh?:boolean;
+  /** avisado quando a sala ganha outro código (o sorteado já existia) */
+  onCode?:(code:string)=>void}
+
 export interface RemotePlayer extends GamePlayerInfo {motion?:GameMotion}
 const SOCKET_URL:string=import.meta.env.VITE_SOCKET_URL??'';
 export class MultiplayerRoom {
@@ -75,12 +83,17 @@ export class MultiplayerRoom {
       this.socket=socket;let settled=false;
       const fail=(e:Error)=>{if(!settled){settled=true;clearTimeout(timer);reject(e);}else{this.setStatus('failed');this.onError?.(e);}};
       const timer=window.setTimeout(()=>fail(new RoomConnectionError('Não foi possível conectar à sala.')),12000);
-      socket.on('connect',()=>{
+      let retries=0;
+      const enter=()=>{
         this.onlineReady=false;
         const connectionId=socket.id;
-        socket.timeout(12000).emit('room:join',{...opts,code:opts.roomCode,base:opts.baseId,movementVersion:MOVEMENT_VERSION,navigationHash:NAVIGATION_HASH,gameplayVersion:GAMEPLAY_VERSION,resumeToken:this.resumeToken},(error: Error | null,r: GameAck<GameJoinResult> | {ok:false;error:string;baseId:string})=>{
+        socket.timeout(12000).emit('room:join',{code:opts.roomCode,base:opts.baseId,name:opts.name,suit:opts.suit,create:opts.create,fresh:opts.fresh,movementVersion:MOVEMENT_VERSION,navigationHash:NAVIGATION_HASH,gameplayVersion:GAMEPLAY_VERSION,resumeToken:this.resumeToken},(error: Error | null,r: GameAck<GameJoinResult> | {ok:false;error:string;baseId:string} | {ok:false;error:string;taken:true})=>{
           if(this.disposed||!socket.connected||socket.id!==connectionId)return;
+          // o código sorteado já é de outro mundo: sorteia outro e tenta de novo
+          if(!error&&!r.ok&&'taken'in r&&opts.fresh&&retries++<5){opts.roomCode=newRoomCode();opts.onCode?.(opts.roomCode);enter();return;}
           if(error||!r.ok)return fail(error?new RoomConnectionError('O servidor demorou a confirmar a entrada.'):'baseId'in r?new RoomBaseMismatchError(r.baseId):new RoomRejectedError(r.error));
+          // já esteve na sala: numa reconexão (ex.: servidor reiniciado) pode recriá-la com a base certa
+          opts.create=true;opts.fresh=false;opts.baseId=r.baseId??opts.baseId;
           this.self=r.self;this.world=r.world;this.movement=r.movement;this.persistence=r.persistence;
           this.clockOffset=r.serverNow-Date.now();this.disconnectedAt=null;
           const previous=new Set(this.remotes.keys());
@@ -94,7 +107,8 @@ export class MultiplayerRoom {
           this.onMovement?.(r.movement);
           if(!settled){settled=true;clearTimeout(timer);resolve();}
         });
-      });
+      };
+      socket.on('connect',enter);
       socket.on('disconnect',()=>{this.onlineReady=false;this.disconnectedAt=this.serverNow();socket.sendBuffer.length=0;useGameplay.setState({connected:false});if(!this.disposed)this.setStatus('reconnecting');});
       socket.on('game:snapshot',s=>this.acceptSnapshot(s));
       socket.on('game:update',s=>this.acceptUpdate(s));

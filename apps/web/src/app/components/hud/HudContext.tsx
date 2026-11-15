@@ -32,6 +32,8 @@ export interface HudContextValue {
   viewer: BaseViewer | null;
   onOpenSettings: () => void;
   onRequestLeave: () => void;
+  /** salvar o mundo agora (botão do menu) */
+  onSaveWorld?: () => void;
   rollBase: () => void;
   /** leva o astronauta até uma tarefa do Sol (abre o minigame ao chegar) */
   onGoToTask?: (kind: TaskKind, index: number) => void;

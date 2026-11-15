@@ -8,6 +8,7 @@
 import { Check, Copy, Globe, Monitor, Share2, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useHudContext } from '../HudContext';
+import { L } from '../../../../lib/i18n';
 
 export function RoomPanel() {
   const { roomCode, players, onCopyInvite } = useHudContext();
@@ -23,11 +24,11 @@ export function RoomPanel() {
     <div className="hud-panel-content hud-panel-room">
       <div className="hud-panel-intro">
         <Users size={18} className="hud-panel-intro-icon" />
-        <p>Compartilhe sua expedição com até 4 astronautas na mesma base marciana.</p>
+        <p>{L('Compartilhe sua expedição com até 4 astronautas na mesma base marciana.', 'Share your expedition with up to 4 astronauts on the same Mars base.')}</p>
       </div>
 
       <div className="hud-room-card">
-        <span className="hud-room-kicker">CÓDIGO DA SALA</span>
+        <span className="hud-room-kicker">{L('CÓDIGO DA SALA', 'ROOM CODE')}</span>
         <div className="hud-room-code-row">
           <code className="hud-room-code" style={{ userSelect: 'all' }}>
             {roomCode}
@@ -36,8 +37,8 @@ export function RoomPanel() {
             type="button"
             className="hud-btn hud-btn--primary"
             onClick={handleCopy}
-            title="Copiar código de convite da sala"
-            aria-label="Copiar código de convite"
+            title={L('Copiar código de convite da sala', 'Copy the room invite code')}
+            aria-label={L('Copiar código de convite', 'Copy invite code')}
           >
             {copied === 'ok' ? <Check size={16} /> : <Copy size={16} />}
             <span>{copied === 'ok' ? 'Copiado!' : copied === 'fail' ? 'Falhou' : 'Copiar'}</span>
@@ -49,17 +50,17 @@ export function RoomPanel() {
         <div className="hud-room-stat">
           <div className="hud-room-stat-head">
             <Users size={15} />
-            <span>Tripulação Presente</span>
+            <span>{L('Tripulação Presente', 'Crew Online')}</span>
           </div>
           <span className="hud-room-stat-value">
-            <strong>{players.count}</strong> / 4 astronautas
+            <strong>{players.count}</strong> {L('/ 4 astronautas', '/ 4 astronauts')}
           </span>
         </div>
 
         <div className="hud-room-stat">
           <div className="hud-room-stat-head">
             {players.mode === 'online' ? <Globe size={15} /> : <Monitor size={15} />}
-            <span>Modo de Conexão</span>
+            <span>{L('Modo de Conexão', 'Connection Mode')}</span>
           </div>
           <span className="hud-room-stat-value">
             {players.mode === 'online' ? (
@@ -71,18 +72,18 @@ export function RoomPanel() {
                     : 'Online (servidor ativo)'}
               </span>
             ) : (
-              <span className="hud-badge-local">Local (abas deste navegador)</span>
+              <span className="hud-badge-local">{L('Local (abas deste navegador)', 'Local (tabs in this browser)')}</span>
             )}
           </span>
         </div>
       </div>
 
       <div className="hud-room-instructions">
-        <h4>Como jogar com amigos:</h4>
+        <h4>{L('Como jogar com amigos:', 'How to play with friends:')}</h4>
         <ol>
-          <li>Copie o código acima e envie para seu amigo.</li>
-          <li>Ele deve abrir o Mars Outpost e colar o código em "Entrar com Código".</li>
-          <li>Ambos estarão na mesma base e poderão explorar e trabalhar juntos!</li>
+          <li>{L('Copie o código acima e envie para seu amigo.', 'Copy the code above and send it to your friend.')}</li>
+          <li>{L('Ele deve abrir o Mars Outpost e colar o código em "Entrar com Código".', 'They open Mars Outpost and paste the code in “Join a World”.')}</li>
+          <li>{L('Ambos estarão na mesma base e poderão explorar e trabalhar juntos!', 'You will both be on the same base and can explore and work together!')}</li>
         </ol>
       </div>
 
@@ -92,7 +93,7 @@ export function RoomPanel() {
         onClick={handleCopy}
       >
         <Share2 size={16} />
-        <span>Convidar Colegas</span>
+        <span>{L('Convidar Colegas', 'Invite Friends')}</span>
       </button>
     </div>
   );

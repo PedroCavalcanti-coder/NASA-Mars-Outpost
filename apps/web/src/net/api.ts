@@ -26,26 +26,9 @@ async function send(path: string, init?: Init) {
   });
 }
 
-/** Várias requisições com token vencido renovam a sessão uma única vez. */
-let refreshing: Promise<boolean> | null = null;
-function refreshSession(): Promise<boolean> {
-  refreshing ??= send('/auth/refresh', { method: 'POST' })
-    .then((r) => r.ok)
-    .catch(() => false)
-    .finally(() => {
-      refreshing = null;
-    });
-  return refreshing;
-}
-
-const NO_REFRESH = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
-
-/** Chamada JSON à API. Se o token de acesso venceu (401), renova a sessão e repete uma vez. */
+/** Chamada JSON à API. */
 export async function api<T>(path: string, init?: Init): Promise<T> {
-  let res = await send(path, init).catch(() => null);
-  if (res?.status === 401 && !NO_REFRESH.includes(path) && (await refreshSession())) {
-    res = await send(path, init).catch(() => null);
-  }
+  const res = await send(path, init).catch(() => null);
   if (!res) throw new HttpError(0, 'Sem conexão com o servidor. Tente de novo.');
   const data = (await res.json().catch(() => null)) as (T & Partial<ApiError>) | null;
   if (!res.ok) {
@@ -53,6 +36,3 @@ export async function api<T>(path: string, init?: Init): Promise<T> {
   }
   return data as T;
 }
-
-/** O site só consulta a sessão se o cookie-indicador existir (evita 401 para visitantes). */
-export const hasSessionHint = () => document.cookie.split('; ').some((c) => c === 'mo_in=1');

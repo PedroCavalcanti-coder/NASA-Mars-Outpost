@@ -8,13 +8,9 @@ import fastifyStatic from '@fastify/static';
 import { GAME_NAME, type HealthResponse } from '@mars/shared';
 import { sql } from 'drizzle-orm';
 import Fastify from 'fastify';
-import { installAuth } from './auth/plugin';
-import { authRoutes } from './auth/routes';
 import { config } from './config';
 import { db } from './db/client';
-import { friendRoutes } from './friends/routes';
-import { installErrorHandler } from './http';
-import { messageRoutes } from './messages/routes';
+import { HttpError, installErrorHandler } from './http';
 import { originAllowed } from './security/origin';
 import { worldRoutes } from './worlds/routes';
 
@@ -54,11 +50,16 @@ export async function buildApp() {
   });
   await app.register(cookie);
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
-  installAuth(app);
 
-  await app.register(authRoutes);
-  await app.register(friendRoutes);
-  await app.register(messageRoutes);
+  // Anti-CSRF: cookies são SameSite e, além disso, recusamos Origin desconhecida em POST/DELETE.
+  app.addHook('onRequest', async (req) => {
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return;
+    const origin = req.headers.origin;
+    if (origin && !originAllowed(origin, req.headers.host)) {
+      throw new HttpError(403, 'Origem não permitida');
+    }
+  });
+
   await app.register(worldRoutes);
 
   app.get('/api/health', async (): Promise<HealthResponse> => {

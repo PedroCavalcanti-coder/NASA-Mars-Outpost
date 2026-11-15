@@ -1,0 +1,165 @@
+/*
+ * Celular deitado (Android/iPhone na horizontal): a tela é larga (≥ 768 px) mas baixa (~360 px),
+ * então as regras de "celular" por largura não disparam e o layout de computador se sobrepunha
+ * (B.I.T. em cima dos recursos, joystick em cima do oxigênio, chat em cima da velocidade).
+ *
+ * Mapa da tela baixa:
+ *   topo-esquerda: recursos e pesquisa (compactos)   topo-centro: código da sala
+ *   base-esquerda: joystick (toque) ou oxigênio       base-centro: oxigênio, evento e velocidade
+ *   direita: doca de ícones (estreita)                base-direita: chat recolhido
+ *   B.I.T.: abaixo dos recursos, encostado à esquerda
+ */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* ---- recursos */
+  .hud-energy-anchor {
+    top: calc(6px + env(safe-area-inset-top, 0px));
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    gap: 3px;
+  }
+  .hud-resource-gauge {
+    width: 50px;
+  }
+  .hud-resource-gauge__value {
+    font-size: 12px;
+  }
+  .hud-resource-row {
+    gap: 6px;
+  }
+  .hud-research__heading {
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+  .hud-research__track {
+    height: 10px;
+  }
+
+  /* ---- código da sala */
+  .hud-room-status {
+    top: 6px;
+    font-size: 13px;
+    gap: 6px;
+  }
+  .hud-room-status span:first-child {
+    font-size: 17px;
+  }
+
+  /* ---- oxigênio + evento + velocidade: uma faixa compacta na base */
+  .hud-oxygen-anchor {
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .oxygen-orb {
+    width: 112px;
+  }
+  .hud-event-controls {
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 6px;
+  }
+  .hud-root .hud-event-controls .time-controls {
+    flex-direction: row;
+    width: auto;
+    margin-top: 0;
+    padding: 3px;
+    border-width: 2px;
+  }
+  .hud-event-controls .time-controls__speed-btn {
+    min-width: 34px;
+    font-size: 13px;
+  }
+
+  /* no toque, o joystick fica no canto e o oxigênio anda para o lado dele */
+  .game--touch .hud-oxygen-anchor {
+    left: calc(128px + env(safe-area-inset-left, 0px));
+  }
+  .touch-joystick {
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    width: 108px;
+    height: 108px;
+  }
+  .touch-joystick__knob {
+    width: 46px;
+    height: 46px;
+  }
+
+  /* ---- doca da direita: estreita e sem rótulos longos */
+  .hud-dock {
+    right: calc(6px + env(safe-area-inset-right, 0px));
+    top: 50%;
+  }
+  .hud-dock__list {
+    gap: 4px;
+    padding: 4px;
+  }
+  .hud-dock__btn {
+    width: 46px;
+    height: 46px;
+  }
+  .hud-dock__label {
+    font-size: 8px;
+  }
+
+  /* gaveta de painel: cabe na altura da tela */
+  .hud-panel-container {
+    top: 8px;
+    bottom: 8px;
+    max-height: calc(100dvh - 16px);
+    right: 64px;
+  }
+
+  /* ---- chat: recolhido no canto, sem cobrir a velocidade nem a doca */
+  .crew-chat {
+    right: calc(62px + env(safe-area-inset-right, 0px));
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    width: min(300px, 34vw);
+  }
+  .crew-chat__toggle {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+  .crew-chat__toggle small {
+    display: none;
+  }
+
+  /* faixa de avisos entre o oxigênio e o chat */
+  .hud-bottom {
+    left: 38vw;
+    right: calc(min(300px, 34vw) + 70px);
+    bottom: 8px;
+  }
+  .hud-bottom__hints {
+    display: none;
+  }
+
+  /* ---- B.I.T.: abaixo dos recursos, pequeno, sem cobrir nada fixo */
+  .bit-guide:not(.bit-guide--activity):not(.bit-guide--spotlight) {
+    top: calc(96px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+    left: calc(8px + env(safe-area-inset-left, 0px));
+    align-items: flex-start;
+  }
+  .bit-avatar {
+    width: 62px;
+    flex-basis: 62px;
+  }
+  .bit-name {
+    width: 52px;
+    font-size: 11px;
+  }
+  .bit-dialogue {
+    max-width: min(300px, 44vw);
+    padding: 8px 10px;
+    margin-bottom: 0;
+  }
+  .bit-dialogue p {
+    font-size: 13px;
+    margin: 4px 0;
+  }
+  .bit-dialogue button {
+    min-height: 34px;
+    padding: 4px 8px;
+  }
+}

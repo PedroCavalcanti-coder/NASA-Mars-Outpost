@@ -4,6 +4,8 @@ import { GAME_NAME } from '@mars/shared';
 export * from './balance';
 export * from './engine';
 export { EVENTS, triggerEvent } from './events';
+/** Eventos do jogo: a MESMA lista no servidor e no navegador (tablet, previsões, chips). */
+export * from './eventRules';
 export { createMission, crises, ensureShielding, isOperational, RESOURCE_IDS } from './state';
 export * from './types';
 

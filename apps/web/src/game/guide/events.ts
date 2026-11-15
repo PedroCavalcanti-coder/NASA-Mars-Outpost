@@ -4,7 +4,8 @@ export type GuideEvent =
   | { type: 'moved' }
   | { type: 'complete'; activity: Activity; hit?: boolean }
   | { type: 'progress' }
-  | { type: 'difficulty' };
+  | { type: 'difficulty' }
+  | { type: 'saved' };
 const listeners = new Set<(event: GuideEvent) => void>();
 export function emitGuideEvent(event: GuideEvent) {
   for (const listener of listeners) listener(event);

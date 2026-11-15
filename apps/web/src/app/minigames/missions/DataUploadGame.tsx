@@ -1,159 +1,83 @@
-import { FileText, Folder, FolderOpen, Radio, Satellite, X } from 'lucide-react';
+import { Satellite, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePreviewClose } from '../usePreviewClose';
 import './missions.css';
+import { L } from '../../../lib/i18n';
 
-/** Tempo (s) que cada arquivo de pesquisa leva para atravessar o espaço até a Terra. */
-const SEND_SECONDS = 5;
-/** Quem escolhe um arquivo que não é de pesquisa perde este tempo (s) com o enlace travado. */
-const WRONG_LOCK_SECONDS = 2.5;
+/** Quanto tempo (s) a animação leva para o sinal "atravessar o espaço" até a Terra. */
+const TRAVEL_SECONDS = 4;
 
-interface FileDef {
+interface Card {
+  icon: string;
   name: string;
-  size: string;
-  research: boolean;
+  science: boolean;
 }
 
-interface FolderDef {
-  name: string;
-  hint: string;
-  files: FileDef[];
-}
-
-/**
- * Pastas do computador da base. Os dados da pesquisa estão em /pesquisa; o resto (sistema,
- * temporários e cópias) não deve ser enviado: gasta o enlace e atrasa tudo.
- * Os nomes seguem instrumentos e formatos reais: ChemCam e SAM (Curiosity), MOXIE (Perseverance),
- * RAD (radiação) e o padrão PDS4 de dados planetários da NASA.
- */
-const FOLDERS: FolderDef[] = [
-  {
-    name: '/pesquisa/amostras',
-    hint: 'Dados científicos das amostras',
-    files: [
-      { name: 'chemcam_espectros_sol014.dat', size: '2,4 MB', research: true },
-      { name: 'sam_gases_rocha_cumberland.csv', size: '860 KB', research: true },
-      { name: 'solo_granulometria_pds4.xml', size: '120 KB', research: true },
-      { name: 'rascunho_anotacoes.tmp', size: '4 KB', research: false },
-    ],
-  },
-  {
-    name: '/pesquisa/atmosfera',
-    hint: 'Dados científicos do ar e da radiação',
-    files: [
-      { name: 'moxie_producao_o2.h5', size: '1,1 MB', research: true },
-      { name: 'rad_radiacao_solar.fits', size: '3,0 MB', research: true },
-      { name: 'meteo_poeira_pressao.csv', size: '540 KB', research: true },
-      { name: 'cache_grafico.bak', size: '12 MB', research: false },
-    ],
-  },
-  {
-    name: '/sistema',
-    hint: 'Arquivos do computador (não são pesquisa)',
-    files: [
-      { name: 'boot_log.txt', size: '88 KB', research: false },
-      { name: 'driver_antena.sys', size: '4,2 MB', research: false },
-      { name: 'atualizacao_pendente.pkg', size: '31 MB', research: false },
-    ],
-  },
-  {
-    name: '/temporarios',
-    hint: 'Cópias e sobras',
-    files: [
-      { name: 'copia_de_copia_final.zip', size: '22 MB', research: false },
-      { name: 'foto_refeitorio.jpg', size: '3,3 MB', research: false },
-      { name: 'teste_sinal_antigo.dat', size: '640 KB', research: false },
-    ],
-  },
+/** Três dados de ciência (instrumentos de verdade) e três que não são pesquisa. */
+const CARDS: Card[] = [
+  { icon: '🪨', name: L('Foto da rocha (ChemCam)', 'Rock photo (ChemCam)'), science: true },
+  { icon: '🌪️', name: L('Medição de poeira', 'Dust measurement'), science: true },
+  { icon: '🫁', name: L('Oxigênio do MOXIE', 'MOXIE oxygen'), science: true },
+  { icon: '🎮', name: L('Jogo do computador', 'Computer game'), science: false },
+  { icon: '🎵', name: L('Música da tripulação', 'Crew music'), science: false },
+  { icon: '🍝', name: L('Foto do almoço', 'Lunch photo'), science: false },
 ];
-
-const TOTAL = FOLDERS.flatMap((f) => f.files).filter((f) => f.research).length;
+const TOTAL = CARDS.filter((c) => c.science).length;
 
 /**
- * Enlace com a Terra (inspirado na Deep Space Network da NASA): o jogador procura nas pastas os
- * arquivos da pesquisa e manda um a um para o computador na Terra. Cada arquivo demora a
- * atravessar o espaço. É essencial: os dados enviados ficam protegidos. Interromper no meio
- * corrompe o envio e obriga a recomeçar do início.
+ * Enlace com a Terra, versão para crianças: escolha os 3 cartões de ciência, aperte "Enviar" e
+ * veja o sinal viajar de Marte até a antena na Terra. Escolher um que não é ciência só mostra uma
+ * dica (sem punição).
  */
 export default function DataUploadGame({
   onClose,
   onComplete,
 }: {
-  /** chamado ao fechar (se o envio não terminou, o jogo marca como corrompido) */
   onClose?: () => void;
   onComplete?: () => void;
 }) {
   const { close, closeButton } = usePreviewClose(onClose);
-  const [open, setOpen] = useState<number | null>(null);
-  const [sent, setSent] = useState<string[]>([]);
-  const [sending, setSending] = useState<{ name: string; t: number } | null>(null);
-  const [lock, setLock] = useState(0);
-  const [error, setError] = useState('');
+  const cards = useMemo(() => [...CARDS].sort(() => Math.random() - 0.5), []);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const [hint, setHint] = useState('');
+  const [progress, setProgress] = useState<number | null>(null);
   const reported = useRef(false);
-  const done = sent.length >= TOTAL;
+  const ready = chosen.length === TOTAL;
+  const done = progress !== null && progress >= 1;
 
-  // arquivos aparecem sempre na mesma ordem dentro da pasta; só os de pesquisa contam
-  const folder = open === null ? null : FOLDERS[open];
-
-  // a transmissão avança com o relógio (sem pular: um arquivo por vez)
   useEffect(() => {
-    if (!sending) return;
-    const started = performance.now();
+    if (progress === null || progress >= 1) return;
+    const started = performance.now() - progress * TRAVEL_SECONDS * 1000;
     const id = window.setInterval(() => {
-      const t = (performance.now() - started) / 1000 / SEND_SECONDS;
-      if (t >= 1) {
-        window.clearInterval(id);
-        setSent((list) => [...list, sending.name]);
-        setSending(null);
-      } else setSending({ name: sending.name, t });
-    }, 80);
+      setProgress(Math.min(1, (performance.now() - started) / 1000 / TRAVEL_SECONDS));
+    }, 60);
     return () => window.clearInterval(id);
-    // biome-ignore lint/correctness/useExhaustiveDependencies: só reinicia ao trocar de arquivo
-  }, [sending?.name]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: só começa uma vez
+  }, [progress === null]);
 
-  // enlace travado depois de um arquivo errado
-  useEffect(() => {
-    if (lock <= 0) return;
-    const id = window.setTimeout(() => setLock((l) => Math.max(0, l - 0.5)), 500);
-    return () => window.clearTimeout(id);
-  }, [lock]);
-
-  // trocar de aba ou esconder a página no meio do envio também interrompe a transmissão
-  useEffect(() => {
-    if (done) return;
-    const hidden = () => {
-      if (document.hidden) close();
-    };
-    document.addEventListener('visibilitychange', hidden);
-    return () => document.removeEventListener('visibilitychange', hidden);
-  }, [done, close]);
-
-  const pick = (f: FileDef) => {
-    if (sending || lock > 0 || done || sent.includes(f.name)) return;
-    if (!f.research) {
-      setError(`"${f.name}" não é dado de pesquisa. O enlace travou por um instante.`);
-      setLock(WRONG_LOCK_SECONDS);
+  const toggle = (c: Card) => {
+    if (progress !== null) return;
+    if (!c.science) {
+      setHint(`${c.icon} ${c.name} não é pesquisa: não precisa ir para a Terra.`);
       return;
     }
-    setError('');
-    setSending({ name: f.name, t: 0 });
+    setHint('');
+    setChosen((list) =>
+      list.includes(c.name) ? list.filter((n) => n !== c.name) : [...list, c.name],
+    );
   };
 
-  const packets = useMemo(() => [0, 1, 2, 3, 4], []);
-
   return (
-    <main className="msn-mg msn-mg--upload" aria-label="Enviar dados de pesquisa à Terra">
+    <main className="msn-mg msn-mg--upload" aria-label={L('Enviar dados de pesquisa à Terra', 'Send research data to Earth')}>
       <div className="msn-mg__bg" aria-hidden="true" />
-      <section className="msn-mg__card msn-up">
+      <section className="msn-mg__card">
         <div className="msn-mg__head">
           <div>
             <h2>
-              <Satellite size={18} aria-hidden="true" /> Enlace com a Terra
+              <Satellite size={18} aria-hidden="true" /> {L('Enviar ciência para a Terra', 'Send science to Earth')}
             </h2>
             <p>
-              Abra as pastas, ache os <b>{TOTAL} arquivos de pesquisa</b> e toque em cada um para
-              enviá-lo à Terra. Um por vez, e não feche no meio: o envio corrompe e recomeça do
-              início.
+              {L('Toque nos', 'Tap the')} <b>{TOTAL} {L('cartões de ciência', 'science cards')}</b> {L('e aperte “Enviar”.', 'and press “Send”.')}
             </p>
           </div>
           <button
@@ -161,126 +85,76 @@ export default function DataUploadGame({
             type="button"
             className="msn-mg__close"
             onClick={close}
-            aria-label="Interromper (o envio corrompe)"
+            aria-label={L('Fechar', 'Close')}
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="msn-up__cols">
-          <div className="msn-up__pane" aria-label="Computador da base em Marte">
-            <h3>
-              <Radio size={14} aria-hidden="true" /> Base · Marte
-            </h3>
-            <ul className="msn-up__folders">
-              {FOLDERS.map((f, i) => (
-                <li key={f.name}>
-                  <button
-                    type="button"
-                    className={`msn-up__folder ${open === i ? 'is-open' : ''}`}
-                    onClick={() => setOpen(open === i ? null : i)}
-                  >
-                    {open === i ? <FolderOpen size={16} /> : <Folder size={16} />}
-                    <span>
-                      <b>{f.name}</b>
-                      <small>{f.hint}</small>
-                    </span>
-                  </button>
-                  {open === i && (
-                    <ul className="msn-up__files">
-                      {f.files.map((file) => {
-                        const gone = sent.includes(file.name);
-                        return (
-                          <li key={file.name}>
-                            <button
-                              type="button"
-                              className="msn-up__file"
-                              disabled={gone || !!sending || lock > 0}
-                              onClick={() => pick(file)}
-                            >
-                              <FileText size={14} aria-hidden="true" />
-                              <span>{file.name}</span>
-                              <small>{gone ? 'enviado ✓' : file.size}</small>
-                            </button>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="msn-up__link" aria-hidden="true">
-            <div className="msn-up__packets">
-              {packets.map((p) => (
-                <i
-                  key={p}
-                  className={sending ? 'is-on' : ''}
-                  style={{ animationDelay: `${p * 0.35}s` }}
-                />
+        {progress === null ? (
+          <>
+            <div className="sci-grid">
+              {cards.map((c) => (
+                <button
+                  key={c.name}
+                  type="button"
+                  className={`sci-card msn-up__file ${chosen.includes(c.name) ? 'is-on' : ''}`}
+                  aria-pressed={chosen.includes(c.name)}
+                  onClick={() => toggle(c)}
+                >
+                  <span aria-hidden="true">{c.icon}</span>
+                  <span>{c.name}</span>
+                </button>
               ))}
             </div>
-            <small>
-              Atraso do sinal
-              <br />
-              (minutos-luz)
-            </small>
-          </div>
-
-          <div className="msn-up__pane msn-up__pane--earth" aria-label="Computador na Terra">
-            <h3>
-              <Satellite size={14} aria-hidden="true" /> Terra · JPL
-            </h3>
-            <ul className="msn-up__received">
-              {sent.map((n) => (
-                <li key={n}>✓ {n}</li>
-              ))}
-              {sending && <li className="is-live">⇢ {sending.name}</li>}
-              {!sent.length && !sending && <li className="is-empty">Nenhum arquivo recebido.</li>}
-            </ul>
-          </div>
-        </div>
-
-        <div className="msn-up__status" role="status" aria-live="polite">
-          <div className="msn-up__bar" aria-hidden="true">
-            <i
-              style={{
-                width: `${((sent.length + (sending ? sending.t : 0)) / TOTAL) * 100}%`,
-              }}
-            />
-          </div>
-          <span>
-            {done
-              ? 'Todos os arquivos chegaram à Terra!'
-              : lock > 0
-                ? '⚠ Enlace travado…'
-                : sending
-                  ? `Enviando ${sending.name}… ${Math.round(sending.t * 100)}%`
-                  : `Arquivos enviados: ${sent.length}/${TOTAL}`}
-          </span>
-        </div>
-        {error && !done && (
-          <p className="msn-up__error" role="alert">
-            {error}
-          </p>
+            {hint && (
+              <p className="msn-up__error" role="status">
+                {hint}
+              </p>
+            )}
+            <button
+              type="button"
+              className="msn-mg__btn"
+              disabled={!ready}
+              onClick={() => setProgress(0)}
+            >
+              📡 Enviar ({chosen.length}/{TOTAL})
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="sci-row" aria-hidden="true">
+              <span>{L('🔴 Marte', '🔴 Mars')}</span>
+              <span>{L('🌍 Terra', '🌍 Earth')}</span>
+            </div>
+            <div className="sci-meter" role="progressbar" aria-valuenow={Math.round(progress * 100)}>
+              <i style={{ width: `${progress * 100}%` }} />
+            </div>
+            {done ? (
+              <div className="msn-mg__result">
+                <strong>{L('A Terra recebeu os dados! 🎉', 'Earth got the data! 🎉')}</strong>
+                <button
+                  type="button"
+                  className="msn-mg__btn"
+                  onClick={() => {
+                    if (reported.current) return;
+                    reported.current = true;
+                    onComplete?.();
+                    close();
+                  }}
+                >
+                  {L('Concluir envio', 'Finish upload')}
+                </button>
+              </div>
+            ) : (
+              <p>{L('📶 O sinal de rádio está viajando pelo espaço…', '📶 The radio signal is traveling through space…')}</p>
+            )}
+          </>
         )}
 
-        {done && (
-          <button
-            type="button"
-            className="msn-mg__btn"
-            onClick={() => {
-              if (reported.current) return;
-              reported.current = true;
-              onComplete?.();
-              close();
-            }}
-          >
-            Concluir envio
-          </button>
-        )}
+        <p className="sci-fact">
+          <b>{L('CIÊNCIA DE VERDADE', 'REAL SCIENCE')}</b>{L('O sinal de rádio viaja na velocidade da luz, mas Marte está tão longe que ele leva de 4 a 24 minutos para chegar à Terra. Quem recebe são as antenas gigantes da Deep Space Network, da NASA.', 'Radio signals travel at the speed of light, but Mars is so far away that they take 4 to 24 minutes to reach Earth. NASA\'s giant Deep Space Network antennas receive them.')}
+        </p>
       </section>
     </main>
   );

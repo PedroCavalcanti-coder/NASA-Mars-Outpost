@@ -37,10 +37,11 @@ import {
 import type { Namespace } from 'socket.io';
 import {
   loadWorld,
-  ownerFromCookies,
+  playerFromCookies,
   purgeExpired,
   sanitizeSave,
   saveWorld,
+  linkSuit,
   touchLink,
 } from '../worlds/service';
 import { GestureBroker } from './gestures';
@@ -71,7 +72,18 @@ interface Room {
   code: string;
   simulation: RoomSimulation;
   movement: RoomMovement;
-  players: Map<string, { info: GamePlayerInfo; motion?: GameMotion; resumeToken?: string }>;
+  players: Map<
+    string,
+    {
+      info: GamePlayerInfo;
+      motion?: GameMotion;
+      resumeToken?: string;
+      /** caiu: o personagem fica parado esperando a reconexão até este timer */
+      dropped?: NodeJS.Timeout;
+      /** tira o astronauta do mapa de vez (chamado pelo timer ou por quem reconectar) */
+      finalize?: () => void;
+    }
+  >;
   world: GameWorldState;
   baseId: string;
   /** já existe uma linha no banco para este mundo */
@@ -88,17 +100,27 @@ interface Room {
 type GameNs = Namespace<GameClientToServer, GameServerToClient, Record<string, never>, SocketData>;
 
 const MAX_ROOMS = 500;
+/** quanto tempo o astronauta de quem caiu fica parado no mapa esperando a reconexão */
+const RECONNECT_GRACE_MS = 10_000;
 const STATE_RATE = 40; // mensagens por segundo
 const rooms = new Map<string, Room>();
 /** criações em andamento (a leitura do banco é assíncrona): duas entradas simultâneas dividem a mesma sala */
 const creating = new Map<string, Promise<Room>>();
+
+/** Base da sala ativa (se houver). */
+export function roomBase(code: string): string | undefined {
+  return rooms.get(code)?.baseId;
+}
 
 /** O apelido já está em uso por alguém que está na sala (sem acento nem caixa)? */
 export function isNicknameTaken(code: string, name: string): boolean {
   const room = rooms.get(code);
   if (!room) return false;
   const n = normalizeNickname(name);
-  return [...room.players.values()].some((p) => normalizeNickname(p.info.name) === n);
+  // quem caiu e ainda está parado no mapa não segura o apelido: a entrada nova o substitui
+  return [...room.players.values()].some(
+    (p) => !p.dropped && normalizeNickname(p.info.name) === n,
+  );
 }
 
 function worldFromSave(save: WorldSave | null): GameWorldState {
@@ -148,13 +170,26 @@ function timeState(world: GameWorldState, now: number): GameTimeState {
 function isCoordinator(room: Room, socketId: string): boolean {
   const me = room.players.get(socketId);
   if (!me) return false;
-  for (const p of room.players.values()) if (p.info.slot < me.info.slot) return false;
+  for (const p of room.players.values())
+    if (!p.dropped && p.info.slot < me.info.slot) return false;
   return true;
 }
 
-async function getRoom(code: string, baseId: string): Promise<Room> {
+/**
+ * Sala em memória, do banco ou nova. Só cria do zero quem abriu a sala (ou já estava nela):
+ * quem chega só com o código, depois de um reinício do servidor, não inventa um mundo com outra base.
+ */
+async function getRoom(
+  code: string,
+  baseId: string,
+  allowCreate = true,
+  fresh = false,
+): Promise<Room> {
   const live = rooms.get(code);
+  // código recém-sorteado que já pertence a outro mundo: o cliente sorteia outro
+  if (live && fresh) throw new RoomTakenError();
   if (live) return live;
+  if (fresh && creating.has(code)) throw new RoomTakenError();
   let pending = creating.get(code);
   if (!pending) {
     if (rooms.size + creating.size >= MAX_ROOMS) throw new Error('Servidor cheio');
@@ -166,6 +201,9 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
         console.error('[game] falha ao ler o mundo salvo:', (err as Error).message);
         throw new Error('Não foi possível consultar o mundo. Tente novamente.');
       }
+      if (saved && fresh) throw new RoomTakenError();
+      if (!saved && !allowCreate)
+        throw new Error('Sala não encontrada. Confira o código ou peça um novo convite.');
       const movement = new RoomMovement(saved?.baseId ?? baseId, saved?.save.vehicle);
       const simulation = new RoomSimulation(saved?.baseId ?? baseId, code, movement, saved?.save);
       const room: Room = {
@@ -176,15 +214,31 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
         gestures: new GestureBroker(),
         world: simulation.projectWorld(),
         baseId: saved?.baseId ?? baseId,
-        saved: Boolean(saved),
+        // todo mundo é gravado no banco desde que nasce (sobrevive a reinícios do servidor)
+        saved: true,
         mission: saved?.save.mission,
       };
       rooms.set(code, room);
+      if (!saved) persist(room, 'criar o mundo');
       return room;
     })().finally(() => creating.delete(code));
     creating.set(code, pending);
   }
   return pending;
+}
+
+/** Código sorteado no "Jogar agora" já existe: o cliente tenta com outro. */
+class RoomTakenError extends Error {
+  constructor() {
+    super('ROOM_TAKEN');
+  }
+}
+
+/** Grava o mundo agora (a fila da simulação garante uma gravação por vez e a mais recente). */
+function persist(room: Room, what: string) {
+  void room.simulation
+    .save((save) => saveWorld(room.code, room.baseId, save))
+    .catch((err: Error) => console.error(`[game] falha ao ${what} (${room.code}):`, err.message));
 }
 
 function scheduleCleanup(room: Room) {
@@ -199,8 +253,11 @@ function scheduleCleanup(room: Room) {
 function snapshot(room: Room, _mission?: unknown): WorldSave {
   return createWorldSave(room.simulation.state, room.world.vehicle);
 }
+/** Desligamento do servidor: grava todos os mundos abertos. */
 export async function flushGameSaves() {
-  await Promise.allSettled([...rooms.values()].filter(r => r.saved).map(r => r.simulation.save(save => saveWorld(r.code,r.baseId,save))));
+  await Promise.allSettled(
+    [...rooms.values()].map((r) => r.simulation.save((save) => saveWorld(r.code, r.baseId, save))),
+  );
 }
 
 function cleanName(raw: unknown): string {
@@ -397,12 +454,13 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       try {
         let owner: string | null = null;
         try {
-          owner = await ownerFromCookies(socket.handshake.headers.cookie);
+          owner = await playerFromCookies(socket.handshake.headers.cookie);
         } catch {
           owner = null;
         }
+        const savedSuit = owner ? await linkSuit(owner, code).catch(() => null) : null;
         if (socket.disconnected) return;
-        const room = await getRoom(code, baseId);
+        const room = await getRoom(code, baseId, req.create === true, req.fresh === true);
         if (socket.disconnected) {
           scheduleCleanup(room);
           return;
@@ -411,6 +469,8 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           scheduleCleanup(room);
           return reply({ ok: false, error: 'Esta sala usa outra base.', baseId: room.baseId });
         }
+        // Mundo com 4 jogadores vinculados: quem não é um deles entra e joga, só não ganha o
+        // mundo em "Meus mundos" (o vínculo é recusado em `touchLink`).
         const resumeToken =
           typeof req.resumeToken === 'string' && /^[a-f0-9]{48}$/.test(req.resumeToken)
             ? req.resumeToken
@@ -420,6 +480,17 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         // A conexão antiga pode ainda estar esperando o ping expirar depois de trocar de Wi-Fi.
         // Só quem conhece o segredo desta instância pode substituí-la.
         if (previous) ns.sockets.get(previous.info.id)?.disconnect(false);
+        // Quem caiu e voltou (ou entrou de novo com o mesmo apelido): o astronauta parado sai
+        // agora e a entrada nova retoma a posição dele.
+        const wantedName = normalizeNickname(name);
+        for (const p of [...room.players.values()]) {
+          if (
+            p.dropped &&
+            ((resumeToken && p.resumeToken === resumeToken) ||
+              normalizeNickname(p.info.name) === wantedName)
+          )
+            p.finalize?.();
+        }
         if (room.players.size >= GAME_MAX_PLAYERS) {
           return reply({ ok: false, error: `Sala cheia (máx. ${GAME_MAX_PLAYERS} astronautas)` });
         }
@@ -442,7 +513,8 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         const info: GamePlayerInfo = {
           id: socket.id,
           name,
-          suit: normalizeSuit(req.suit),
+          // o traje pertence ao jogador NESTE mundo: quem já tem vínculo volta com o mesmo
+          suit: savedSuit ?? normalizeSuit(req.suit),
           slot,
         };
         const others = [...room.players.values()].map((p) => ({ ...p.info, motion: p.motion }));
@@ -462,12 +534,21 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           .emit('player:joined', { ...info, motion: room.players.get(socket.id)?.motion });
 
         // O banco não bloqueia a entrada nem deixa o roster do ACK desatualizado.
-        const linked = Boolean(owner && room.saved);
+        // Quem aceitou o cookie ganha o mundo em "Meus mundos" (depois que a linha do mundo existe).
+        const linked = Boolean(owner);
         socket.data.linked = linked;
-        if (owner && linked)
-          void touchLink(owner, code, name).catch((err: Error) => {
-            console.error('[game] falha ao renovar o vínculo:', err.message);
-          });
+        if (owner)
+          void room.simulation
+            .flush()
+            .then(() => touchLink(owner, code, name, info.suit))
+            .then((ok) => {
+              if (!ok) socket.data.linked = false;
+            })
+            .catch((err: Error) =>
+              console.error('[game] falha ao salvar o vínculo do mundo:', err.message),
+            );
+        // entrou alguém: grava logo (o mundo e quem está nele ficam no banco)
+        persist(room, 'gravar a entrada');
         reply({
           ok: true,
           baseId: room.baseId,
@@ -483,6 +564,8 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           persistence: { linked, canSave: Boolean(owner), mission: room.mission },
         });
       } catch (err) {
+        if (err instanceof RoomTakenError)
+          return reply({ ok: false, error: 'Código já usado por outro mundo.', taken: true });
         reply({
           ok: false,
           error: err instanceof Error ? err.message : 'Não foi possível entrar na sala.',
@@ -502,7 +585,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!owner) {
         return reply({
           ok: false,
-          error: 'Para salvar, aceite o cookie de salvamento ou entre na sua conta.',
+          error: 'Para salvar, aceite o cookie de salvamento.',
         });
       }
       if (payload && Object.keys(payload).length) return reply({ok:false,error:'O servidor monta o salvamento.'});
@@ -512,7 +595,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         await room.simulation.save(save => saveWorld(room.code, room.baseId, save));
         room.saved = true;
         room.mission = save.mission;
-        await touchLink(owner, room.code, socket.data.info?.name ?? '');
+        await touchLink(owner, room.code, socket.data.info?.name ?? '', socket.data.info?.suit);
         socket.data.linked = true;
         reply({ ok: true, savedAt: Date.now() });
       } catch (err) {
@@ -667,38 +750,68 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       const code = socket.data.room;
       const room = code ? rooms.get(code) : undefined;
       if (!room) return;
-      // quem cai dirigindo deixa o rover parado onde estava
       const leaving = room.players.get(socket.id);
-      if (leaving?.motion?.m === 'drive') {
-        room.world.vehicle = { x: leaving.motion.x, z: leaving.motion.z, h: leaving.motion.h };
-        socket.to(room.code).emit('world:vehicle', room.world.vehicle);
-      }
+      if (!leaving) return;
       if (room.world.repairPause === socket.id) {
         room.world.repairPause = undefined;
         room.world.timeUpdatedAt = Date.now();
       }
-      room.simulation.leave(socket.id);
-      room.movement.remove(socket.id, leaving?.resumeToken);
-      room.players.delete(socket.id);
-      ns.to(room.code).emit(
-        'movement:snapshot',
-        room.movement.snapshot(
-          Date.now(),
-          room.world.paused ? 0 : normalizeTimeScale(room.world.timeScale),
-        ),
-      );
-      room.gestures.remove(socket.id);
-      socket.to(room.code).emit('player:left', socket.id);
-      publish(room);
-      if (room.saved && socket.data.linked && socket.data.owner) {
-        void touchLink(socket.data.owner, room.code, socket.data.info?.name ?? '').catch(() => {});
+      // Caiu: o astronauta fica parado onde estava por alguns segundos, esperando a reconexão.
+      const sim = room.simulation.state.players[socket.id];
+      if (sim) {
+        sim.ready = false;
+        room.simulation.state.revision++;
       }
-      if (room.players.size === 0) {
-        room.world=room.simulation.projectWorld();
-        if(room.saved)void room.simulation.save(save=>saveWorld(room.code,room.baseId,save)).catch(()=>{});
-        // mantém o mundo por 2 min: quem cai e volta reencontra a mesma partida
-        scheduleCleanup(room);
+      room.movement.restrict(socket.id, { blocked: true, cold: false });
+      publish(room);
+      leaving.finalize = () => {
+        if (room.players.get(socket.id) !== leaving) return;
+        clearTimeout(leaving.dropped);
+        removeDropped(room, socket.id, leaving);
+      };
+      leaving.dropped = setTimeout(leaving.finalize, RECONNECT_GRACE_MS);
+      leaving.dropped.unref();
+      persist(room, 'gravar a saída');
+      if (room.saved && socket.data.linked && socket.data.owner) {
+        void touchLink(
+          socket.data.owner,
+          room.code,
+          socket.data.info?.name ?? '',
+          socket.data.info?.suit,
+        ).catch(() => {});
       }
     });
   });
+
+  /** O astronauta de quem caiu sai do mapa de vez (pode voltar pelo código da sala). */
+  function removeDropped(
+    room: Room,
+    id: string,
+    leaving: NonNullable<ReturnType<Room['players']['get']>>,
+  ) {
+    // quem cai dirigindo deixa o rover parado onde estava
+    if (leaving.motion?.m === 'drive') {
+      room.world.vehicle = { x: leaving.motion.x, z: leaving.motion.z, h: leaving.motion.h };
+      ns.to(room.code).emit('world:vehicle', room.world.vehicle);
+    }
+    room.simulation.leave(id);
+    room.movement.remove(id, leaving.resumeToken);
+    room.players.delete(id);
+    ns.to(room.code).emit(
+      'movement:snapshot',
+      room.movement.snapshot(
+        Date.now(),
+        room.world.paused ? 0 : normalizeTimeScale(room.world.timeScale),
+      ),
+    );
+    room.gestures.remove(id);
+    ns.to(room.code).emit('player:left', id);
+    publish(room);
+    if (room.players.size === 0) {
+      room.world = room.simulation.projectWorld();
+      persist(room, 'gravar o mundo vazio');
+      // mantém o mundo por 2 min: quem volta reencontra a mesma partida
+      scheduleCleanup(room);
+    }
+  }
 }

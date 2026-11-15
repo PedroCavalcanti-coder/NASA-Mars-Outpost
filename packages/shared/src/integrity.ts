@@ -69,7 +69,8 @@ function random(s: IntegrityState) {
   return s.seed / 4294967296;
 }
 function schedule(s: IntegrityState, t: number) {
-  s.nextAt = t + 240 + 60 * random(s);
+  // intervalo bem espalhado (2,5 a 8 min): salas abertas juntas não recebem o mesmo evento juntas
+  s.nextAt = t + 150 + 330 * random(s);
 }
 function fracture(s: IntegrityState, t: number, damage: number, tutorial = false) {
   const available = [0, 1, 2, 3, 4, 5].filter((a) => !s.fractures.some((f) => f.anchor === a));

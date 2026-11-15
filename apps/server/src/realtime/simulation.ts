@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
-  GAMEPLAY_TARGETS, GAMEPLAY_VERSION, gameCommandSchema, GAME_STEP_MS,
+  GAME_ERROR_MESSAGES, GAMEPLAY_TARGETS, GAMEPLAY_VERSION, gameCommandSchema, GAME_STEP_MS,
   navigationData, neutralInput, REPAIR_ANCHORS, WORLD_AUTOSAVE_MS,
   type GameConfirmation, type GameplayMovement, type GameplaySnapshot, type GameplayState,
   type GameplayUpdate, type WorldSave, type RepairIntent,
@@ -22,9 +22,9 @@ export class RoomSimulation {
   private ledger=new Map<string,Ledger>();
   private resumes=new Map<string,{player:GameplayState['players'][string];until:number}>();
   private identities=new Map<string,string>();
-  private saveTail: Promise<void>=Promise.resolve();
-  private writePending: {state: ReturnType<typeof createWorldSave>; resolve:()=>void; reject:(e:unknown)=>void}[]=[];
-  private writing=false;
+  /** gravação esperando a vez (só a mais recente importa) e a que está em andamento */
+  private pendingSave: {snapshot: WorldSave; revision: number; write: (save: WorldSave) => Promise<void>; waiters: {resolve: () => void; reject: (e: unknown) => void}[]} | null = null;
+  private writing: Promise<void> | null = null;
   private lastAutosave=0;
   readonly movementAdapter: GameplayMovement;
   constructor(readonly base: string, readonly code: string, public movement: RoomMovement, raw?: WorldSave | null) {
@@ -80,7 +80,7 @@ export class RoomSimulation {
   command(actor:string,raw:unknown,coordinator:boolean):GameConfirmation {
     const parsed=gameCommandSchema.safeParse(raw);
     const operationId=parsed.success?parsed.data.operationId:'';
-    const error=(code:Extract<GameConfirmation,{ok:false}>['code']):GameConfirmation=>({ok:false,operationId,generation:this.state.generation,revision:this.state.revision,code,error:code});
+    const error=(code:Extract<GameConfirmation,{ok:false}>['code']):GameConfirmation=>({ok:false,operationId,generation:this.state.generation,revision:this.state.revision,code,error:GAME_ERROR_MESSAGES[code]??code});
     if(!parsed.success)return error('INVALID_COMMAND');
     const command=parsed.data;
     if(command.generation!==this.state.generation)return error('STALE_GENERATION');
@@ -91,7 +91,8 @@ export class RoomSimulation {
     if(!/^\d{1,12}$/.test(operationId))return error('INVALID_SEQUENCE');
     const sequence=Number(operationId);if(sequence<=ledger.high)return error('INVALID_SEQUENCE');
     ledger.high=sequence;
-    const result=applyGameplayCommand(this.state,actor,command.payload,this.movementAdapter,this.base,coordinator);
+    // ferramentas de dev: nunca em produção
+    const result=applyGameplayCommand(this.state,actor,command.payload,this.movementAdapter,this.base,coordinator,process.env.NODE_ENV!=='production');
     this.state=result.state;
     const confirmation:GameConfirmation=result.code?error(result.code):{ok:true,operationId,generation:this.state.generation,revision:this.state.revision,attempt:result.attempt};
     ledger.results.set(operationId,confirmation);
@@ -113,14 +114,42 @@ export class RoomSimulation {
     const s=this.state;
     return {clockStart:now-s.elapsedMs,virtualElapsedMs:s.elapsedMs,timeUpdatedAt:now,timeScale:s.scale,paused:s.pauses.length>0,solar:s.solar.map(Math.floor),crops:s.crops,care:s.care,board:s.board,storm:s.storm,integrity:s.integrity,vehicle:{x:this.movement.rover.x,z:this.movement.rover.z,h:this.movement.rover.h}};
   }
-  autosaveDue(now:number) {if(now-this.lastAutosave<WORLD_AUTOSAVE_MS||this.savedRevision===this.state.revision)return false;this.lastAutosave=now;return true;}
-  /** A single writer drains at most one newest waiting snapshot. Every requester is acknowledged. */
+  private savedLog=0;
+  /**
+   * Hora de gravar? A cada 30 s se algo mudou, e em até 5 s quando a missão avançou (entrada no
+   * diário: tarefa, evento, recurso): um reinício sem aviso do servidor perde no máximo isso.
+   */
+  autosaveDue(now:number) {
+    if(this.savedRevision===this.state.revision)return false;
+    const progressed=this.state.mission.nextLogId!==this.savedLog;
+    if(now-this.lastAutosave<(progressed?5000:WORLD_AUTOSAVE_MS))return false;
+    this.lastAutosave=now;this.savedLog=this.state.mission.nextLogId;
+    return true;
+  }
+  /**
+   * Um gravador por sala: enquanto uma gravação está em andamento, os pedidos seguintes se juntam
+   * num só (com o estado mais recente). Cada pedido é confirmado quando um estado igual ou mais novo
+   * chega ao banco, ou recebe o erro dessa gravação.
+   */
   save(write:(save:WorldSave)=>Promise<void>):Promise<void> {
     const snapshot=createWorldSave(this.state,{x:this.movement.rover.x,z:this.movement.rover.z,h:this.movement.rover.h});
     const revision=this.state.revision;
-    const run=async()=>{await write(snapshot);this.savedRevision=revision;};
-    this.saveTail=this.saveTail.catch(()=>{}).then(run);
-    return this.saveTail;
+    return new Promise((resolve,reject)=>{
+      if(this.pendingSave){Object.assign(this.pendingSave,{snapshot,revision,write});this.pendingSave.waiters.push({resolve,reject});}
+      else this.pendingSave={snapshot,revision,write,waiters:[{resolve,reject}]};
+      this.drain();
+    });
   }
-  flush(){return this.saveTail;}
+  private drain() {
+    if(this.writing||!this.pendingSave)return;
+    const job=this.pendingSave;this.pendingSave=null;
+    this.writing=(async()=>{
+      try{await job.write(job.snapshot);this.savedRevision=Math.max(this.savedRevision,job.revision);for(const w of job.waiters)w.resolve();}
+      catch(e){for(const w of job.waiters)w.reject(e);}
+      finally{this.writing=null;this.drain();}
+    })();
+  }
+  /** Espera todas as gravações pedidas até agora terminarem (com sucesso ou não). */
+  async flush(){while(this.writing)await this.writing;}
+
 }

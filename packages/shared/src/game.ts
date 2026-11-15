@@ -333,6 +333,8 @@ export interface GameWorldState {
 export const WORLD_LINK_DAYS = 30;
 /** Intervalo do salvamento automático (ms). */
 export const WORLD_AUTOSAVE_MS = 30_000;
+/** Salvamento automático com aviso na tela (o servidor também grava em silêncio a cada progresso). */
+export const WORLD_VISIBLE_AUTOSAVE_MS = 10 * 60_000;
 /** Tamanho máximo do JSON de missão aceito num salvamento (bytes). */
 export const WORLD_MISSION_MAX_BYTES = 256 * 1024;
 /** Apelido: tamanho e comparação (sem acento/caixa) usados no servidor e no cliente. */
@@ -386,6 +388,10 @@ export interface GameJoinRequest {
   name: string;
   suit: SuitConfig;
   base: string;
+  /** pode criar a sala se ela não existir (quem a abriu ou já estava nela) */
+  create?: boolean;
+  /** código recém-sorteado no "Jogar agora": se já existir outro mundo com ele, é recusado */
+  fresh?: boolean;
 }
 
 export interface GameJoinResult {
@@ -454,7 +460,12 @@ export interface GameClientToServer {
   'world:repair-pause': (active: boolean) => void;
   'room:join': (
     req: GameJoinRequest,
-    ack: (r: GameAck<GameJoinResult> | { ok: false; error: string; baseId: string }) => void,
+    ack: (
+      r:
+        | GameAck<GameJoinResult>
+        | { ok: false; error: string; baseId: string }
+        | { ok: false; error: string; taken: true },
+    ) => void,
   ) => void;
   'player:state': (s: GameMotion) => void;
   'world:storm': (value: number) => void;

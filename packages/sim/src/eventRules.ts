@@ -26,7 +26,9 @@ export type WorldEffect =
   | { type: 'dust'; amount: number }
   | { type: 'clean_panels' }
   | { type: 'clog_filter' }
-  | { type: 'wilt_crop' };
+  | { type: 'wilt_crop' }
+  /** dose de radiação na tripulação (mSv), multiplicada pela força da explosão solar real */
+  | { type: 'dose'; mSv: number };
 
 export type EventDeltas = Partial<
   Record<'energy' | 'supplies' | 'oxygen' | 'armor' | 'research', number>
@@ -203,48 +205,42 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
     credit: 'NASA/JPL-Caltech · PIA26302',
     sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA26302',
     orbital:
-      'Uma erupção solar de classe X atinge Marte. Sem campo magnético, a radiação sobe rápido na superfície. Sensores podem saturar.',
+      'Uma explosão solar real, registrada pela NASA, manda partículas na direção de Marte. Sem campo magnético e com ar fino, a radiação na superfície sobe.',
     history:
-      'Em maio de 2024 uma tempestade solar histórica encheu de "neve" (pontos de radiação) as imagens do Curiosity, enquanto a MAVEN registrou auroras globais.',
-    body: 'A radiação solar vai atravessar a atmosfera fina de Marte. Qual a resposta?',
-    weight: 2,
+      'Em setembro de 2017, partículas de uma explosão solar chegaram a Marte e o detector RAD do Curiosity mediu a radiação na superfície mais que dobrar.',
+    body: 'Radiação chegando! Proteger a tripulação gasta a energia de hoje à noite. O que fazer?',
+    weight: 3,
     choices: [
       {
-        id: 'module',
-        label: 'Módulo blindado',
-        hint: 'seguro · gasta energia',
+        id: 'shield',
+        label: 'Reforçar a blindagem',
+        hint: 'protege a tripulação · gasta a energia da noite',
         outcome: {
           tone: 'info',
-          text: 'A equipe esperou no módulo blindado. A blindagem foi desgastada.',
-          deltas: { armor: -10, energy: -10 },
+          text: 'A blindagem extra segurou quase toda a radiação, mas a bateria da noite ficou fraca.',
+          deltas: { energy: -12 },
+          effects: [{ type: 'dose', mSv: 1 }],
         },
       },
       {
-        id: 'sensors',
-        label: 'Manter sensores ligados',
-        hint: 'ciência · arriscado',
+        id: 'shelter',
+        label: 'Todos no abrigo',
+        hint: 'pouca dose · a base para de produzir',
         outcome: {
-          tone: 'good',
-          text: 'Dados raros da radiação em Marte chegaram à Terra!',
-          deltas: { research: 4 },
-        },
-        risk: {
-          chance: 0.45,
-          outcome: {
-            tone: 'bad',
-            text: 'A radiação queimou sensores e corrompeu dados.',
-            deltas: { armor: -15, research: -3, oxygen: -8 },
-          },
+          tone: 'info',
+          text: 'A tripulação esperou no módulo mais protegido. Sem ninguém cuidando, a base gastou comida e ar parada.',
+          deltas: { supplies: -4, oxygen: -4 },
+          effects: [{ type: 'dose', mSv: 3 }],
         },
       },
       {
-        id: 'panels_off',
-        label: 'Desligar painéis',
-        hint: 'tática · custo certo',
+        id: 'work',
+        label: 'Continuar trabalhando',
+        hint: 'economiza energia · muita radiação',
         outcome: {
-          tone: 'info',
-          text: 'Painéis desligados: nada queimou, mas a base gastou reservas.',
-          deltas: { energy: -15, supplies: -4 },
+          tone: 'bad',
+          text: 'A energia ficou guardada, mas a tripulação levou uma dose alta de radiação.',
+          effects: [{ type: 'dose', mSv: 12 }],
         },
       },
     ],
@@ -333,11 +329,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'photo',
         label: 'Fotografar',
-        hint: 'ciência · sem risco',
+        hint: 'ciência · gasta energia da antena',
         outcome: {
           tone: 'good',
-          text: 'Fotos lindas enviadas à Terra.',
-          deltas: { research: 2 },
+          text: 'Fotos lindas enviadas à Terra. A antena gastou energia para mandar tudo.',
+          deltas: { research: 2, energy: -3 },
         },
       },
       {
@@ -438,7 +434,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
     id: 'supply_drop',
     kind: 'major',
     title: 'Cápsula de carga da Terra',
-    icon: '📦',
+    icon: '🪂',
     body: 'Uma cápsula de carga pousou a alguns quilômetros da base. Dá para buscar tudo, mas o caminho é longo.',
     weight: 2,
     choices: [
@@ -465,11 +461,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'leave',
         label: 'Deixar a carga para depois',
-        hint: 'sem custo',
+        hint: 'economiza agora · perde parte da carga',
         outcome: {
           tone: 'info',
-          text: 'A carga ficou onde está. Uma parte foi coberta pela poeira.',
-          deltas: { supplies: 6 },
+          text: 'A carga ficou onde está. A poeira estragou parte dela e a busca depois gastou energia.',
+          deltas: { supplies: 3, energy: -3 },
         },
       },
     ],
@@ -583,11 +579,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'photo',
         label: 'Só fotografar e enviar à Terra',
-        hint: 'barato',
+        hint: 'barato · gasta energia da antena',
         outcome: {
           tone: 'good',
-          text: 'As fotos agradaram aos cientistas na Terra.',
-          deltas: { research: 2 },
+          text: 'As fotos agradaram aos cientistas na Terra. Mandar imagens gasta energia.',
+          deltas: { research: 2, energy: -3 },
         },
       },
       {
@@ -625,11 +621,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'text',
         label: 'Responder com um texto curto',
-        hint: 'sem custo',
+        hint: 'gasta pouca energia',
         outcome: {
           tone: 'info',
-          text: 'Mensagem enviada. Rápido e simples.',
-          deltas: { research: 1 },
+          text: 'Mensagem enviada. Até um texto curto gasta energia da antena para cruzar o espaço.',
+          deltas: { research: 1, energy: -1 },
         },
       },
     ],
@@ -645,8 +641,12 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'watch',
         label: 'Deixar passar',
-        hint: 'sem custo',
-        outcome: { tone: 'info', text: 'O redemoinho passou e foi embora.' },
+        hint: 'os painéis sujam um pouco',
+        outcome: {
+          tone: 'info',
+          text: 'O redemoinho passou e deixou poeira nos painéis solares.',
+          effects: [{ type: 'dust', amount: 0.3 }],
+        },
       },
       {
         id: 'steer',
@@ -679,21 +679,21 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'rations',
         label: 'Guardar as rações',
-        hint: 'mantimentos',
+        hint: 'mantimentos · gasta energia da geladeira',
         outcome: {
           tone: 'good',
-          text: 'Rações extras para a tripulação.',
-          deltas: { supplies: 8 },
+          text: 'Rações extras para a tripulação. Manter comida fresca em Marte gasta energia.',
+          deltas: { supplies: 8, energy: -4 },
         },
       },
       {
         id: 'parts',
         label: 'Separar as peças',
-        hint: 'peças',
+        hint: 'peças · dá trabalho',
         outcome: {
           tone: 'good',
-          text: 'Peças úteis para consertos futuros.',
-          deltas: { supplies: 4 },
+          text: 'Peças úteis para consertos futuros. Separar tudo gastou o ar da oficina.',
+          deltas: { supplies: 4, oxygen: -2 },
         },
       },
     ],
@@ -719,8 +719,12 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'ignore',
         label: 'Ignorar',
-        hint: 'sem custo',
-        outcome: { tone: 'info', text: 'Era só uma rocha comum, ao que parece.' },
+        hint: 'perde a oportunidade',
+        outcome: {
+          tone: 'info',
+          text: 'A rocha ficou para trás. Sem a análise, a equipe gastou o dia em outras tarefas.',
+          deltas: { supplies: -2 },
+        },
       },
     ],
   },
@@ -735,21 +739,21 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'reset',
         label: 'Reiniciar o inversor',
-        hint: 'sem custo',
+        hint: 'rápido · a base fica um tempo sem luz',
         outcome: {
           tone: 'info',
-          text: 'O inversor reiniciou e a rede se estabilizou.',
-          deltas: { energy: 2 },
+          text: 'O inversor reiniciou. Enquanto religava, a base gastou a reserva da bateria.',
+          deltas: { energy: -4 },
         },
       },
       {
         id: 'replace',
         label: 'Trocar um fusível',
-        hint: 'peças',
+        hint: 'gasta peças · rede melhor',
         outcome: {
           tone: 'good',
-          text: 'Fusível novo. A rede ficou mais eficiente.',
-          deltas: { energy: 5 },
+          text: 'Fusível novo, tirado do estoque. A rede ficou mais eficiente.',
+          deltas: { energy: 5, supplies: -3 },
         },
       },
     ],
@@ -775,11 +779,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'note',
         label: 'Marcar no mapa',
-        hint: 'sem custo',
+        hint: 'gasta pouca energia',
         outcome: {
           tone: 'good',
-          text: 'Local anotado para os cientistas.',
-          deltas: { research: 1 },
+          text: 'Local anotado e enviado aos cientistas pela antena.',
+          deltas: { research: 1, energy: -1 },
         },
       },
     ],

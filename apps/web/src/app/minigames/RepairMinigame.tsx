@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { BaseViewer } from '../../game/BaseViewer';
 import { useBaseOps } from '../../game/tasks/store';
 import './repair.css';
+import { L } from '../../lib/i18n';
 export default function RepairMinigame({
   id,
   viewer,
@@ -33,7 +34,7 @@ export default function RepairMinigame({
       if (!active) return;
       setReserved(Boolean(ok));
       if (ok) setError('');
-      else setError('Não foi possível reservar a fratura. Feche e aproxime-se novamente.');
+      else setError(L('Não foi possível reservar a fratura. Feche e aproxime-se novamente.', 'Could not reserve the crack. Close and walk closer again.'));
     };
     void reserve();
     const timer = setInterval(async () => {
@@ -64,7 +65,7 @@ export default function RepairMinigame({
       else {
         setHold(null);
         void viewer?.repairAction({ op: 'screw', fracture: id, screw: hold }).then((ok) => {
-          setError(ok ? '' : 'Não foi possível apertar. Tente novamente.');
+          setError(ok ? '' : L('Não foi possível apertar. Tente novamente.', 'Could not tighten it. Try again.'));
         });
       }
     };
@@ -73,7 +74,7 @@ export default function RepairMinigame({
   }, [hold, id, viewer]);
   const plate = () =>
     void viewer?.repairAction({ op: 'plate', fracture: id }).then((ok) => {
-      setError(ok ? '' : 'Reparo indisponível. Feche e tente novamente.');
+      setError(ok ? '' : L('Reparo indisponível. Feche e tente novamente.', 'Repair unavailable. Close and try again.'));
     });
   const stop = () => {
     setHold(null);
@@ -85,16 +86,16 @@ export default function RepairMinigame({
   }, []);
   return (
     <main className="repair-mg" role="dialog" aria-modal="true" aria-labelledby="repair-title">
-      <button className="repair-close" onClick={onClose} aria-label="Fechar reparo">
+      <button className="repair-close" onClick={onClose} aria-label={L('Fechar reparo', 'Close repair')}>
         <X />
       </button>
-      <h1 id="repair-title">{f ? 'Reparar a blindagem' : 'Base selada!'}</h1>
+      <h1 id="repair-title">{f ? L('Reparar a blindagem', 'Repair the shielding') : L('Base selada!', 'Base sealed!')}</h1>
       <p>
         {!f
-          ? 'A estrutura foi recuperada.'
+          ? L('A estrutura foi recuperada.', 'The structure is fixed.')
           : !f.plate
-            ? 'Encaixe a chapa sobre a fratura.'
-            : 'Segure cada parafuso para apertar.'}
+            ? L('Encaixe a chapa sobre a fratura.', 'Fit the plate over the crack.')
+            : L('Segure cada parafuso para apertar.', 'Hold each screw to tighten it.')}
       </p>
       <div
         className="repair-wall"
@@ -160,7 +161,7 @@ export default function RepairMinigame({
               else setSelected(true);
             }}
           >
-            Encaixar chapa
+            {L('Encaixar chapa', 'Fit the plate')}
           </button>
         )}
       </div>
@@ -174,14 +175,14 @@ export default function RepairMinigame({
           }}
           aria-pressed={selected}
         >
-          Chapa de aço
+          {L('Chapa de aço', 'Steel plate')}
         </button>
       )}
-      {hold !== null && <progress value={progress} max={1} aria-label="Apertando parafuso" />}
+      {hold !== null && <progress value={progress} max={1} aria-label={L('Apertando parafuso', 'Tightening screw')} />}
       {error && <p role="alert">{error}</p>}
       {!f && (
         <button className="repair-piece" autoFocus onClick={onClose}>
-          Voltar à base
+          {L('Voltar à base', 'Back to base')}
         </button>
       )}
     </main>

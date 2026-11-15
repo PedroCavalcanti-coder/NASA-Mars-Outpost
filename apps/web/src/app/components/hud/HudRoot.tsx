@@ -10,6 +10,7 @@ import {
   Camera,
   ClipboardList,
   Compass,
+  Database,
   MessageSquare,
   Settings,
   Users,
@@ -24,8 +25,8 @@ import { HudContext, type HudContextValue } from './HudContext';
 import { HudDock } from './HudDock';
 import { HudPanelContainer } from './HudPanelContainer';
 import { ChatPanel } from './panels/ChatPanel';
-import { DevPanel } from './panels/DevPanel';
 import { MissionPanel } from './panels/MissionPanel';
+import { NasaDataPanel } from './panels/NasaDataPanel';
 import { ResourcesPanel } from './panels/ResourcesPanel';
 import { SystemPanel } from './panels/SystemPanel';
 import { TasksPanel } from './panels/TasksPanel';
@@ -37,6 +38,7 @@ import { registerPanel } from './registry';
 import { useHudPanels } from './useHudPanels';
 import { useHudState } from './useHudState';
 import './hud.css';
+import { L } from '../../../lib/i18n';
 
 interface HudRootProps extends HudContextValue {
   marsTime: {
@@ -72,17 +74,14 @@ export function HudRoot(props: HudRootProps) {
     viewer,
     onOpenSettings,
     onRequestLeave,
+    onSaveWorld,
     rollBase,
     onGoToTask,
     driving,
     onExitRover,
   } = props;
 
-  // Detecta se a URL possui ?dev ou se está em ambiente de desenvolvimento Vite
-  const isDevMode = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return new URLSearchParams(window.location.search).has('dev') || Boolean(import.meta.env.DEV);
-  }, []);
+  const isDevMode = false; // o painel de dev foi removido
 
   // Registra os painéis essenciais e padrão do jogo no registro de tomadas
   useEffect(() => {
@@ -90,7 +89,7 @@ export function HudRoot(props: HudRootProps) {
       registerPanel({
         id: 'recursos',
         group: 'recursos',
-        title: 'Recursos',
+        title: L('Recursos', 'Resources'),
         icon: Zap,
         component: ResourcesPanel,
       }),
@@ -98,7 +97,7 @@ export function HudRoot(props: HudRootProps) {
       registerPanel({
         id: 'missao',
         group: 'missao',
-        title: 'Missão',
+        title: L('Missão', 'Mission'),
         icon: Compass,
         component: MissionPanel,
       }),
@@ -106,15 +105,23 @@ export function HudRoot(props: HudRootProps) {
       registerPanel({
         id: 'tarefas',
         group: 'missao',
-        title: 'Tarefas do Sol',
+        title: L('Tarefas do Sol', 'Sol Tasks'),
         icon: ClipboardList,
         component: TasksPanel,
       }),
 
       registerPanel({
+        id: 'dados',
+        group: 'missao',
+        title: L('Dados da NASA', 'NASA Data'),
+        icon: Database,
+        component: NasaDataPanel,
+      }),
+
+      registerPanel({
         id: 'camera',
         group: 'sistema',
-        title: 'Câmera',
+        title: L('Câmera', 'Camera'),
         icon: Camera,
         component: ViewPanel,
       }),
@@ -122,7 +129,7 @@ export function HudRoot(props: HudRootProps) {
       registerPanel({
         id: 'chat',
         group: 'sistema',
-        title: 'Comunicação',
+        title: L('Comunicação', 'Chat'),
         icon: MessageSquare,
         component: ChatPanel,
       }),
@@ -130,24 +137,11 @@ export function HudRoot(props: HudRootProps) {
       registerPanel({
         id: 'sistema',
         group: 'sistema',
-        title: 'Sistema',
+        title: L('Sistema', 'System'),
         icon: Settings,
         component: SystemPanel,
       }),
     ];
-
-    // Registra painel Dev se modo dev estiver habilitado
-    if (isDevMode) {
-      unregs.push(
-        registerPanel({
-          id: 'dev',
-          group: 'dev',
-          title: 'Dev',
-          icon: Wrench,
-          component: DevPanel,
-        }),
-      );
-    }
 
     return () => {
       for (const unreg of unregs) {
@@ -193,6 +187,7 @@ export function HudRoot(props: HudRootProps) {
       viewer,
       onOpenSettings,
       onRequestLeave,
+      onSaveWorld,
       rollBase,
       onGoToTask,
     }),
@@ -213,6 +208,7 @@ export function HudRoot(props: HudRootProps) {
       viewer,
       onOpenSettings,
       onRequestLeave,
+      onSaveWorld,
       rollBase,
       onGoToTask,
     ],

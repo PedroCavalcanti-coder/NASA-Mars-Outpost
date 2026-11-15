@@ -21,8 +21,11 @@ import {
   Zap,
 } from 'lucide-react';
 import { useBaseOps } from '../../../../game/tasks/store';
+import { RADIATION } from '@mars/shared';
+import { useGameplay } from '../../../../store/gameplay';
 import { useMission } from '../../../../store/mission';
 import { OxygenOrb } from './OxygenOrb';
+import { L, t } from '../../../../lib/i18n';
 
 interface OxygenSlotProps {
   /** Nível de oxigênio (0..100). Caso não fornecido, busca fallback ou exibe nominal */
@@ -61,8 +64,8 @@ function ResourceGauge({ kind }: { kind: 'energy' | 'supplies' | 'armor' }) {
       data-resource-gauge={kind}
       data-bit-target={kind}
       role="status"
-      title={`${labels[kind]}: ${resource.value}/${resource.max}`}
-      aria-label={`${labels[kind]}: ${resource.value} de ${resource.max}, ${pct}%${kind === 'armor' ? `, ${fractures} fraturas abertas` : ''}`}
+      title={`${t(labels[kind])}: ${resource.value}/${resource.max}`}
+      aria-label={`${t(labels[kind])}: ${resource.value} / ${resource.max}, ${pct}%${kind === 'armor' ? L(`, ${fractures} fraturas abertas`, `, ${fractures} open cracks`) : ''}`}
     >
       <div className="hud-resource-gauge__dial" aria-hidden="true">
         <svg viewBox="0 0 100 90">
@@ -100,6 +103,43 @@ export function ResourceSlot({ kind }: { kind: 'supplies' | 'armor' }) {
   return <ResourceGauge kind={kind} />;
 }
 
+/**
+ * Dose de radiação da tripulação (mSv). Comparações reais para uma criança entender o número:
+ * em Marte a base recebe 0,64 mSv por dia (RAD/Curiosity); na Terra, 2,4 mSv por ANO.
+ */
+export function DoseSlot() {
+  const dose = useGameplay((s) => s.state?.dose ?? 0);
+  const earthYears = dose / RADIATION.earthPerYear;
+  const level = dose >= 50 ? 'critical' : dose >= 25 ? 'warning' : 'normal';
+  const pct = Math.min(100, (dose / 75) * 100);
+  return (
+    <div
+      className="hud-resource-gauge hud-resource-gauge--dose"
+      data-level={level}
+      data-bit-target="dose"
+      role="status"
+      title={`Dose de radiação da tripulação: ${dose.toFixed(1)} mSv (igual a ${earthYears.toFixed(1)} anos de radiação natural na Terra). Em Marte: ${RADIATION.marsSurfacePerDay} mSv por dia, medido pelo RAD do Curiosity.`}
+      aria-label={L(`Dose de radiação: ${dose.toFixed(1)} milisievert`, `Radiation dose: ${dose.toFixed(1)} millisievert`)}
+    >
+      <div className="hud-resource-gauge__dial" aria-hidden="true">
+        <svg viewBox="0 0 100 90">
+          <path className="hud-resource-gauge__track" d="M 18 70 A 39 39 0 1 1 82 70" pathLength="100" />
+          <path
+            className="hud-resource-gauge__fill"
+            d="M 18 70 A 39 39 0 1 1 82 70"
+            pathLength="100"
+            strokeDasharray={`${pct} 100`}
+          />
+        </svg>
+        <span className="hud-resource-gauge__icon" style={{ fontSize: 20 }}>
+          ☢
+        </span>
+      </div>
+      <span className="hud-resource-gauge__value">{dose.toFixed(dose < 10 ? 1 : 0)} mSv</span>
+    </div>
+  );
+}
+
 export function ResearchSlot() {
   const research = useMission((m) => m.state.research);
   const secured = useMission((m) => m.state.secured ?? 0);
@@ -107,17 +147,17 @@ export function ResearchSlot() {
   const securedPct = Math.max(0, Math.min(100, (secured / RESEARCH_GOAL) * 100));
   const pending = Math.max(0, research - secured);
   return (
-    <div className="hud-research" data-bit-target="research" aria-label="Progresso da pesquisa">
+    <div className="hud-research" data-bit-target="research" aria-label={L('Progresso da pesquisa', 'Research progress')}>
       <div className="hud-research__heading">
         <span>
-          <FlaskConical size={15} aria-hidden="true" /> Pesquisa
+          <FlaskConical size={15} aria-hidden="true" /> {L('Pesquisa', 'Research')}
         </span>
         <span>
           {research} / {RESEARCH_GOAL}
         </span>
         <span
           className="hud-research__pending"
-          title="Pontos ainda na base: envie à Terra no computador para protegê-los"
+          title={L('Pontos ainda na base: envie à Terra no computador para protegê-los', 'Points still at the base: send them to Earth at the computer to protect them')}
         >
           {pending >= 10 ? '📡 enviar' : `${pending} na base`}
         </span>
@@ -125,7 +165,7 @@ export function ResearchSlot() {
       <div
         className="hud-research__track"
         role="progressbar"
-        aria-label="Pesquisa"
+        aria-label={L('Pesquisa', 'Research')}
         aria-valuemin={0}
         aria-valuemax={RESEARCH_GOAL}
         aria-valuenow={research}
@@ -197,7 +237,7 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
         role="alert"
       >
         <AlertTriangle size={15} />
-        <span>APAGÃO NA BASE</span>
+        <span>{L('APAGÃO NA BASE', 'BASE BLACKOUT')}</span>
       </div>
     );
   }
@@ -209,7 +249,7 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
         role="alert"
       >
         <Fan size={15} />
-        <span>FILTRO DE AR ENTUPIDO</span>
+        <span>{L('FILTRO DE AR ENTUPIDO', 'AIR FILTER CLOGGED')}</span>
       </div>
     );
   }
@@ -221,7 +261,7 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
         role="alert"
       >
         <Wind size={15} />
-        <span>TEMPESTADE DE AREIA</span>
+        <span>{L('TEMPESTADE DE AREIA', 'SANDSTORM')}</span>
       </div>
     );
   }
@@ -233,7 +273,7 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
         role="status"
       >
         <Moon size={15} />
-        <span>FRIO NOTURNO (-60°C)</span>
+        <span>{L('FRIO NOTURNO (-60°C)', 'NIGHT COLD (-60°C)')}</span>
       </div>
     );
   }
@@ -244,7 +284,7 @@ export function DefaultAlertSlot({ stormActive, marsTime }: AlertSlotProps) {
       role="status"
     >
       <CloudSun size={15} />
-      <span>SISTEMAS NOMINAIS</span>
+      <span>{L('SISTEMAS NOMINAIS', 'SYSTEMS NOMINAL')}</span>
     </div>
   );
 }

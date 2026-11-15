@@ -2,22 +2,24 @@
  * Painel de Missão e Diário da Base.
  *
  * Reúne em abas organizadas o progresso científico (ResearchBar),
- * o diário de eventos históricos (MissionLog) e as ações diárias (ActionPanel).
+ * e o diário da base (MissionLog). A antiga aba "Ações" (pesquisa/expedição locais) saiu:
+ * o progresso agora vem só das missões e tarefas validadas pelo servidor.
  */
 
-import { BookOpen, FlaskConical, Wrench } from 'lucide-react';
+import { BookOpen, FlaskConical } from 'lucide-react';
 import { useState } from 'react';
-import { ActionPanel } from '../../mission/ActionPanel';
 import { MissionLog } from '../../mission/MissionLog';
 import { ResearchBar } from '../../mission/ResearchBar';
+import { L } from '../../../../lib/i18n';
 
-type MissionTab = 'pesquisa' | 'diario' | 'acoes';
+type MissionTab = 'pesquisa' | 'diario';
 const STORAGE_TAB_KEY = 'mo_hud_mission_tab';
 
 export function MissionPanel() {
   const [currentTab, setCurrentTab] = useState<MissionTab>(() => {
     try {
-      return (localStorage.getItem(STORAGE_TAB_KEY) as MissionTab) || 'pesquisa';
+      const saved = localStorage.getItem(STORAGE_TAB_KEY);
+      return saved === 'diario' ? 'diario' : 'pesquisa';
     } catch {
       return 'pesquisa';
     }
@@ -35,7 +37,7 @@ export function MissionPanel() {
   return (
     <div className="hud-panel-content hud-panel-mission">
       {/* Barra de Subpainéis (Abas) */}
-      <div className="hud-subtabs" role="tablist" aria-label="Seções da Missão">
+      <div className="hud-subtabs" role="tablist" aria-label={L('Seções da Missão', 'Mission sections')}>
         <button
           type="button"
           role="tab"
@@ -45,7 +47,7 @@ export function MissionPanel() {
           onClick={() => handleTabClick('pesquisa')}
         >
           <FlaskConical size={14} />
-          <span>Pesquisa</span>
+          <span>{L('Pesquisa', 'Research')}</span>
         </button>
 
         <button
@@ -57,20 +59,9 @@ export function MissionPanel() {
           onClick={() => handleTabClick('diario')}
         >
           <BookOpen size={14} />
-          <span>Diário</span>
+          <span>{L('Diário', 'Log')}</span>
         </button>
 
-        <button
-          type="button"
-          role="tab"
-          aria-selected={currentTab === 'acoes'}
-          aria-controls="mission-tab-acoes"
-          className={`hud-subtab ${currentTab === 'acoes' ? 'is-active' : ''}`}
-          onClick={() => handleTabClick('acoes')}
-        >
-          <Wrench size={14} />
-          <span>Ações</span>
-        </button>
       </div>
 
       {/* Conteúdo da Aba Ativa */}
@@ -87,11 +78,6 @@ export function MissionPanel() {
           </div>
         )}
 
-        {currentTab === 'acoes' && (
-          <div id="mission-tab-acoes" role="tabpanel" className="hud-tabpanel">
-            <ActionPanel />
-          </div>
-        )}
       </div>
     </div>
   );

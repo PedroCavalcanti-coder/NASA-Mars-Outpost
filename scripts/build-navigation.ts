@@ -70,7 +70,7 @@ for (const file of fs
   const rocks = terrain.getObjectByName('Rocas');
   grid.buildNavigation(model, {
     skip: (name) =>
-      /_Telhado$|_Nave$|_Folha(Inf|Sup)$|_Antena_Prato$|_Pad(Luz)?_\d+$|_Rampa$/.test(name),
+      /_Telhado$|_Nave$|_Folha(Inf|Sup)$|_Antena_Prato$|_Pad(Luz)?_\d+$|_Rampa$|_BancadaLab_\d+$/.test(name),
     extraObstacles: rocks ? [rocks] : [],
     seed: raw,
     vehicleSeed: new THREE.Vector3(park.x, 0, park.z),

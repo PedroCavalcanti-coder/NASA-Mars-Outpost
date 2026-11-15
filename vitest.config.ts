@@ -8,6 +8,7 @@ export default defineConfig({
       'apps/web/src/**/*.test.{ts,tsx}',
     ],
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     // Valores falsos só para os testes unitários: nada aqui toca o banco real.
     env: {
       NODE_ENV: 'test',

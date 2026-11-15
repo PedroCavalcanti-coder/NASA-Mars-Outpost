@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { BaseViewer, MinigameRequest } from '../../../game/BaseViewer';
-import { registerDevAction } from '../../../game/dev/devActions';
-import { type Expression, LINES, type LineId } from '../../../game/guide/catalog';
+import { L } from '../../../lib/i18n';
+import { bitLanguage, type Expression, LINES, type LineId, lineText } from '../../../game/guide/catalog';
 import { GuideEngine, readMemory } from '../../../game/guide/engine';
 import { subscribeGuide } from '../../../game/guide/events';
 import {
@@ -16,6 +16,7 @@ import {
 import { useOxygen } from '../../../game/survival/OxygenSystem';
 import { useBaseOps } from '../../../game/tasks/store';
 import { useGameSettings } from '../../../lib/gameSettings';
+import { useGameplay } from '../../../store/gameplay';
 import { useMission } from '../../../store/mission';
 import { BitCharacter } from './BitCharacter';
 import { BitSpotlight } from './BitSpotlight';
@@ -30,6 +31,33 @@ interface Props {
 }
 const supported = (kind?: string): kind is 'solar' | 'oxygen' | 'greenhouse' | 'drill' =>
   kind === 'solar' || kind === 'oxygen' || kind === 'greenhouse' || kind === 'drill';
+
+/** Qual fala de apresentação cada minigame tem (a primeira vez que é aberto). */
+function topicOf(request: MinigameRequest | null): LineId | null {
+  if (!request) return null;
+  switch (request.kind) {
+    case 'solar':
+    case 'oxygen':
+    case 'greenhouse':
+    case 'drill':
+    case 'moxie':
+    case 'water':
+    case 'upload':
+    case 'ducts':
+      return request.kind;
+    case 'soil':
+      return 'scout';
+    case 'station':
+      return (
+        { antenna_calibration: 'antenna', lab_analysis: 'lab', power_audit: 'power', medical_checkup: 'medical' } as Record<string, LineId>
+      )[request.mission] ?? null;
+    default:
+      return null;
+  }
+}
+
+/** Passos do briefing da missão, em ordem (depois do “oi” do B.I.T. e antes do tour da tela). */
+const BRIEFING: LineId[] = ['goal', 'resources', 'events', 'save', 'sendData'];
 
 export function BitGuide({ identity, viewer, minigame, suspended, driving }: Props) {
   const storageKey = `mars-bit-v1:${identity}`;
@@ -51,11 +79,12 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const touch = useRef(window.matchMedia('(pointer: coarse)').matches).current;
   const activity = minigame?.kind;
+  const topic = topicOf(minigame);
   const quiet = suspended || hidden || activity === 'repair';
   const context = useRef({ quiet, activity, ready });
   context.current = { quiet, activity, ready };
   const attempt = useRef({ interacting: false, lastProgress: Date.now(), hinted: false });
-  const previousActivity = useRef(activity);
+  const previousActivity = useRef<string | undefined>(undefined);
   const audio = useGameSettings((s) => s.audio);
   const reduced = useGameSettings((s) => s.video.reducedMotion);
   const hints = useGameSettings((s) => s.gameplay.showHints);
@@ -89,6 +118,10 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
           engine.discard('move');
           engine.discard('moveTouch');
           if (!pendingHud()) offer('moved');
+          return;
+        }
+        if (event.type === 'saved') {
+          offer('saved', true, true);
           return;
         }
         if (event.type === 'progress') {
@@ -127,16 +160,20 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
 
   useEffect(() => {
     if (activity) engine.clear();
-    else if (supported(previousActivity.current)) {
-      engine.discard(previousActivity.current);
-      engine.discard(`${previousActivity.current}Hint`);
+    else if (previousActivity.current) {
+      engine.discard(previousActivity.current as LineId);
+      engine.discard(`${previousActivity.current}Real` as LineId);
+      engine.discard(`${previousActivity.current}Hint` as LineId);
     }
-    previousActivity.current = activity;
+    previousActivity.current = topic ?? undefined;
     attempt.current = { interacting: false, lastProgress: Date.now(), hinted: false };
-    if (supported(activity) && hints)
-      offer(activity, true, !engine.memory.mastered.includes(activity));
+    if (topic && hints) {
+      // os 4 minigames antigos repetem a ajuda até serem dominados; todos os outros só na 1ª vez
+      const repeat = supported(topic) && !engine.memory.mastered.includes(topic);
+      offer(topic, true, repeat);
+    }
     update();
-  }, [activity, engine, hints, offer, update]);
+  }, [activity, topic, engine, hints, offer, update]);
 
   useEffect(() => {
     if (driving && hints) offer(touch ? 'roverTouch' : 'rover');
@@ -147,6 +184,8 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
     let wasStorm = false;
     let wasBlackout = false;
     let status = useMission.getState().state.status;
+    let lastSol = 0;
+    let lastCritical = '';
     let stored = '';
     const tick = () => {
       if (!context.current.ready) {
@@ -177,6 +216,15 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
         offer('blackout', true);
       }
       if (!ops.blackout) engine.discard('blackout');
+      // novo Sol: o B.I.T. indica as missões do dia; crítico: pede pressa
+      const gp = useGameplay.getState().state;
+      if (gp) {
+        if (lastSol && gp.mission.sol !== lastSol) offer('newDay', true, true);
+        lastSol = gp.mission.sol;
+        const cr = gp.critical?.active ? `${gp.critical.sol}:${gp.critical.kind}:${gp.critical.at}` : '';
+        if (cr && cr !== lastCritical) offer('critical', true, true);
+        lastCritical = cr;
+      }
       wasLow = low;
       wasStorm = storm;
       wasBlackout = ops.blackout;
@@ -275,6 +323,10 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
   // biome-ignore lint/correctness/useExhaustiveDependencies: serial and replay deliberately restart the same clip.
   useEffect(() => {
     if (!id || quiet) return;
+    // a voz gravada é em inglês: em português o B.I.T. só mostra o texto (sem misturar idiomas)
+    if (bitLanguage() !== 'en') return;
+    // falas ainda sem gravação: só o texto (sem pedir um áudio que não existe)
+    if ((LINES[id as LineId] as { voice?: boolean } | undefined)?.voice === false) return;
     const sound = new Audio(`/assets/audio/bit/en/${id}.mp3`);
     audioRef.current = sound;
     const settings = useGameSettings.getState().audio;
@@ -317,63 +369,32 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
   const next = () => {
     const lesson = hudLesson(id);
     if (lesson) engine.master(lesson.id);
-    if (lesson || id === 'welcome') engine.clear();
+    const briefing = id === 'welcome' || (id && BRIEFING.includes(id));
+    if (id && BRIEFING.includes(id)) engine.master(id);
+    if (lesson || briefing) engine.clear();
     else engine.dismiss();
+    // minigame: depois de explicar o que fazer, conta como é na vida real
+    if (id && `${id}Real` in LINES && !engine.memory.introduced.includes(`${id}Real` as LineId)) {
+      offer(`${id}Real` as LineId, true);
+      update();
+      return;
+    }
+    const nextBrief = BRIEFING.find((b) => !engine.memory.mastered.includes(b));
     const pending = pendingHud();
-    if ((lesson || id === 'welcome') && pending) offer(pending.id, true, true);
-    else if ((lesson || id === 'welcome') && !engine.memory.mastered.includes('movement'))
+    if (briefing && nextBrief) offer(nextBrief, true, true);
+    else if (briefing && pending) offer(pending.id, true, true);
+    else if (briefing && !engine.memory.mastered.includes('movement'))
       offer(touch ? 'moveTouch' : 'move', true);
     update();
   };
-  useEffect(() => {
-    const remove = [
-      registerDevAction({
-        id: 'bit-hud-tour',
-        label: 'B.I.T.: explain the HUD',
-        group: 'B.I.T.',
-        run: startHudTour,
-      }),
-      registerDevAction({
-        id: 'bit-reset',
-        label: 'B.I.T.: restart guide',
-        group: 'B.I.T.',
-        run: () => {
-          engine.clear();
-          engine.memory = { introduced: [], mastered: [] };
-          offer('welcome', true);
-          const lesson = pendingHud();
-          if (lesson) offer(lesson.id, false, true);
-        },
-      }),
-    ];
-    for (const expression of [
-      'idle',
-      'talking',
-      'thinking',
-      'excited',
-      'warning',
-      'celebrating',
-    ] as Expression[]) {
-      remove.push(
-        registerDevAction({
-          id: `bit-${expression}`,
-          label: `B.I.T.: ${expression}`,
-          group: 'B.I.T.',
-          run: () => setPreview((value) => (value === expression ? null : expression)),
-        }),
-      );
-    }
-    return () => {
-      for (const unregister of remove) unregister();
-    };
-  }, [engine, offer, pendingHud, startHudTour]);
-
   if (!ready || quiet) return null;
   const expression =
     preview ??
     (talking ? 'talking' : celebration ? 'celebrating' : id ? LINES[id].expression : 'idle');
   const spotlight = !activity && id ? spotlightTarget(id) : undefined;
-  const isHudLesson = Boolean(hudLesson(id));
+  const isHudLesson =
+    Boolean(hudLesson(id)) ||
+    Boolean(id && BRIEFING.includes(id) && id !== BRIEFING[BRIEFING.length - 1]);
   return createPortal(
     <>
       {spotlight && <BitSpotlight target={spotlight} onPlacement={setPlacement} />}
@@ -381,23 +402,23 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
         className={`bit-guide ${activity ? 'bit-guide--activity' : ''} ${spotlight ? 'bit-guide--spotlight' : ''}`}
         data-placement={placement}
         data-reduced={reduced}
-        aria-label="B.I.T. mission buddy"
+        aria-label={L('B.I.T., parceiro de missão', 'B.I.T. mission buddy')}
       >
         {id && (
           <div className="bit-dialogue" key={message.serial}>
             <div className="bit-dialogue__heading">
               <span>B.I.T.</span>
-              <span>YOUR MISSION BUDDY</span>
+              <span>{L('SEU PARCEIRO DE MISSÃO', 'YOUR MISSION BUDDY')}</span>
             </div>
             <p role="status" aria-live="polite">
-              {LINES[id].text}
+              {lineText(LINES[id])}
             </p>
             <div className="bit-dialogue__actions">
               <button type="button" onClick={next}>
-                {isHudLesson ? 'Next' : 'Got it'}
+                {isHudLesson ? L('Próximo', 'Next') : L('Entendi', 'Got it')}
               </button>
               <button type="button" onClick={() => setReplay((n) => n + 1)}>
-                Repeat
+                {L('Repetir', 'Repeat')}
               </button>
               {isHudLesson ? (
                 <button
@@ -410,16 +431,16 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
                     update();
                   }}
                 >
-                  Skip tour
+                  {L('Pular tour', 'Skip tour')}
                 </button>
               ) : (
                 <button type="button" onClick={help}>
-                  Help
+                  {L('Ajuda', 'Help')}
                 </button>
               )}
               {!activity && !isHudLesson && (
                 <button type="button" onClick={startHudTour}>
-                  HUD tour
+                  {L('Tour da tela', 'HUD tour')}
                 </button>
               )}
             </div>

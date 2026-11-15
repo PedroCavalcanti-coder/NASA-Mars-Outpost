@@ -1,6 +1,7 @@
 import { AlertTriangle, Home, Wind } from 'lucide-react';
 import { useOxygen } from '../../../../game/survival/OxygenSystem';
 import { OxygenOrb } from './OxygenOrb';
+import { L } from '../../../../lib/i18n';
 
 /** Live personal oxygen tank, including refill and storm status. */
 export function OxygenPanel() {
@@ -25,9 +26,9 @@ export function OxygenPanel() {
       }
       status={
         isLow ? (
-          <AlertTriangle size={12} aria-label="Oxigênio crítico" />
+          <AlertTriangle size={12} aria-label={L('Oxigênio crítico', 'Oxygen critical')} />
         ) : isInside ? (
-          <Home size={12} aria-label="Na base, recarregando" />
+          <Home size={12} aria-label={L('Na base, recarregando', 'In the base, refilling')} />
         ) : (
           <Wind
             size={12}

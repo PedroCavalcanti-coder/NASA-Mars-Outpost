@@ -7,7 +7,7 @@ export const GAME_STEP_MS = 100;
 export const GAME_PUBLISH_MS = 500;
 export const WORLD_SAVE_MAX_BYTES = 256 * 1024;
 export type PauseReason = 'manual' | 'event' | 'repair' | 'loading' | 'empty' | 'ended';
-export type ActivityKind = 'station' | 'drill' | 'soil' | 'solar' | 'filter' | 'greenhouse' | 'upload';
+export type ActivityKind = 'station' | 'drill' | 'soil' | 'solar' | 'filter' | 'greenhouse' | 'upload' | 'ducts';
 export interface GameplayPlayer {
   id: string; name: string; ready: boolean; tank: number; exposure: number;
   inside: boolean; driving: boolean; rescued: number; rescueUntil: number;
@@ -25,11 +25,15 @@ export interface ActivityAttempt {
   removed: number[]; coverage: number[]; water: number; moisture: number;
   samples: number[]; file: number; transmitted: number; batch: number;
   quality: number | null; participants: string[];
+  /** resultado relatado pelo minigame original (nota 0..1, água usada, pesquisa da sondagem) */
+  reported?: { quality: number; water: number; research: number };
 }
 export interface OfficialEvent {
   eid: string; id: string; sol: number; mode: 'solo' | 'decider' | 'vote';
   deciderId: string | null; voters: { id: string; name: string }[];
   votes: Record<string, number>; remainingMs: number;
+  /** explosão solar real (arquivo do DONKI) ligada a este evento, quando é de radiação */
+  flare?: { classType: string; peak: string; region: number; note: string };
   result: { choice: number; outcome: EventResult } | null;
 }
 export interface EventResult {
@@ -42,13 +46,34 @@ export interface GameplayState {
   started: boolean; mission: MissionState; integrity: IntegrityState;
   solar: number[]; crops: number[]; growth: number[];
   care: { crops: number[]; filter: number; needsCare: boolean[] };
-  board: { sol: number; ids: string[]; done: string[]; garden: number; players: number };
+  board: { sol: number; ids: string[]; done: string[]; garden: number; players: number; /** painéis limpos hoje (a missão pede 2) */ solar?: number[]; /** canteiros regados hoje (a missão da horta pede todos os plantados) */ watered?: number[] };
   quotas: { moxie: number; water: number; bench: number }; rocks: number[];
   storm: number; stormLeft: number; wind: number;
   eventQueue: { eid: string; id: string; sol: number }[];
   event: OfficialEvent | null; eventSols: number[];
   pending: { id: string; remainingMs: number; research: number }[];
   players: Record<string, GameplayPlayer>; attempts: Record<string, ActivityAttempt>;
+  /**
+   * Crítico do dia (30% dos Sóis): numa hora sorteada a base sofre um rombo na blindagem ou os
+   * dutos de ar entopem, e a tripulação precisa consertar rápido.
+   */
+  critical?: CriticalState | null;
+  /** dose de radiação acumulada pela tripulação (mSv), com base nas medições do RAD/Curiosity */
+  dose?: number;
+  /** maior faixa de alerta de dose já avisada (a cada 25 mSv) */
+  doseAlert?: number;
+}
+export interface CriticalState {
+  kind: 'breach' | 'ducts';
+  sol: number;
+  /** começa neste tempo de jogo (ms) */
+  at: number;
+  /** já começou (alerta na tela) */
+  active: boolean;
+  /** prazo (tempo de jogo, ms): depois disso o estrago piora */
+  deadline: number;
+  /** o prazo passou e o estrago extra já foi aplicado */
+  overdue: boolean;
 }
 export interface GameplaySnapshot { version: number; serverNow: number; state: GameplayState }
 export interface GameplayUpdate {
@@ -68,6 +93,12 @@ export const activityActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('remove'), ids: z.array(index).min(1).max(16) }).strict(),
   z.object({ type: z.literal('water'), holding: z.boolean() }).strict(),
   z.object({ type: z.literal('transmit'), file: index, holding: z.boolean() }).strict(),
+  z.object({
+    type: z.literal('result'),
+    quality: z.number().min(0).max(1),
+    water: z.number().min(0).max(20).optional(),
+    research: z.number().min(0).max(40).optional(),
+  }).strict(),
 ]);
 export type ActivityAction = z.infer<typeof activityActionSchema>;
 export const gameCommandSchema = z.object({
@@ -75,7 +106,7 @@ export const gameCommandSchema = z.object({
   payload: z.discriminatedUnion('type', [
     z.object({ type: z.literal('ready') }).strict(),
     z.object({ type: z.literal('time'), paused: z.boolean(), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) }).strict(),
-    z.object({ type: z.literal('start'), kind: z.enum(['station','drill','soil','solar','filter','greenhouse','upload']), target: short }).strict(),
+    z.object({ type: z.literal('start'), kind: z.enum(['station','drill','soil','solar','filter','greenhouse','upload','ducts']), target: short }).strict(),
     z.object({ type: z.literal('actions'), attempt: short, seq: z.number().int().min(1).max(100000), actions: z.array(activityActionSchema).min(1).max(32) }).strict(),
     z.object({ type: z.literal('finish'), attempt: short }).strict(),
     z.object({ type: z.literal('cancel'), attempt: short }).strict(),
@@ -83,11 +114,30 @@ export const gameCommandSchema = z.object({
     z.object({ type: z.literal('event:open'), eid: short }).strict(),
     z.object({ type: z.literal('event:choose'), eid: short, choice: index }).strict(),
     z.object({ type: z.literal('action'), action: z.enum(['research','expedition']) }).strict(),
+    // ferramentas de teste (o servidor só aceita fora de produção)
+    z.object({ type: z.literal('dev'), action: z.enum(['complete','event','catastrophe','storm','refill','next_sol','critical']), id: short.optional() }).strict(),
   ]),
 }).strict();
 export type GameCommand = z.infer<typeof gameCommandSchema>;
 export type GamePayload = GameCommand['payload'];
 export type GameErrorCode = 'INVALID_COMMAND' | 'STALE_GENERATION' | 'NOT_READY' | 'PAUSED' | 'ENDED' | 'FORBIDDEN' | 'TOO_FAR' | 'UNAVAILABLE' | 'BUSY' | 'INSUFFICIENT_RESOURCES' | 'INVALID_SEQUENCE' | 'EXPIRED' | 'RATE_LIMITED' | 'OFFLINE';
+/** Mensagem mostrada ao jogador para cada recusa do servidor. */
+export const GAME_ERROR_MESSAGES: Record<GameErrorCode, string> = {
+  INVALID_COMMAND: 'Ação inválida.',
+  STALE_GENERATION: 'A missão foi reiniciada. Sincronizando com a sala…',
+  NOT_READY: 'Seu astronauta ainda está chegando à base.',
+  PAUSED: 'O jogo está pausado.',
+  ENDED: 'A missão já terminou.',
+  FORBIDDEN: 'Só o coordenador da sala pode fazer isso.',
+  TOO_FAR: 'Chegue mais perto para fazer isso.',
+  UNAVAILABLE: 'Isso não está disponível agora.',
+  BUSY: 'Alguém da tripulação já está cuidando disso.',
+  INSUFFICIENT_RESOURCES: 'Recursos insuficientes na base.',
+  INVALID_SEQUENCE: 'Ação fora de ordem. Tente de novo.',
+  EXPIRED: 'O tempo da atividade acabou.',
+  RATE_LIMITED: 'Calma! Muitas ações ao mesmo tempo.',
+  OFFLINE: 'Conexão indisponível.',
+};
 export type GameConfirmation = { ok: true; operationId: string; generation: string; revision: number; attempt?: ActivityAttempt } | { ok: false; operationId: string; generation: string; revision: number; code: GameErrorCode; error: string };
 export interface GameplayContext {
   x: number; z: number; inside: boolean; sheltered: boolean; driving: boolean;

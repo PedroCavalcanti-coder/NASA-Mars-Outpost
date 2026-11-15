@@ -28,6 +28,10 @@ export function spotlightTarget(id?: LineId) {
   if (id === 'low' || id === 'recovered') return 'personal-oxygen';
   if (id === 'blackout') return 'energy';
   if (id === 'storm') return 'events';
+  if (id === 'save') return 'settings';
+  if (id === 'resources') return 'energy';
+  if (id === 'events') return 'events';
+  if (id === 'goal' || id === 'sendData') return 'research';
   return hudLesson(id)?.target;
 }
 export function targetSelector(target: string) {

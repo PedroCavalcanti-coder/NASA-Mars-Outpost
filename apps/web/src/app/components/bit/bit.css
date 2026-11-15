@@ -314,3 +314,51 @@ body:has(
   .hud-oxygen-anchor {
   z-index: 39;
 }
+
+/* B.I.T. na tela de lançamento (contagem regressiva e história da missão) */
+.bit-guide--launch {
+  left: 22px;
+  bottom: 96px;
+  z-index: 60;
+}
+.bit-avatar--static {
+  pointer-events: none;
+}
+.bit-countdown {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 6px 0 0;
+}
+.bit-countdown strong {
+  min-width: 1.2ch;
+  color: #ffd96a;
+  font-size: 56px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  animation: bit-count-pop 1s ease-out infinite;
+}
+@keyframes bit-count-pop {
+  0% {
+    transform: scale(1.5);
+    opacity: 0.2;
+  }
+  25% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .bit-guide--launch {
+    bottom: 70px;
+  }
+  .bit-countdown strong {
+    font-size: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bit-countdown strong {
+    animation: none;
+  }
+}

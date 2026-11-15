@@ -31,7 +31,18 @@ import {
   normalizeTimeScale,
   type RepairIntent,
 } from '@mars/shared';
-import { checkOutcome, UPLOAD_THRESHOLD } from '@mars/sim';
+import {
+  checkOutcome,
+  filterOfDay,
+  MISSION_IDS,
+  SOLAR_PANELS_PER_DAY,
+  TASK_MISSIONS,
+  type TaskKind,
+  ROVER_WINDOW,
+  roverWindowOpen,
+  simulationClock,
+  UPLOAD_THRESHOLD,
+} from '@mars/sim';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { VideoSettings } from '../app/components/SettingsModal';
@@ -62,6 +73,8 @@ import type { GuideEvent } from './guide/events';
 import { IntegrityVisuals } from './IntegrityVisuals';
 import { InteriorFader } from './InteriorFader';
 import { LifeSupportStations } from './LifeSupportStations';
+import { LorePins } from './lore/LorePins';
+import type { LoreId } from './lore/lore';
 import { useLore } from './lore/store';
 import {
   MultiplayerRoom,
@@ -128,6 +141,7 @@ import {
 import { publishOps, resetOps, tasksFrom, useBaseOps } from './tasks/store';
 import { Rover } from './Vehicle';
 import './survival';
+import { t } from '../lib/i18n';
 
 export const MARS_SOL_DURATION_SECONDS = 600;
 
@@ -171,6 +185,12 @@ function disposeTree(root: THREE.Object3D) {
 export interface BaseViewerOptions {
   onGuideEvent?: (event: GuideEvent) => void;
   roomCode?: string;
+  /** pode criar a sala se ela não existir no servidor (falso para quem só tem o código) */
+  createRoom?: boolean;
+  /** o código foi sorteado agora: se já for de outro mundo, a sala sorteia outro */
+  freshRoom?: boolean;
+  /** a sala ganhou outro código (o sorteado já existia) */
+  onRoomCodeChange?: (code: string) => void;
   initialHour?: number;
   initialSol?: number;
   videoSettings?: VideoSettings;
@@ -244,7 +264,12 @@ export type MinigameRequest =
   | { kind: 'drill'; baseId: string; target: string; sol: number }
   | { kind: 'station'; mission: MissionId; title: string; hint: string }
   | { kind: 'soil'; coop?: boolean; role?: 'driver' | 'passenger' }
-  | { kind: 'upload' };
+  | { kind: 'upload' }
+  /** estações de suporte à vida: o minigame vem antes da produção */
+  | { kind: 'moxie' }
+  | { kind: 'water' }
+  /** crítico do dia: dutos de ar entupidos */
+  | { kind: 'ducts' };
 
 /** Resultado de um minigame concluído. */
 export type MinigameResult = {
@@ -333,6 +358,7 @@ export class BaseViewer {
   });
   private readonly scene = new THREE.Scene();
   private readonly taskMarkers = new TaskMarkers(this.scene);
+  private readonly lorePins = new LorePins(this.scene);
   private readonly taskMarkerPositions = new Map<string, THREE.Vector3>();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 900);
   private readonly controls: OrbitControls;
@@ -517,6 +543,8 @@ export class BaseViewer {
   } | null = null;
   /** ponto de coleta de solo: é preciso dirigir até lá, dentro do rover */
   private soilSite: THREE.Vector3 | null = null;
+  /** quadrado amarelo do ponto de reconhecimento (pisca quando a missão está liberada) */
+  private soilPad: THREE.Mesh | null = null;
   private soilBlockWarned = false;
   /** quem já apertou para pular a noite (todos os presentes precisam apertar) */
   /** a coleta que gerou as amostras carregadas foi em dupla (custo ×2, pontos ×3)? */
@@ -809,6 +837,13 @@ export class BaseViewer {
     const transform = mapTransform(this.info.bounds);
     model.position.set(transform.x, transform.y, transform.z);
     model.scale.setScalar(transform.scale);
+    // a bancada de frascos do laboratório saiu do cenário: prendia o astronauta a caminho da
+    // missão do laboratório (também fica fora do mapa de navegação, em build-navigation)
+    const removed: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (/_BancadaLab_\d+$/.test(o.name)) removed.push(o);
+    });
+    for (const o of removed) o.removeFromParent();
     shade(model);
     sharpen(model);
     this.scene.add(model);
@@ -980,9 +1015,11 @@ export class BaseViewer {
     const spot = this.grid?.nearestWalkablePoint(center.x, center.z, 6);
     if (spot) center.copy(spot);
     center.y += 1.8;
+    // um aviso por canteiro, logo acima dele (cada canteiro é uma tarefa)
     for (const slot of beds) {
-      this.taskMarkerPositions.set(`crop:${slot.index}`, center.clone());
-      this.taskMarkerPositions.set(`plant:${slot.index}`, center.clone());
+      const point = slot.world.clone().add(new THREE.Vector3(0, 1.1, 0));
+      this.taskMarkerPositions.set(`crop:${slot.index}`, point);
+      this.taskMarkerPositions.set(`plant:${slot.index}`, point.clone());
     }
 
     if (this.disposed) return;
@@ -1131,6 +1168,9 @@ export class BaseViewer {
         baseId: this.info.id,
         name: getGuestName() || 'Astronauta',
         suit: readSuitPreference(),
+        create: this.options?.createRoom ?? true,
+        fresh: this.options?.freshRoom ?? false,
+        onCode: (code) => this.options?.onRoomCodeChange?.(code),
       });
     } catch (err) {
       this.handleRoomError(err);
@@ -1385,7 +1425,8 @@ export class BaseViewer {
   }
 
   private async spawnLocalAstronaut() {
-    const suit = readSuitPreference();
+    // o traje vem do servidor (pertence ao jogador neste mundo)
+    const suit = this.room?.self?.suit ?? readSuitPreference();
     const nickname = getGuestName() || 'Astronauta';
     const actor = new AstronautActor(this.room?.self.id ?? 'local_player', nickname, true, suit);
     this.localAstronaut = actor;
@@ -1880,13 +1921,40 @@ export class BaseViewer {
     this.pending = null;
     if (p.kind === 'goto') return;
     if (p.kind === 'enter') {
-      if (d <= ENTER_REACH) this.enterRover();
+      if (d <= ENTER_REACH) {
+        this.firstUseLore('rover');
+        this.enterRover();
+      }
       else this.notify('Não consegui chegar ao rover.', 'error');
       return;
     }
     if (p.kind === 'soilstart') {
-      if (d <= ENTER_REACH + 0.8) this.enterRover();
-      else this.notify('Não consegui chegar ao rover.', 'error');
+      if (d > ENTER_REACH + 0.8) {
+        this.notify('Não consegui chegar ao rover.', 'error');
+        return;
+      }
+      const hour = simulationClock(this.room?.gameplay?.elapsedMs ?? 0).hour;
+      if (roverWindowOpen(hour) && !missionBlock(MISSIONS.soil_robot, this.missionContext())) {
+        this.soilArmed = true;
+        this.enterRover();
+        this.notify('🚙 Dirija até o quadrado amarelo brilhante longe da base!', 'info');
+        return;
+      }
+      if (!roverWindowOpen(hour)) {
+        this.notify(
+          `🌄 O rover só sai entre ${ROVER_WINDOW.from}h e ${ROVER_WINDOW.to}h: precisa voltar antes de anoitecer.`,
+          'info',
+        );
+        return;
+      }
+      const block = missionBlock(MISSIONS.soil_robot, this.missionContext());
+      if (block) {
+        this.notify(block, 'error');
+        return;
+      }
+      local.face(p.face);
+      this.firstUseLore('rover');
+      this.options?.onMinigame?.({ kind: 'soil' });
       return;
     }
     if (d > TASK_REACH) {
@@ -1912,8 +1980,13 @@ export class BaseViewer {
     if (p.kind === 'clean') {
       const panel = this.solarPanels[p.index];
       if (!panel) return;
-      if (panel.stage === 0) {
-        this.notify('Este painel já está limpo. ✨', 'info');
+      // painéis só são lavados na missão do dia (2 painéis, um minigame por painel)
+      if (!this.missionIds.includes('solar_clean') || this.missionDone('solar_clean')) {
+        this.notify('Hoje não há missão de limpar os painéis. ✨', 'info');
+        return;
+      }
+      if (this.room?.gameplay?.board.solar?.includes(p.index)) {
+        this.notify('Este painel já foi lavado hoje. Lave outro painel. ✨', 'info');
         return;
       }
       local.face(p.face);
@@ -1921,7 +1994,17 @@ export class BaseViewer {
       return;
     }
 
+    if (p.kind === 'filter' && this.room?.gameplay?.critical?.kind === 'ducts' && this.room.gameplay.critical.active) {
+      // crítico do dia: a sala de suporte à vida abre a limpeza dos dutos
+      local.face(p.face);
+      this.options?.onMinigame?.({ kind: 'ducts' });
+      return;
+    }
     if (p.kind === 'filter') {
+      if (!this.missionIds.includes('air_filter') || this.missionDone('air_filter')) {
+        this.notify('Hoje não há missão de ventilação: o filtro está em dia. ✨', 'info');
+        return;
+      }
       if (caredToday(this.care.filter, this.currentSol)) {
         this.activateOxygenStation();
         return;
@@ -1933,12 +2016,14 @@ export class BaseViewer {
 
     if (p.kind === 'oxygen_station') {
       local.face(p.face);
+      this.firstUseLore('oxygen');
       this.activateOxygenStation();
       return;
     }
 
     if (p.kind === 'water_station') {
       local.face(p.face);
+      this.firstUseLore('water');
       this.activateWaterStation();
       return;
     }
@@ -1962,8 +2047,9 @@ export class BaseViewer {
     const slot=this.crops?.slots[p.index];
     if(!slot)return;
     if(slot.stage===0)void this.interactOfficial('plant',String(p.index));
-    else if(this.care.needsCare?.[p.index] || !caredToday(this.care.crops[p.index]??0,this.currentSol))this.options?.onMinigame?.({kind:'greenhouse',index:p.index});
+    else if(this.missionIds.includes('garden_care') && !this.missionDone('garden_care') && !this.room?.gameplay?.board.watered?.includes(p.index))this.options?.onMinigame?.({kind:'greenhouse',index:p.index});
     else if(slot.stage===3)void this.interactOfficial('harvest',String(p.index));
+    else if(this.missionIds.includes('garden_care') && !this.missionDone('garden_care'))this.notify('Este canteiro já foi regado hoje. Vá para outro canteiro.','info');
     else this.notify('Este canteiro já foi cuidado hoje.','info');
   }
 
@@ -1982,7 +2068,7 @@ export class BaseViewer {
   }
 
   private notify(msg: string, kind: 'ok' | 'error' | 'info') {
-    this.options?.onMessage?.(msg, kind);
+    this.options?.onMessage?.(t(msg), kind);
   }
 
   private playTaskCompleteSound() {
@@ -2512,7 +2598,70 @@ export class BaseViewer {
       blackout: this.blackout,
       oxygenProducing: producing,
     });
-    this.taskMarkers.sync(tasksFrom(useBaseOps.getState()), (kind, index) => {
+    // "!" em TODAS as missões do dia ainda pendentes (e nos reparos e críticos)
+    const pending = (id: MissionId) => this.missionIds.includes(id) && !this.missionDone(id);
+    const pin = (kind: TaskKind, index: number) => ({ id: `${kind}:${index}`, kind, title: '', detail: '', index, done: false, required: true });
+    const tasks = tasksFrom(useBaseOps.getState()).filter((t) => t.kind === 'repair');
+    const board = this.room?.gameplay?.board;
+    if (pending('air_filter')) tasks.push(pin('filter', filterOfDay(this.opsSeed, this.currentSol)));
+    if (pending('garden_care')) {
+      // um "!" por bancada dupla que ainda precisa de água (no canteiro de menor índice)
+      const slots = this.crops?.slots ?? [];
+      const marked = new Set<number>();
+      for (const c of slots) {
+        const needs = c.stage > 0 && !this.room?.gameplay?.board.watered?.includes(c.index);
+        if (!needs || marked.has(c.index)) continue;
+        marked.add(c.index);
+        tasks.push(pin('crop', c.index));
+      }
+    }
+    if (pending('solar_clean')) {
+      // os painéis mais sujos que ainda faltam hoje (a missão pede 2)
+      const done = board?.solar ?? [];
+      const left = Math.max(0, SOLAR_PANELS_PER_DAY - done.length);
+      this.solarPanels
+        .map((p, i) => ({ i, stage: p.stage }))
+        .filter((p) => !done.includes(p.i))
+        .sort((a, b) => b.stage - a.stage)
+        .slice(0, left)
+        .forEach((p) => tasks.push(pin('solar', p.i)));
+    }
+    if (pending('oxygen_moxie')) tasks.push(pin('moxie', 0));
+    if (pending('water_extract')) tasks.push(pin('water', 0));
+    for (const id of this.missionIds)
+      if (pending(id) && !TASK_MISSIONS[id]) tasks.push(pin('mission', MISSION_IDS.indexOf(id)));
+    const critical = this.room?.gameplay?.critical;
+    if (critical?.active && critical.kind === 'ducts') tasks.push(pin('filter', 0));
+    this.taskMarkers.sync(tasks, (kind, index) => {
+      if (kind === 'mission') {
+        const id = MISSION_IDS[index];
+        if (id && (this.busyByOther('station', id) || (id === 'drill' && this.busyByOther('drill')) || (id === 'soil_robot' && this.busyByOther('soil')))) return null;
+        const spot = id && this.siteSpot(MISSIONS[id].site === 'soil' ? 'soil' : MISSIONS[id].site);
+        if (!spot || !this.grid) return null;
+        return new THREE.Vector3(spot.x, this.grid.groundY(spot.x, spot.z) + 2.4, spot.z);
+      }
+      // outro astronauta está fazendo: o marcador some (e volta se ele largar a tarefa)
+      if (kind === 'crop') {
+        if (this.busyByOther('greenhouse')) return null;
+        return this.taskMarkerPositions.get(`crop:${index}`) ?? null;
+      }
+      if (kind === 'solar') {
+        if (this.busyByOther('solar', String(index))) return null;
+        const panel = this.solarPanels[index];
+        return panel ? panel.parentPos.clone().setY(panel.parentPos.y + 2.2) : null;
+      }
+      if (kind === 'moxie') {
+        const p = this.lifeSupportStations?.oxygenPos;
+        return p ? p.clone().setY(p.y + 2.2) : null;
+      }
+      if (kind === 'water') {
+        const p = this.lifeSupportStations?.waterPos;
+        return p ? p.clone().setY(p.y + 2.2) : null;
+      }
+      // plantar é opcional e nunca "termina" enquanto houver canteiro vazio: fica só na lista
+      // (com marcador, o "!" da estufa ficava para sempre depois da irrigação)
+      if (kind === 'plant') return null;
+      if (kind === 'filter' && this.busyByOther('filter', String(index))) return null;
       if (kind === 'repair') {
         const f = this.room?.world.integrity?.fractures.find((f) => f.id === index);
         const a = f && this.integrityVisuals?.anchors[f.anchor];
@@ -2574,9 +2723,10 @@ export class BaseViewer {
   }
 
   /** A missão já foi concluída neste Sol (por qualquer jogador da sala)? */
+  /** A missão do dia já foi concluída? (estado oficial do servidor, sem depender do relógio local) */
   private missionDone(id: string): boolean {
-    const b = this.missionBoard();
-    return !!b && b.sol === this.currentSol && b.done.includes(id);
+    const b = this.room?.gameplay?.board ?? this.missionBoard();
+    return !!b && b.done.includes(id);
   }
 
   private missionContext(): MissionContext {
@@ -2597,6 +2747,14 @@ export class BaseViewer {
 
   /** Onde cada missão acontece (painel, marcadores e alerta do Sol). */
   private siteSpot(site: MissionSite): { label: string; x: number; z: number } | null {
+    // missões de manutenção: o equipamento de cada uma
+    const at = (p: THREE.Vector3 | null | undefined) =>
+      p ? { label: STATION_LABEL[site], x: p.x, z: p.z } : null;
+    if (site === 'moxie') return at(this.lifeSupportStations?.oxygenPos ?? this.filterSpots[0]);
+    if (site === 'water') return at(this.lifeSupportStations?.waterPos);
+    if (site === 'filter') return at(this.filterSpots[filterOfDay(this.opsSeed, this.currentSol)] ?? this.filterSpots[0]);
+    if (site === 'garden') return at(this.crops?.slots[0]?.world);
+    if (site === 'solar') return at(this.dirtiestPanel()?.parentPos);
     if (site === 'rover') {
       return this.rover
         ? { label: STATION_LABEL.rover, x: this.roverPark.x, z: this.roverPark.z }
@@ -2628,7 +2786,7 @@ export class BaseViewer {
     });
     this.notify(
       parts.length
-        ? `☀️ Sol ${sol}. Missões: ${parts.join(' · ')}. Siga os feixes de luz ciano na base ou abra a aba Tarefas (T) e use "Ir".`
+        ? `☀️ Sol ${sol}. Missões: ${parts.join(' · ')}. Siga os marcadores amarelos com “!” na base ou abra a aba Tarefas (T) e use “Ir”.`
         : `☀️ Sol ${sol}: confira as tarefas do dia (tecla T).`,
       'info',
     );
@@ -2669,7 +2827,19 @@ export class BaseViewer {
       this.soilSite = this.findSoilSite();
       if (this.soilSite) {
         const { x: sx, z: sz } = this.soilSite;
-        markers.add('soil', new THREE.Vector3(sx, grid.groundY(sx, sz), sz), false);
+        const y = grid.groundY(sx, sz);
+        markers.add('soil', new THREE.Vector3(sx, y, sz), false);
+        // quadrado amarelo brilhante no chão: o rover precisa encostar nele
+        const pad = new THREE.Mesh(
+          new THREE.PlaneGeometry(4.5, 4.5),
+          new THREE.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.7, depthWrite: false }),
+        );
+        pad.rotation.x = -Math.PI / 2;
+        pad.position.set(sx, y + 0.06, sz);
+        pad.renderOrder = 5;
+        pad.visible = false;
+        this.scene.add(pad);
+        this.soilPad = pad;
       }
     }
     if (this.drillSpot) {
@@ -2694,6 +2864,11 @@ export class BaseViewer {
   private updateMissions(dt: number) {
     if (!this.started) return;
     this.stationMarkers?.update(dt);
+    if (this.soilPad) {
+      const show = this.missionIds.includes('soil_robot') && !this.missionDone('soil_robot');
+      this.soilPad.visible = show;
+      if (show) (this.soilPad.material as THREE.MeshBasicMaterial).opacity = 0.45 + 0.35 * Math.sin(performance.now() / 300);
+    }
     this.checkSoilArrival();
     this.updateUtilityMarkers();
     this.missionTimer += dt;
@@ -2703,32 +2878,49 @@ export class BaseViewer {
     this.checkLoreProximity();
   }
 
-  /** Perto de um objeto com história real? Pede a janela de curiosidade (uma vez por navegador). */
+  /**
+   * Curiosidades: as dos equipamentos aparecem no primeiro uso (`firstUseLore`). Salas com
+   * curiosidade e sem missão pendente ganham uma gota com "?" que o jogador abre quando quiser.
+   */
   private checkLoreProximity() {
-    const local = this.localAstronaut;
-    if (
-      !local?.isRevealed ||
-      this.playerBlocked ||
-      this.roverDriver === 'local' ||
-      this.roverRider
-    ) {
-      return;
+    const seen = useLore.getState().seen;
+    const board = this.missionBoard();
+    const done = this.room?.gameplay?.board.done ?? board?.done ?? [];
+    const pins = new Map<LoreId, THREE.Vector3>();
+    const sites: Array<[StationSite, LoreId]> = [
+      ['lab', 'lab'],
+      ['comms', 'antenna'],
+      ['power', 'power'],
+      ['medical', 'medical'],
+    ];
+    for (const [site, lore] of sites) {
+      if (seen.includes(lore)) continue;
+      const pos = this.stationInfo.get(site)?.pos;
+      if (!pos) continue;
+      const mission = this.missionIds.some(
+        (id) => MISSIONS[id].site === site && !done.includes(id),
+      );
+      if (!mission) pins.set(lore, pos.clone().setY(pos.y + 1.6));
     }
-    const { x, z } = local.position;
-    const near = (p: THREE.Vector3 | undefined | null, r: number) =>
-      !!p && Math.hypot(p.x - x, p.z - z) < r;
-    const lore = useLore.getState();
-    if (near(this.rover?.position, 6)) lore.request('rover');
-    else if (this.crops?.slots.some((c) => near(c.world, 5))) lore.request('garden');
-    else if (this.solarPanels.some((p) => near(p.parentPos, 7))) lore.request('solar');
-    else if (near(this.lifeSupportStations?.oxygenPos, 5)) lore.request('oxygen');
-    else if (near(this.lifeSupportStations?.waterPos, 5)) lore.request('water');
-    else if (this.filterSpots.some((p) => near(p, 5))) lore.request('oxygen');
-    else if (near(this.drillSpot, 6)) lore.request('drill');
-    else if (near(this.stationInfo.get('comms')?.pos, 5)) lore.request('antenna');
-    else if (near(this.stationInfo.get('lab')?.pos, 5)) lore.request('lab');
-    else if (near(this.stationInfo.get('medical')?.pos, 5)) lore.request('medical');
-    else if (near(this.stationInfo.get('power')?.pos, 5)) lore.request('power');
+    this.lorePins.sync(pins);
+  }
+
+  /** Algum colega está com esta atividade aberta agora? (sem `target`, qualquer uma do tipo) */
+  private busyByOther(kind: string, target?: string) {
+    const state = this.room?.gameplay;
+    const self = this.room?.self?.id;
+    if (!state) return false;
+    return Object.values(state.attempts).some(
+      (a) =>
+        a.player !== self &&
+        a.kind === kind &&
+        (target === undefined || a.target === target),
+    );
+  }
+
+  /** Primeiro uso de um equipamento: pede a curiosidade dele (uma vez por navegador). */
+  private firstUseLore(id: LoreId) {
+    useLore.getState().request(id);
   }
 
   private publishMissions() {
@@ -2736,7 +2928,7 @@ export class BaseViewer {
     this.refreshMissions(); // entrou/saiu gente: muda quantas missões o Sol tem
     const ctx = this.missionContext();
     const board = this.missionBoard();
-    const done = board && board.sol === this.currentSol ? [...board.done] : [];
+    const done = [...(this.room?.gameplay?.board.done ?? board?.done ?? [])];
     const r1 = (n: number) => Math.round(n * 10) / 10;
     const sites: Partial<Record<MissionSite, { label: string; x: number; z: number }>> = {};
     for (const site of [
@@ -2794,8 +2986,24 @@ export class BaseViewer {
         break;
       }
       if (site === 'soil' && (this.soil || this.soilCarry > 0)) state = 'hidden';
-      if (site === delivery) state = 'ready';
-      markers.set(site, state, this.beaconsOn);
+      if (site === 'soil' && state === 'ready') {
+        // fora da janela (2h às 16h) o rover não sai: marcador laranja (falta algo)
+        const hour = simulationClock(this.room?.gameplay?.elapsedMs ?? 0).hour;
+        if (!roverWindowOpen(hour)) state = 'blocked';
+
+      }
+      if (site === 'soil' && this.busyByOther('soil')) state = 'hidden';
+      if (site === 'drill' && this.busyByOther('drill')) state = 'hidden';
+      if (
+        this.missionIds.some(
+          (id) => MISSIONS[id].site === site && this.busyByOther('station', id),
+        )
+      )
+        state = 'hidden';
+      if (site === delivery && this.soilCarry > 0) state = 'ready';
+      // as missões agora usam o mesmo "!" amarelo das tarefas: o cristal antigo fica escondido
+      void state;
+      markers.set(site, 'hidden', this.beaconsOn);
     }
   }
 
@@ -2927,10 +3135,22 @@ export class BaseViewer {
     this.goInteract(pos, { kind: 'water_station', face: pos.clone() });
   }
 
-  private activateOxygenStation() { void this.interactOfficial('moxie','0');
+  /** Estação MOXIE: primeiro o minigame (ciência de como o oxigênio é feito), depois a produção. */
+  private activateOxygenStation() {
+    if (!this.missionIds.includes('oxygen_moxie'))
+      return this.notify('Hoje não há missão de oxigênio. A usina segue funcionando sozinha.', 'info');
+    if (this.missionDone('oxygen_moxie'))
+      return this.notify('A missão de oxigênio de hoje já foi feita. ✨', 'info');
+    this.options?.onMinigame?.({ kind: 'moxie' });
   }
 
-  private activateWaterStation() { void this.interactOfficial('water','0');
+  /** Extrator de água: primeiro o minigame, depois a extração. */
+  private activateWaterStation() {
+    if (!this.missionIds.includes('water_extract'))
+      return this.notify('Hoje não há missão de água. O extrator segue funcionando sozinho.', 'info');
+    if (this.missionDone('water_extract'))
+      return this.notify('A missão de água de hoje já foi feita. ✨', 'info');
+    this.options?.onMinigame?.({ kind: 'water' });
   }
 
   /** Espalha as amostras de rocha do Sol do lado de fora da base (iguais para a sala toda). */
@@ -3057,6 +3277,22 @@ export class BaseViewer {
   }
 
   /** "Ir" do painel de missões: anda até o local e começa a missão ao chegar. */
+  /** Alerta de crítico: leva o astronauta até o problema (rombo ou dutos). */
+  goToCritical() {
+    const cr = this.room?.gameplay?.critical;
+    if (!cr?.active) return;
+    if (cr.kind === 'ducts') return this.goToTask('filter', 0);
+    const f = this.room?.world.integrity?.fractures[0];
+    if (f) this.goToTask('repair', f.id);
+  }
+
+  /** Painel mais sujo (para a missão de limpeza dos painéis). */
+  private dirtiestPanel() {
+    let best: (typeof this.solarPanels)[number] | null = null;
+    for (const p of this.solarPanels) if (!best || p.stage > best.stage) best = p;
+    return best;
+  }
+
   goToMission(id: MissionId) {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
@@ -3099,9 +3335,21 @@ export class BaseViewer {
       );
       if (spot) {
         this.walkTo(spot, { kind: 'soilstart', face: rp.clone() });
-        this.notify('🚙 Entre no rover e dirija até o ponto marcado para colher o solo.', 'info');
+        this.notify('🚙 Indo até o rover: depois dirija até o quadrado amarelo.', 'info');
       }
       return;
+    }
+    if (def.site === 'moxie') return this.goToOxygenStation();
+    if (def.site === 'water') return this.goToWaterStation();
+    if (def.site === 'filter') return this.goToTask('filter', filterOfDay(this.opsSeed, this.currentSol));
+    if (def.site === 'garden') {
+      const slots = this.crops?.slots ?? [];
+      const need = slots.find((c) => c.stage > 0 && !this.room?.gameplay?.board.watered?.includes(c.index));
+      return this.goToTask('crop', (need ?? slots[0])?.index ?? 0);
+    }
+    if (def.site === 'solar') {
+      const panel = this.dirtiestPanel();
+      return this.goToTask('solar', panel ? this.solarPanels.indexOf(panel) : 0);
     }
     if (def.site === 'drill') {
       this.goToTask('drill', 0);
@@ -3136,9 +3384,13 @@ export class BaseViewer {
       return;
     }
     if (!this.missionIds.includes('soil_robot') || this.missionDone('soil_robot')) return;
-    if (this.soilCarry > 0) return;
     const d = Math.hypot(rover.position.x - site.x, rover.position.z - site.z);
-    if (d > 5 || Math.abs(rover.speed) > 1.2) return;
+    if (d > 3.2) return;
+    if (!roverWindowOpen(simulationClock(this.room?.gameplay?.elapsedMs ?? 0).hour)) {
+      if (!this.soilBlockWarned) this.notify(`🌄 O reconhecimento só vale entre ${ROVER_WINDOW.from}h e ${ROVER_WINDOW.to}h.`, 'info');
+      this.soilBlockWarned = true;
+      return;
+    }
     const coop = this.soilCoop();
     const block = missionBlock(
       MISSIONS.soil_robot,
@@ -3157,15 +3409,9 @@ export class BaseViewer {
     this.soilArmed = false;
     this.soil = { eid, coop, mine: null, partner: null };
     useSoilCoop.getState().reset(coop);
-    if (coop) this.room?.sendSoil('start', eid, 0);
     publishMissionBoard({ soilPhase: 'sampling' });
-    this.notify(
-      coop
-        ? '🤝 Coleta em dupla! Cada um colhe a sua parte: custa o dobro e rende o triplo de pontos.'
-        : '⛏ Chegou ao ponto de coleta. Colha as amostras!',
-      'ok',
-    );
-    this.options?.onMinigame?.({ kind: 'soil', coop, role: 'driver' });
+    this.notify('🚀 Ponto alcançado! Começa a corrida de reconhecimento.', 'ok');
+    this.options?.onMinigame?.({ kind: 'soil' });
   }
 
   /** O parceiro (dentro do rover) mandou abrir a coleta em dupla. */
@@ -3210,7 +3456,7 @@ export class BaseViewer {
     this.soilCoopRun = s.coop;
     publishMissionBoard({ soilPhase: 'deliver' });
     this.notify(
-      `📦 ${this.soilCarry} amostras de solo! Volte à base, saia do rover e leve-as a um computador (${this.stationInfo.get(this.deliveryStation())?.label ?? 'laboratório'}).`,
+      `🧪 ${this.soilCarry} amostras de solo! Volte à base, saia do rover e leve-as a um computador (${this.stationInfo.get(this.deliveryStation())?.label ?? 'laboratório'}).`,
       'ok',
     );
     this.publishMissions();
@@ -3224,7 +3470,7 @@ export class BaseViewer {
     if (s.coop) this.room?.sendSoil('done', s.eid, 0);
     useSoilCoop.getState().reset(false);
     publishMissionBoard({ soilPhase: 'idle' });
-    this.notify('Coleta cancelada: nada foi gasto. Dirija ao ponto de novo para tentar.', 'info');
+    this.soilArmed = false;
   }
 
   /** Teletransporte (respawn) no meio da coleta: encerra sem gastar nada. */
@@ -3240,7 +3486,7 @@ export class BaseViewer {
   }
 
   /** Leva o astronauta até a tarefa (painel, canteiro, filtro ou sonda) e a abre ao chegar. */
-  goToTask(kind: 'solar' | 'crop' | 'plant' | 'filter' | 'drill' | 'repair', index: number) {
+  goToTask(kind: TaskKind, index: number) {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
     if (this.roverDriver === 'local' || this.roverRider) {
@@ -3255,13 +3501,16 @@ export class BaseViewer {
       const panel = this.solarPanels[index];
       if (panel)
         this.goInteract(panel.parentPos, { kind: 'clean', index, face: panel.parentPos.clone() });
+    } else if (kind === 'mission') {
+      const id = MISSION_IDS[index];
+      if (id) this.goToMission(id);
+    } else if (kind === 'moxie') {
+      this.goToOxygenStation();
+    } else if (kind === 'water') {
+      this.goToWaterStation();
     } else if (kind === 'crop' || kind === 'plant') {
       const slot = this.crops?.slots[index];
-      const center = this.taskMarkerPositions.get(`${kind}:${index}`)?.clone();
-      if (slot && center) {
-        center.y -= 1.8;
-        this.goInteract(center, { kind: 'crop', index, face: center.clone() });
-      }
+      if (slot) this.goInteract(slot.world, { kind: 'crop', index, face: slot.world.clone() });
     } else if (kind === 'filter') {
       const spot = this.filterSpots[index] ?? this.filterSpots[0];
       if (spot) this.goInteract(spot, { kind: 'filter', index, face: spot.clone() });
@@ -3274,7 +3523,14 @@ export class BaseViewer {
   }
 
   /** O minigame terminou com sucesso: aplica o efeito no mundo e na missão. */
-  completeMinigame(_req: MinigameRequest,_result: MinigameResult={}) { this.soil=null; this.playTaskCompleteSound(); this.publishMissions();
+  completeMinigame(req: MinigameRequest, _result: MinigameResult = {}) {
+    this.soil = null;
+    if ((req as { preview?: boolean }).preview) return this.playTaskCompleteSound();
+    // suporte à vida: o servidor produz (com as regras de cota, energia e distância)
+    if (req.kind === 'moxie') void this.interactOfficial('moxie', '0');
+    else if (req.kind === 'water') void this.interactOfficial('water', '0');
+    else this.playTaskCompleteSound();
+    this.publishMissions();
   }
 
   /** As plantas crescem; também só um jogador da sala conta o tempo. */
@@ -3530,6 +3786,11 @@ export class BaseViewer {
     const local = this.localAstronaut;
     if (!local?.isRevealed || !this.grid) return;
     this.setRay(clientX, clientY);
+    const loreId = this.lorePins.pick(this.raycaster);
+    if (loreId) {
+      useLore.getState().request(loreId, true);
+      return;
+    }
     const markerTask = this.taskMarkers.pick(this.raycaster);
     if (markerTask) {
       this.hideDestinationRing();
@@ -4012,6 +4273,14 @@ export class BaseViewer {
     this.interactionOutline.update();
     this.lifeSupportStations?.update(dt);
     const player = this.localAstronaut;
+    this.lorePins.update(dt, (point) =>
+      Boolean(
+        player?.isRevealed &&
+          this.grid &&
+          (this.grid.isInsideBase(player.position.x, player.position.z) ||
+            !this.grid.isInsideBase(point.x, point.z)),
+      ),
+    );
     this.taskMarkers.update(
       dt,
       Boolean(player && this.grid?.isInsideBase(player.position.x, player.position.z)),
@@ -4084,6 +4353,7 @@ export class BaseViewer {
     this.crops?.dispose();
     this.lifeSupportStations?.dispose();
     this.lifeSupportStations = null;
+    this.lorePins.dispose();
     this.stationMarkers?.dispose();
     this.stationMarkers = null;
     this.room?.dispose();

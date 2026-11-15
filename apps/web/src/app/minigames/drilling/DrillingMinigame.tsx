@@ -14,6 +14,7 @@ import {
 } from '../../../game/tasks/drilling';
 import { usePreviewClose } from '../usePreviewClose';
 import './drilling.css';
+import { L, t } from '../../../lib/i18n';
 
 /** Geometria do corte do subsolo no SVG. */
 const TOP = 150;
@@ -130,7 +131,7 @@ export default function DrillingMinigame({
   const bitY = yOf(drill.depth);
 
   return (
-    <main className="drill-mg" aria-label="Sondagem do subsolo" data-done={!!result}>
+    <main className="drill-mg" aria-label={L('Sondagem do subsolo', 'Underground drilling')} data-done={!!result}>
       <div className="drill-mg__sky" aria-hidden="true" />
 
       <svg
@@ -217,9 +218,9 @@ export default function DrillingMinigame({
         </text>
       </svg>
 
-      <section className="drill-mg__panel" aria-label="Controles da sonda">
+      <section className="drill-mg__panel" aria-label={L('Controles da sonda', 'Drill controls')}>
         <p className="drill-mg__kicker">
-          <FlaskConical size={16} aria-hidden="true" /> Pedido da ciência
+          <FlaskConical size={16} aria-hidden="true" /> {L('Pedido da ciência', 'Science request')}
         </p>
         <h2>
           Amostra de{' '}
@@ -238,14 +239,14 @@ export default function DrillingMinigame({
 
         <div className={`drill-mg__heat is-${heatLevel}`}>
           <span>
-            <Thermometer size={16} aria-hidden="true" /> Temperatura da broca
+            <Thermometer size={16} aria-hidden="true" /> {L('Temperatura da broca', 'Drill temperature')}
           </span>
           <meter
             className="sr-only"
             min={0}
             max={100}
             value={heatPct}
-            aria-label="Temperatura da broca"
+            aria-label={L('Temperatura da broca', 'Drill temperature')}
           >
             {heatPct}%
           </meter>
@@ -254,8 +255,8 @@ export default function DrillingMinigame({
           </div>
           <small aria-live="polite">
             {drill.jammed
-              ? 'Superaqueceu! Solte e espere esfriar.'
-              : `Agora: ${current.name} (${Math.round(drill.depth)} cm)`}
+              ? L('Superaqueceu! Solte e espere esfriar.', 'Overheated! Let go and wait for it to cool.')
+              : L(`Agora: ${current.name} (${Math.round(drill.depth)} cm)`, `Now: ${t(current.name)} (${Math.round(drill.depth)} cm)`)}
           </small>
         </div>
 
@@ -278,7 +279,7 @@ export default function DrillingMinigame({
               onClick={(e) => e.preventDefault()}
             >
               <Drill size={22} aria-hidden="true" />
-              Perfurar <small className="drill-mg__key">(segure · Espaço)</small>
+              {L('Perfurar', 'Drill')} <small className="drill-mg__key">(segure · Espaço)</small>
             </button>
             <button
               type="button"
@@ -286,19 +287,19 @@ export default function DrillingMinigame({
               onClick={collect}
               disabled={drill.depth < 1}
             >
-              Coletar amostra <small className="drill-mg__key">(Enter)</small>
+              {L('Coletar amostra', 'Collect sample')} <small className="drill-mg__key">(Enter)</small>
             </button>
           </div>
         ) : (
           <div className="drill-mg__result" role="status" aria-live="polite">
             <strong>
-              {result.hit ? 'Amostra no alvo!' : `Amostra de ${result.layer.name} (fora do alvo)`}
+              {result.hit ? L('Amostra no alvo!', 'Sample on target!') : L(`Amostra de ${result.layer.name} (fora do alvo)`, `Sample of ${t(result.layer.name)} (off target)`)}
             </strong>
             <span className="drill-mg__points">+{result.research} pontos de pesquisa</span>
             <p>{result.layer.fact}</p>
             {onComplete ? (
               <button type="button" className="drill-mg__collect" onClick={close}>
-                Voltar à base
+                {L('Voltar à base', 'Back to base')}
               </button>
             ) : (
               <button
@@ -309,7 +310,7 @@ export default function DrillingMinigame({
                   setDrill(initialDrill());
                 }}
               >
-                Perfurar de novo
+                {L('Perfurar de novo', 'Drill again')}
               </button>
             )}
           </div>
@@ -321,8 +322,8 @@ export default function DrillingMinigame({
         className="drill-mg__close"
         type="button"
         onClick={close}
-        aria-label="Fechar sondagem"
-        title="Fechar (Esc)"
+        aria-label={L('Fechar sondagem', 'Close drilling')}
+        title={L('Fechar (Esc)', 'Close (Esc)')}
       >
         <X size={22} aria-hidden="true" />
       </button>

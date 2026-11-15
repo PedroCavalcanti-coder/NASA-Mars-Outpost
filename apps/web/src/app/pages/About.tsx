@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router';
 import '../../styles/publicPages.css';
+import { L } from '../../lib/i18n';
 
 export default function About() {
   return (
@@ -40,19 +41,19 @@ export default function About() {
 
         <nav className="public-nav">
           <Link to="/" className="public-nav-link">
-            Início
+            {L('Início', 'Home')}
           </Link>
           <Link to="/centro" className="public-nav-link">
-            Centro
+            {L('Centro', 'Center')}
           </Link>
           <Link to="/suporte" className="public-nav-link">
-            Suporte
+            {L('Suporte', 'Support')}
           </Link>
           <Link to="/sobre" className="public-nav-link is-active">
-            Sobre
+            {L('Sobre', 'About')}
           </Link>
           <Link to="/" className="public-nav-cta">
-            <Rocket size={16} /> Jogar
+            <Rocket size={16} /> {L('Jogar', 'Play')}
           </Link>
         </nav>
       </header>
@@ -61,12 +62,11 @@ export default function About() {
       <main className="public-main-content">
         <section className="public-hero">
           <span className="public-eyebrow">
-            <Sparkles size={15} /> NOSSA MISSÃO E PROPÓSITO
+            <Sparkles size={15} /> {L('NOSSA MISSÃO E PROPÓSITO', 'OUR MISSION AND PURPOSE')}
           </span>
-          <h1>Sobre o Mars Outpost</h1>
+          <h1>{L('Sobre o Mars Outpost', 'About Mars Outpost')}</h1>
           <p>
-            Um projeto educacional e imersivo criado para o NASA Space Apps Challenge de Fortaleza,
-            unindo ciência espacial, visualização 3D e gamificação da sobrevivência em Marte.
+            {L('Um projeto educacional e imersivo criado para o NASA Space Apps Challenge de Fortaleza, unindo ciência espacial, visualização 3D e gamificação da sobrevivência em Marte.', 'An educational, immersive project made for the NASA Space Apps Challenge in Fortaleza, mixing space science, 3D visuals and a game about surviving on Mars.')}
           </p>
         </section>
 
@@ -75,35 +75,30 @@ export default function About() {
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <BookOpen size={24} color="#ffb511" />
-              <h2 style={{ fontSize: 20, margin: 0 }}>Educação Científica</h2>
+              <h2 style={{ fontSize: 20, margin: 0 }}>{L('Educação Científica', 'Science Education')}</h2>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
-              O objetivo principal é aproximar conceitos reais de astrofísica, biologia de plantas
-              espaciais e engenharia aeroespacial do público geral de forma intuitiva, lúdica e
-              visual.
+              {L('O objetivo principal é aproximar conceitos reais de astrofísica, biologia de plantas espaciais e engenharia aeroespacial do público geral de forma intuitiva, lúdica e visual.', 'The main goal is to bring real concepts of astrophysics, space plant biology and aerospace engineering to everyone in an intuitive, playful and visual way.')}
             </p>
           </div>
 
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Compass size={24} color="#78ace1" />
-              <h2 style={{ fontSize: 20, margin: 0 }}>Geografia Planetária Real</h2>
+              <h2 style={{ fontSize: 20, margin: 0 }}>{L('Geografia Planetária Real', 'Real Planetary Geography')}</h2>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
-              Todas as 8 bases do jogo estão situadas em locais autênticos de Marte: cratera Jezero,
-              Utopia Planitia, cratera Gale, Olympus Mons, Valles Marineris, Hellas, Elysium e
-              Arcadia Planitia.
+              {L('Todas as 8 bases do jogo estão situadas em locais autênticos de Marte: cratera Jezero, Utopia Planitia, cratera Gale, Olympus Mons, Valles Marineris, Hellas, Elysium e Arcadia Planitia.', 'All 8 bases in the game are at real places on Mars: Jezero Crater, Utopia Planitia, Gale Crater, Olympus Mons, Valles Marineris, Hellas, Elysium and Arcadia Planitia.')}
             </p>
           </div>
 
           <div className="public-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               <Cpu size={24} color="#7fd6a0" />
-              <h2 style={{ fontSize: 20, margin: 0 }}>Engenharia 3D em Tempo Real</h2>
+              <h2 style={{ fontSize: 20, margin: 0 }}>{L('Engenharia 3D em Tempo Real', 'Real-Time 3D Engineering')}</h2>
             </div>
             <p style={{ color: '#c9dcf7', fontSize: 15, lineHeight: 1.55, margin: 0 }}>
-              Desenvolvido com Three.js e WebGL moderno, renderizando shaders dinâmicos de poeira
-              marciana, ciclos de dia e noite solares e personalização completa de trajes espaciais.
+              {L('Desenvolvido com Three.js e WebGL moderno, renderizando shaders dinâmicos de poeira marciana, ciclos de dia e noite solares e personalização completa de trajes espaciais.', 'Built with Three.js and modern WebGL, rendering dynamic Mars dust shaders, solar day-night cycles and full spacesuit customization.')}
             </p>
           </div>
         </div>
@@ -112,18 +107,13 @@ export default function About() {
         <section className="public-card" style={{ padding: '36px 32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
             <ShieldCheck size={28} color="#ffb511" />
-            <h2 style={{ fontSize: 24, margin: 0 }}>NASA Space Apps Challenge 2026</h2>
+            <h2 style={{ fontSize: 24, margin: 0 }}>{L('NASA Space Apps Challenge 2026', 'NASA Space Apps Challenge 2026')}</h2>
           </div>
           <p style={{ color: '#d0e2fc', fontSize: 15.5, lineHeight: 1.6, margin: '0 0 16px' }}>
-            O <strong>Mars Outpost</strong> é um projeto independente desenvolvido por entusiastas e
-            estudantes de ciência espacial e tecnologia para o hackathon global NASA Space Apps
-            Challenge Fortaleza.
+            O <strong>Mars Outpost</strong> {L('é um projeto independente desenvolvido por entusiastas e estudantes de ciência espacial e tecnologia para o hackathon global NASA Space Apps Challenge Fortaleza.', 'is an independent project built by space science and technology enthusiasts and students for the global NASA Space Apps Challenge hackathon in Fortaleza.')}
           </p>
           <p style={{ color: '#d0e2fc', fontSize: 15.5, lineHeight: 1.6, margin: '0 0 24px' }}>
-            Não há afiliação governamental formal, endosso ou patrocínio comercial direto da NASA.
-            Todos os logotipos e menções da NASA e do Space Apps Challenge são marcas registradas de
-            seus respectivos proprietários e são utilizados aqui para fins educativos e de submissão
-            no evento.
+            {L('Não há afiliação governamental formal, endosso ou patrocínio comercial direto da NASA. Todos os logotipos e menções da NASA e do Space Apps Challenge são marcas registradas de seus respectivos proprietários e são utilizados aqui para fins educativos e de submissão no evento.', 'There is no formal government affiliation, endorsement or direct commercial sponsorship from NASA. All NASA and Space Apps Challenge logos and mentions belong to their owners and are used here for education and event submission.')}
           </p>
           <div
             style={{
@@ -139,7 +129,7 @@ export default function About() {
               fontWeight: 600,
             }}
           >
-            <HeartHandshake size={18} color="#ffd63c" /> Feito com paixão pela exploração espacial
+            <HeartHandshake size={18} color="#ffd63c" /> {L('Feito com paixão pela exploração espacial', 'Made with passion for space exploration')}
           </div>
         </section>
       </main>
@@ -148,11 +138,11 @@ export default function About() {
       <footer className="public-footer">
         <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
-          <Link to="/">Início</Link>
-          <Link to="/centro">Centro</Link>
-          <Link to="/suporte">Suporte</Link>
-          <Link to="/sobre">Sobre</Link>
-          <Link to="/">Jogar</Link>
+          <Link to="/">{L('Início', 'Home')}</Link>
+          <Link to="/centro">{L('Centro', 'Center')}</Link>
+          <Link to="/suporte">{L('Suporte', 'Support')}</Link>
+          <Link to="/sobre">{L('Sobre', 'About')}</Link>
+          <Link to="/">{L('Jogar', 'Play')}</Link>
         </div>
       </footer>
     </div>

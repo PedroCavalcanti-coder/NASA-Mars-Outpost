@@ -19,6 +19,28 @@ export function pickRandomBase(exclude?: BaseId): BaseId {
   return pool[Math.floor(Math.random() * pool.length)] ?? BASE_IDS[0];
 }
 
+const REQUESTED_BASE_KEY = 'mo_base';
+
+/** Pede uma base específica para a PRÓXIMA viagem (central de bases, link `?base=`). */
+export function requestBase(id: BaseId) {
+  try {
+    sessionStorage.setItem(REQUESTED_BASE_KEY, id);
+  } catch {
+    /* navegação privada: usa a base sorteada */
+  }
+}
+
+/** Consome o pedido de base (uso único): a viagem seguinte volta a ser sorteada. */
+export function takeRequestedBase(): BaseId | null {
+  try {
+    const id = sessionStorage.getItem(REQUESTED_BASE_KEY);
+    sessionStorage.removeItem(REQUESTED_BASE_KEY);
+    return BASE_IDS.includes(id as BaseId) ? (id as BaseId) : null;
+  } catch {
+    return null;
+  }
+}
+
 export interface BaseInfo {
   id: BaseId;
   name: string;

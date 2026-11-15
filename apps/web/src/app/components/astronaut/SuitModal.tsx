@@ -3,14 +3,15 @@ import {
   ACCESSORY_IDS,
   type AccessoryId,
   cloneSuit,
+  DEFAULT_SUIT,
   MARK_SLOT_NAMES,
   MARK_SLOTS,
   MARKS,
   MAX_ACCESSORIES,
   type MarkId,
   type MarkSlot,
-  NAME_MAX,
-  NAME_MIN,
+  NICKNAME_MAX,
+  NICKNAME_MIN,
   randomSuit,
   SUIT_COLOR_IDS,
   SUIT_COLORS,
@@ -33,10 +34,10 @@ import {
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { ASTRONAUT_MARKS_ATLAS } from '../../../game/astronautModel';
 import { getGuestName, saveGuestName } from '../../../lib/guest';
-import { readSuitPreference, saveSuitPreference } from '../../../lib/suitPreference';
-import { useAuth } from '../../../store/auth';
+import { saveSuitPreference } from '../../../lib/suitPreference';
 import { SuitPreview } from './SuitPreview';
 import './suitModal.css';
+import { L, t } from '../../../lib/i18n';
 
 interface Props {
   open: boolean;
@@ -46,9 +47,8 @@ interface Props {
 
 export function SuitModal({ open, onClose, onLaunch }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const user = useAuth((s) => s.user);
   const [name, setName] = useState('');
-  const [suit, setSuit] = useState<SuitConfig>(() => readSuitPreference());
+  const [suit, setSuit] = useState<SuitConfig>(() => cloneSuit(DEFAULT_SUIT));
   const [selectedPart, setSelectedPart] = useState<SuitPart>('helmet');
   const presetIndex = SUIT_PRESETS.findIndex((p) =>
     SUIT_PARTS.every((part) => p.suit[part] === suit[part]),
@@ -58,12 +58,12 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
     const d = dialogRef.current;
     if (!d) return;
     if (open && !d.open) {
-      setName(user?.name ?? getGuestName() ?? '');
-      setSuit(readSuitPreference());
+      setName(getGuestName() ?? '');
+      setSuit(cloneSuit(DEFAULT_SUIT)); // jogo novo = personagem novo
       d.showModal();
     }
     if (!open && d.open) d.close();
-  }, [open, user]);
+  }, [open]);
 
   const cycleColor = (part: SuitPart, direction: number) => {
     setSelectedPart(part);
@@ -106,7 +106,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const finalName = name.trim();
-    if (finalName.length < NAME_MIN || finalName.length > NAME_MAX) return;
+    if (finalName.length < NICKNAME_MIN || finalName.length > NICKNAME_MAX) return;
     saveGuestName(finalName);
     saveSuitPreference(suit);
     onClose();
@@ -127,21 +127,21 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
             type="button"
             className="suit-back-btn"
             onClick={onClose}
-            aria-label="Fechar janela"
+            aria-label={L('Fechar janela', 'Close window')}
           >
-            <ArrowLeft size={16} /> Voltar
+            <ArrowLeft size={16} /> {L('Voltar', 'Back')}
           </button>
         </header>
 
         <form onSubmit={handleSubmit} className="suit-modal-form">
           <div className="suit-hud">
             <div className="suit-hud-heading">
-              <h2 id="suit-modal-title">Astronauta</h2>
+              <h2 id="suit-modal-title">{L('Astronauta', 'Astronaut')}</h2>
             </div>
 
             <div className="suit-name-field">
               <label htmlFor="astronaut-nickname" className="suit-field-label">
-                Seu nome
+                {L('Seu nome', 'Your name')}
               </label>
               <div className="suit-input-wrap">
                 <User size={16} aria-hidden="true" />
@@ -150,9 +150,9 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  minLength={NAME_MIN}
-                  maxLength={NAME_MAX}
-                  placeholder="Nome do astronauta"
+                  minLength={NICKNAME_MIN}
+                  maxLength={NICKNAME_MAX}
+                  placeholder={L('Nome do astronauta', 'Astronaut name')}
                   autoComplete="nickname"
                   required
                   autoFocus
@@ -165,21 +165,21 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                 type="button"
                 className="suit-arrow"
                 onClick={() => cyclePreset(-1)}
-                aria-label="Estilo anterior"
+                aria-label={L('Estilo anterior', 'Previous style')}
               >
                 <ChevronLeft size={20} />
               </button>
               <div>
-                <span className="suit-field-label">Estilo do traje</span>
+                <span className="suit-field-label">{L('Estilo do traje', 'Suit style')}</span>
                 <strong>
-                  {presetIndex < 0 ? 'Personalizado' : SUIT_PRESETS[presetIndex]?.name}
+                  {presetIndex < 0 ? L('Personalizado', 'Custom') : t(SUIT_PRESETS[presetIndex]?.name)}
                 </strong>
               </div>
               <button
                 type="button"
                 className="suit-arrow"
                 onClick={() => cyclePreset(1)}
-                aria-label="Próximo estilo"
+                aria-label={L('Próximo estilo', 'Next style')}
               >
                 <ChevronRight size={20} />
               </button>
@@ -195,7 +195,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                     type="button"
                     className="suit-arrow"
                     onClick={() => cycleColor(part, -1)}
-                    aria-label={`Cor anterior de ${SUIT_PART_NAMES[part]}`}
+                    aria-label={L(`Cor anterior de ${t(SUIT_PART_NAMES[part])}`, `Previous ${t(SUIT_PART_NAMES[part])} color`)}
                   >
                     <ChevronLeft size={19} />
                   </button>
@@ -205,17 +205,17 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                     onClick={() => setSelectedPart(part)}
                     aria-pressed={selectedPart === part}
                   >
-                    <span>{part === 'backpack' ? 'Mochila' : SUIT_PART_NAMES[part]}</span>
+                    <span>{part === 'backpack' ? L('Mochila', 'Backpack') : t(SUIT_PART_NAMES[part])}</span>
                     <span className="suit-part-color">
                       <i style={{ background: SUIT_COLORS[suit[part]].hex }} />
-                      <span>{SUIT_COLORS[suit[part]].name}</span>
+                      <span>{t(SUIT_COLORS[suit[part]].name)}</span>
                     </span>
                   </button>
                   <button
                     type="button"
                     className="suit-arrow"
                     onClick={() => cycleColor(part, 1)}
-                    aria-label={`Próxima cor de ${SUIT_PART_NAMES[part]}`}
+                    aria-label={L(`Próxima cor de ${t(SUIT_PART_NAMES[part])}`, `Next ${t(SUIT_PART_NAMES[part])} color`)}
                   >
                     <ChevronRight size={19} />
                   </button>
@@ -224,7 +224,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
             </div>
 
             <div className="suit-palette-field">
-              <span className="suit-field-label">Cor de {SUIT_PART_NAMES[selectedPart]}</span>
+              <span className="suit-field-label">{L(`Cor de ${SUIT_PART_NAMES[selectedPart]}`, `${t(SUIT_PART_NAMES[selectedPart])} color`)}</span>
               <div className="suit-palette-grid">
                 {SUIT_COLOR_IDS.map((id) => (
                   <button
@@ -233,8 +233,8 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                     className={`suit-color-swatch ${suit[selectedPart] === id ? 'is-active' : ''}`}
                     style={{ backgroundColor: SUIT_COLORS[id].hex }}
                     onClick={() => setSuit((prev) => ({ ...prev, [selectedPart]: id }))}
-                    title={SUIT_COLORS[id].name}
-                    aria-label={SUIT_COLORS[id].name}
+                    title={t(SUIT_COLORS[id].name)}
+                    aria-label={t(SUIT_COLORS[id].name)}
                     aria-pressed={suit[selectedPart] === id}
                   >
                     {suit[selectedPart] === id && <Check size={15} strokeWidth={3} />}
@@ -265,7 +265,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                       <span className="suit-accessory-check" aria-hidden="true">
                         {on && <Check size={13} strokeWidth={3} />}
                       </span>
-                      {ACCESSORIES[id].name}
+                      {t(ACCESSORIES[id].name)}
                     </button>
                   );
                 })}
@@ -273,18 +273,18 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
             </div>
 
             <div className="suit-extras-field">
-              <span className="suit-field-label">Marcas</span>
+              <span className="suit-field-label">{L('Marcas', 'Badges')}</span>
               {MARK_SLOTS.map((slot) => (
                 <div key={slot} className="suit-mark-row">
-                  <span className="suit-mark-slot">{MARK_SLOT_NAMES[slot]}</span>
+                  <span className="suit-mark-slot">{t(MARK_SLOT_NAMES[slot])}</span>
                   <div className="suit-mark-options">
                     <button
                       type="button"
                       className={`suit-mark-btn ${suit.marks[slot] == null ? 'is-active' : ''}`}
                       onClick={() => setMark(slot, null)}
                       aria-pressed={suit.marks[slot] == null}
-                      title="Sem marca"
-                      aria-label={`Sem marca no ${MARK_SLOT_NAMES[slot]}`}
+                      title={L('Sem marca', 'No badge')}
+                      aria-label={`Sem marca no ${t(MARK_SLOT_NAMES[slot])}`}
                     >
                       <Ban size={15} />
                     </button>
@@ -296,7 +296,7 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                         onClick={() => setMark(slot, i as MarkId)}
                         aria-pressed={suit.marks[slot] === i}
                         title={name}
-                        aria-label={`${name} no ${MARK_SLOT_NAMES[slot]}`}
+                        aria-label={`${name} no ${t(MARK_SLOT_NAMES[slot])}`}
                       >
                         <i
                           style={{
@@ -313,18 +313,18 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
             </div>
 
             <button type="button" className="suit-random-btn" onClick={() => setSuit(randomSuit())}>
-              <Dices size={16} /> Sortear combinação
+              <Dices size={16} /> {L('Sortear combinação', 'Random combination')}
             </button>
             <div className="suit-modal-actions">
               <button type="button" className="suit-cancel-btn" onClick={onClose}>
-                Cancelar
+                {L('Cancelar', 'Cancel')}
               </button>
               <button
                 type="submit"
                 className="suit-launch-btn"
-                disabled={name.trim().length < NAME_MIN}
+                disabled={name.trim().length < NICKNAME_MIN}
               >
-                <Rocket size={18} /> Iniciar missão <ChevronRight size={18} />
+                <Rocket size={18} /> {L('Iniciar missão', 'Start mission')} <ChevronRight size={18} />
               </button>
             </div>
           </div>

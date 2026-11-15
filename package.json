@@ -26,7 +26,6 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "smoke": "node --env-file=.env scripts/smoke.mjs",
     "navigation:build": "tsx scripts/build-navigation.ts",
     "navigation:check": "tsx scripts/build-navigation.ts --check"
   },

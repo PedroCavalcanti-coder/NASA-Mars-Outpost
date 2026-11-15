@@ -2,6 +2,7 @@ import { MAX_SOLS, RESEARCH_GOAL } from '@mars/sim';
 import { FlaskConical } from 'lucide-react';
 import { useMission } from '../../../store/mission';
 import { DeltaChip } from './DeltaChip';
+import { L } from '../../../lib/i18n';
 
 /** Barra de dados científicos coletados: o objetivo da missão (100% = vitória). */
 export function ResearchBar() {
@@ -16,7 +17,7 @@ export function ResearchBar() {
     <div className="mission-research">
       <div className="mission-research__head">
         <FlaskConical size={16} aria-hidden="true" />
-        <span>Dados coletados</span>
+        <span>{L('Dados coletados', 'Data collected')}</span>
         <strong>{pct}%</strong>
         {change !== 0 && feedback && <DeltaChip key={feedback.key} value={change} />}
         <span className="mission-research__sol">
@@ -27,7 +28,7 @@ export function ResearchBar() {
         key={feedback?.key}
         className={`mission-research__track ${pulse}`}
         role="progressbar"
-        aria-label="Dados científicos coletados"
+        aria-label={L('Dados científicos coletados', 'Science data collected')}
         aria-valuemin={0}
         aria-valuemax={RESEARCH_GOAL}
         aria-valuenow={research}

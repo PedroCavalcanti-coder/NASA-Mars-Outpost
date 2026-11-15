@@ -8,6 +8,7 @@
 
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import type { BaseViewer } from '../../../game/BaseViewer';
+import { L } from '../../../lib/i18n';
 
 const RADIUS = 50;
 
@@ -64,7 +65,7 @@ export function TouchJoystick({ viewer }: { viewer: BaseViewer | null }) {
       ref={base}
       className="touch-joystick"
       role="application"
-      aria-label="Joystick: arraste para andar ou dirigir"
+      aria-label={L('Joystick: arraste para andar ou dirigir', 'Joystick: drag to walk or drive')}
       onPointerDown={(e) => {
         if (pointer.current !== null) return;
         pointer.current = e.pointerId;

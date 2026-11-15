@@ -25,9 +25,10 @@ vi.mock('../worlds/service', async (original) => {
   return {
     ...actual,
     loadWorld: vi.fn(),
-    ownerFromCookies: vi.fn(),
+    playerFromCookies: vi.fn(),
     purgeExpired: vi.fn(),
     touchLink: vi.fn(),
+    canLink: vi.fn(),
     saveWorld: vi.fn(),
   };
 });
@@ -42,6 +43,8 @@ const request = (name: string, code = 'TEST', base = 'jezero') => ({
   gameplayVersion: GAMEPLAY_VERSION,
   movementVersion: MOVEMENT_VERSION,
   navigationHash: NAVIGATION_HASH,
+  // os testes entram como quem abriu a sala (pode criá-la)
+  create: true,
 });
 const motion = { x: 1, z: 2, h: 0, m: 'walk' as const };
 const event = (id = 'drill', sol = 1) => ({
@@ -68,9 +71,10 @@ describe('salas multiplayer com clientes reais', () => {
   let clients: Client[];
   beforeEach(async () => {
     vi.mocked(persistence.loadWorld).mockReset().mockResolvedValue(null);
-    vi.mocked(persistence.ownerFromCookies).mockReset().mockResolvedValue(null);
+    vi.mocked(persistence.playerFromCookies).mockReset().mockResolvedValue(null);
     vi.mocked(persistence.purgeExpired).mockResolvedValue(undefined);
-    vi.mocked(persistence.touchLink).mockReset().mockResolvedValue(undefined);
+    vi.mocked(persistence.touchLink).mockReset().mockResolvedValue(true);
+    vi.mocked(persistence.canLink).mockReset().mockResolvedValue(true);
     vi.mocked(persistence.saveWorld).mockResolvedValue(undefined);
     clients = [];
     http = createServer();
@@ -105,6 +109,52 @@ describe('salas multiplayer com clientes reais', () => {
     if (!r.ok) throw new Error(r.error);
     return r;
   }
+
+  it('todo mundo novo vai para o banco na hora, mesmo de quem joga sem cookie', async () => {
+    success(await join(await client(), 'Sem Cookie', 'GRAVA1'));
+    await expect
+      .poll(() => vi.mocked(persistence.saveWorld).mock.calls.some(([code]) => code === 'GRAVA1'))
+      .toBe(true);
+    expect(vi.mocked(persistence.touchLink)).not.toHaveBeenCalled();
+  });
+
+  it('código sorteado que já é de outro mundo é recusado (aberto ou só no banco)', async () => {
+    success(await join(await client(), 'Dono', 'USADO1'));
+    const live = await (await client()).timeout(2000).emitWithAck('room:join', {
+      ...request('Outro', 'USADO1'),
+      fresh: true,
+    });
+    expect(live).toMatchObject({ ok: false, taken: true });
+
+    vi.mocked(persistence.loadWorld).mockResolvedValueOnce({
+      baseId: 'jezero',
+      save: undefined as never,
+      savedAt: new Date(),
+    });
+    const stored = await (await client()).timeout(2000).emitWithAck('room:join', {
+      ...request('Outro', 'USADO2'),
+      fresh: true,
+    });
+    expect(stored).toMatchObject({ ok: false, taken: true });
+  });
+
+  it('quem caiu não segura o apelido: volta pelo código com o mesmo nome', async () => {
+    const a = await client();
+    success(await join(a, 'Astro Volta', 'QUEDA1'));
+    a.disconnect();
+    await expect.poll(() => isNicknameTaken('QUEDA1', 'Astro Volta')).toBe(false);
+    const back = success(await join(await client(), 'Astro Volta', 'QUEDA1'));
+    expect(back.players).toHaveLength(0);
+  });
+
+  it('quem só tem o código não cria uma sala que não existe', async () => {
+    const r = await (await client()).timeout(2000).emitWithAck('room:join', {
+      ...request('Convidado', 'NOVA1'),
+      create: false,
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toContain('não encontrada');
+  });
 
   it('reserva quatro vagas únicas mesmo em entradas simultâneas e recusa a quinta', async () => {
     const group = await Promise.all(Array.from({ length: 5 }, client));
@@ -144,7 +194,7 @@ describe('salas multiplayer com clientes reais', () => {
 
   it('impede que o mesmo socket entre duas vezes enquanto consulta o banco', async () => {
     const gate = deferred<string | null>();
-    vi.mocked(persistence.ownerFromCookies).mockReturnValueOnce(gate.promise);
+    vi.mocked(persistence.playerFromCookies).mockReturnValueOnce(gate.promise);
     const a = await client();
     const first = join(a, 'Astro A');
     const second = await join(a, 'Astro B', 'OTHER');
@@ -265,7 +315,7 @@ describe('salas multiplayer com clientes reais', () => {
       save: { v: 2, elapsedMs: 0, solar: [], crops: [] },
       savedAt: new Date(),
     });
-    vi.mocked(persistence.ownerFromCookies).mockResolvedValue('owner');
+    vi.mocked(persistence.playerFromCookies).mockResolvedValue('owner');
     vi.mocked(persistence.touchLink).mockReturnValue(new Promise(() => {}));
     const result = success(await join(await client(), 'Astro A'));
     expect(result.persistence).toMatchObject({ linked: true, canSave: true });
@@ -277,7 +327,7 @@ describe('salas multiplayer com clientes reais', () => {
       save: { v: 2, elapsedMs: 0, solar: [], crops: [] },
       savedAt: new Date(),
     });
-    vi.mocked(persistence.ownerFromCookies).mockResolvedValue('owner');
+    vi.mocked(persistence.playerFromCookies).mockResolvedValue('owner');
     const a = await client();
     success(await join(a, 'Astro A'));
     const gate = deferred<Awaited<ReturnType<typeof persistence.loadWorld>>>();

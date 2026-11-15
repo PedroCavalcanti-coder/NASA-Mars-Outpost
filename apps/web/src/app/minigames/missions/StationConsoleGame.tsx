@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePreviewClose } from '../usePreviewClose';
 import { inZone, pingPong, stationQuality, zoneFor } from './scoring';
 import './missions.css';
+import { L } from '../../../lib/i18n';
 
 const ROUNDS = 3;
 const PERIOD_S = 1.25;
@@ -90,7 +91,7 @@ export default function StationConsoleGame({
             type="button"
             className="msn-mg__close"
             onClick={close}
-            aria-label="Fechar (a missão não é concluída)"
+            aria-label={L('Fechar (a missão não é concluída)', 'Close (the mission is not completed)')}
           >
             <X size={18} />
           </button>
@@ -110,10 +111,10 @@ export default function StationConsoleGame({
           <div className="msn-mg__result">
             <strong>
               {hits === ROUNDS
-                ? 'Calibragem perfeita!'
+                ? L('Calibragem perfeita!', 'Perfect calibration!')
                 : hits > 0
-                  ? 'Calibragem concluída.'
-                  : 'Calibragem imprecisa, mas concluída.'}
+                  ? L('Calibragem concluída.', 'Calibration done.')
+                  : L('Calibragem imprecisa, mas concluída.', 'Calibration rough, but done.')}
             </strong>
             <span>
               {hits} de {ROUNDS} no alvo
@@ -128,7 +129,7 @@ export default function StationConsoleGame({
                 close();
               }}
             >
-              Enviar resultados
+              {L('Enviar resultados', 'Send results')}
             </button>
           </div>
         ) : (

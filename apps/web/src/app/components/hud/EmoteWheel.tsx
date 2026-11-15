@@ -9,6 +9,7 @@
 import { EMOTE_ANIMATIONS, GAME_EMOTES } from '@mars/shared';
 import { Smile } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { L } from '../../../lib/i18n';
 
 export interface EmoteWheelProps {
   onPick: (index: number) => void;
@@ -102,7 +103,7 @@ export function EmoteWheel({ onPick, disabled }: EmoteWheelProps) {
         onClick={() => setOpen((o) => !o)}
         title="Emojis (Q)"
         aria-expanded={open}
-        aria-label="Abrir painel de emojis"
+        aria-label={L('Abrir painel de emojis', 'Open emoji panel')}
       >
         <Smile size={24} />
       </button>

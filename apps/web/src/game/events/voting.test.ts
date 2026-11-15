@@ -5,7 +5,7 @@ import { modeFor, pickDecider, tally } from './voting';
 describe('decisão dos eventos', () => {
   it('1 jogador decide direto, 2 sorteiam um, 3 e 4 votam', () => {
     expect(modeFor(1)).toBe('solo');
-    expect(modeFor(2)).toBe('decider');
+    expect(modeFor(2)).toBe('vote');
     expect(modeFor(3)).toBe('vote');
     expect(modeFor(4)).toBe('vote');
   });

@@ -6,6 +6,7 @@ import { type ClockScale, GameClock, useGameClock } from '../../../../game/sim/c
 import { isGameOverlayOpen } from '../../../../lib/gameOverlay';
 import { registerPanel } from '../registry';
 import './timeControls.css';
+import { L } from '../../../../lib/i18n';
 
 /**
  * Registra as ações de depuração do painel Dev (Conversa 0 / Conversa 3).
@@ -15,41 +16,41 @@ GameClock.subscribe(refreshDevActions);
 
 registerDevAction({
   id: 'dev:time-skip-dawn',
-  label: 'Pular para o amanhecer',
-  group: 'Tempo / Clima',
-  description: 'Avança o Sol marciano para o início do dia',
+  label: L('Pular para o amanhecer', 'Skip to sunrise'),
+  group: L('Tempo / Clima', 'Time / Weather'),
+  description: L('Avança o Sol marciano para o início do dia', 'Moves the Mars sol to the start of the day'),
   run: () => GameClock.skipToHour(6),
 });
 
 registerDevAction({
   id: 'dev:time-skip-dusk',
-  label: 'Pular para o anoitecer',
-  group: 'Tempo / Clima',
-  description: 'Avança o Sol marciano para o início da noite',
+  label: L('Pular para o anoitecer', 'Skip to sunset'),
+  group: L('Tempo / Clima', 'Time / Weather'),
+  description: L('Avança o Sol marciano para o início da noite', 'Moves the Mars sol to the start of the night'),
   run: () => GameClock.skipToHour(18),
 });
 
 registerDevAction({
   id: 'dev:time-skip-sol',
-  label: 'Avançar 1 Sol Completo (+24h)',
-  group: 'Tempo / Clima',
-  description: 'Avança a simulação em exatamente 1 Sol marciano (24 horas)',
+  label: L('Avançar 1 Sol Completo (+24h)', 'Skip 1 Full Sol (+24h)'),
+  group: L('Tempo / Clima', 'Time / Weather'),
+  description: L('Avança a simulação em exatamente 1 Sol marciano (24 horas)', 'Moves the simulation forward exactly 1 Mars sol (24 hours)'),
   run: () => GameClock.skipSol(),
 });
 
 registerDevAction({
   id: 'dev:time-toggle-pause',
-  label: () => (GameClock.isPaused() ? '▶ Retomar Simulação' : '⏸ Pausar Simulação'),
-  group: 'Tempo / Clima',
-  description: 'Congela ou retoma a passagem do tempo da simulação',
+  label: () => (GameClock.isPaused() ? L('▶ Retomar Simulação', '▶ Resume Simulation') : L('⏸ Pausar Simulação', '⏸ Pause Simulation')),
+  group: L('Tempo / Clima', 'Time / Weather'),
+  description: L('Congela ou retoma a passagem do tempo da simulação', 'Freezes or resumes the simulation time'),
   isActive: () => GameClock.isPaused(),
   run: () => GameClock.togglePaused(),
 });
 
 registerDevAction({
   id: 'dev:time-speed-1',
-  label: 'Velocidade 1× (Normal)',
-  group: 'Tempo / Clima',
+  label: L('Velocidade 1× (Normal)', 'Speed 1× (Normal)'),
+  group: L('Tempo / Clima', 'Time / Weather'),
   isActive: () => GameClock.getScale() === 1 && !GameClock.isPaused(),
   run: () => {
     GameClock.setScale(1);
@@ -59,8 +60,8 @@ registerDevAction({
 
 registerDevAction({
   id: 'dev:time-speed-2',
-  label: 'Velocidade 2× (Rápida)',
-  group: 'Tempo / Clima',
+  label: L('Velocidade 2× (Rápida)', 'Speed 2× (Fast)'),
+  group: L('Tempo / Clima', 'Time / Weather'),
   isActive: () => GameClock.getScale() === 2 && !GameClock.isPaused(),
   run: () => {
     GameClock.setScale(2);
@@ -70,8 +71,8 @@ registerDevAction({
 
 registerDevAction({
   id: 'dev:time-speed-3',
-  label: 'Velocidade 3× (Máxima)',
-  group: 'Tempo / Clima',
+  label: L('Velocidade 3× (Máxima)', 'Speed 3× (Max)'),
+  group: L('Tempo / Clima', 'Time / Weather'),
   isActive: () => GameClock.getScale() === 3 && !GameClock.isPaused(),
   run: () => {
     GameClock.setScale(3);
@@ -158,7 +159,7 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
   return (
     <section
       className={`time-controls ${paused ? 'time-controls--paused' : ''}`}
-      aria-label="Controle de tempo da simulação"
+      aria-label={L('Controle de tempo da simulação', 'Simulation time control')}
       data-bit-target="speed"
     >
       {/* Indicador de Sol e Horário Marciano */}
@@ -181,7 +182,7 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
       {paused && (
         <div className="time-controls__paused-badge" role="status" aria-live="polite">
           <span className="time-controls__paused-dot" aria-hidden="true" />
-          PAUSADO
+          {L('PAUSADO', 'PAUSED')}
         </div>
       )}
 
@@ -197,8 +198,8 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
             !canControl
               ? 'Apenas o coordenador da sala pode pausar a partida'
               : paused
-                ? 'Retomar simulação [Espaço]'
-                : 'Pausar simulação [Espaço]'
+                ? L('Retomar simulação [Espaço]', 'Resume simulation [Space]')
+                : L('Pausar simulação [Espaço]', 'Pause simulation [Space]')
           }
           aria-label={paused ? 'Retomar simulação marciana' : 'Pausar simulação marciana'}
         >
@@ -239,9 +240,9 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
       {isMultiplayerRestricted && (
         <span
           className="time-controls__role-tag time-controls__role-tag--restricted"
-          title="Controle de tempo restrito ao coordenador (menor vaga na sala)"
+          title={L('Controle de tempo restrito ao coordenador (menor vaga na sala)', 'Time control is limited to the coordinator (first slot in the room)')}
         >
-          Coordenado
+          {L('Coordenado', 'Coordinated')}
         </span>
       )}
 
@@ -253,9 +254,9 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
             <span className="time-controls__screen-paused-icon" aria-hidden="true">
               ⏸
             </span>
-            <span>SIMULAÇÃO PAUSADA</span>
+            <span>{L('SIMULAÇÃO PAUSADA', 'SIMULATION PAUSED')}</span>
             <span className="time-controls__screen-paused-hint">
-              (Pressione Espaço para retomar)
+              {L('(Pressione Espaço para retomar)', '(Press Space to resume)')}
             </span>
           </div>,
           document.body,
@@ -273,5 +274,5 @@ registerPanel({
   component: TimeControls,
   defaultOpen: true,
   order: 20,
-  shortcut: 'Espaço',
+  shortcut: L('Espaço', 'Space'),
 });

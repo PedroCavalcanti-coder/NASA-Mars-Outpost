@@ -8,6 +8,7 @@
 import { useMemo } from 'react';
 import { getPanelMeta, renderHudIcon } from './panelMeta';
 import type { HudPanelDefinition } from './registry';
+import { L } from '../../../lib/i18n';
 
 interface HudDockProps {
   panels: readonly HudPanelDefinition[];
@@ -37,7 +38,7 @@ export function HudDock({
   }, [panels, isDevMode]);
 
   return (
-    <nav className="hud-dock" aria-label="Navegação de painéis da base">
+    <nav className="hud-dock" aria-label={L('Navegação de painéis da base', 'Base panel navigation')}>
       <ul className="hud-dock__list">
         {dockPanels.map((panel) => {
           const isOpen = activePanelId === panel.id;

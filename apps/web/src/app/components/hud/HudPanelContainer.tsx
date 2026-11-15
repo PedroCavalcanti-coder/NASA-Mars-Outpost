@@ -9,6 +9,7 @@ import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { getPanelMeta, renderHudIcon } from './panelMeta';
 import type { HudPanelDefinition } from './registry';
+import { L } from '../../../lib/i18n';
 
 interface HudPanelContainerProps {
   panel: HudPanelDefinition | null;
@@ -46,8 +47,8 @@ export function HudPanelContainer({ panel, onClose }: HudPanelContainerProps) {
           type="button"
           className="hud-panel-close-btn"
           onClick={onClose}
-          title="Fechar painel [Esc]"
-          aria-label="Fechar painel"
+          title={L('Fechar painel [Esc]', 'Close panel [Esc]')}
+          aria-label={L('Fechar painel', 'Close panel')}
         >
           <X size={18} />
         </button>

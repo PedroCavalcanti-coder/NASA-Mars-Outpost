@@ -2,6 +2,7 @@ import { CheckCircle2, HelpCircle, LifeBuoy, MessageSquare, Rocket } from 'lucid
 import { type FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import '../../styles/publicPages.css';
+import { L, t } from '../../lib/i18n';
 
 const FAQS = [
   {
@@ -67,19 +68,19 @@ export default function Support() {
 
         <nav className="public-nav">
           <Link to="/" className="public-nav-link">
-            Início
+            {L('Início', 'Home')}
           </Link>
           <Link to="/centro" className="public-nav-link">
-            Centro
+            {L('Centro', 'Center')}
           </Link>
           <Link to="/suporte" className="public-nav-link is-active">
-            Suporte
+            {L('Suporte', 'Support')}
           </Link>
           <Link to="/sobre" className="public-nav-link">
-            Sobre
+            {L('Sobre', 'About')}
           </Link>
           <Link to="/" className="public-nav-cta">
-            <Rocket size={16} /> Jogar
+            <Rocket size={16} /> {L('Jogar', 'Play')}
           </Link>
         </nav>
       </header>
@@ -88,12 +89,11 @@ export default function Support() {
       <main className="public-main-content">
         <section className="public-hero">
           <span className="public-eyebrow">
-            <LifeBuoy size={15} /> CENTRAL DE AJUDA & TELEMETRIA
+            <LifeBuoy size={15} /> {L('CENTRAL DE AJUDA & TELEMETRIA', 'HELP CENTER & TELEMETRY')}
           </span>
-          <h1>Suporte da Missão</h1>
+          <h1>{L('Suporte da Missão', 'Mission Support')}</h1>
           <p>
-            Dúvidas frequentes sobre compatibilidade, controles da nave, desempenho gráfico e canal
-            direto de contato com os desenvolvedores da missão.
+            {L('Dúvidas frequentes sobre compatibilidade, controles da nave, desempenho gráfico e canal direto de contato com os desenvolvedores da missão.', 'Frequent questions about compatibility, controls, graphics performance and a direct line to the mission developers.')}
           </p>
         </section>
 
@@ -110,14 +110,14 @@ export default function Support() {
                 gap: 10,
               }}
             >
-              <HelpCircle size={22} color="#ffb511" /> Perguntas Frequentes
+              <HelpCircle size={22} color="#ffb511" /> {L('Perguntas Frequentes', 'Frequently Asked Questions')}
             </h2>
 
             {FAQS.map((faq) => (
               <div key={faq.q} className="public-card" style={{ padding: '20px 24px' }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#ffb511' }}>{faq.q}</h3>
+                <h3 style={{ margin: '0 0 8px', fontSize: 17, color: '#ffb511' }}>{t(faq.q)}</h3>
                 <p style={{ margin: 0, color: '#c9dcf7', fontSize: 14, lineHeight: 1.5 }}>
-                  {faq.a}
+                  {t(faq.a)}
                 </p>
               </div>
             ))}
@@ -134,17 +134,16 @@ export default function Support() {
                 gap: 10,
               }}
             >
-              <MessageSquare size={22} color="#78ace1" /> Relatar Problema ou Dúvida
+              <MessageSquare size={22} color="#78ace1" /> {L('Relatar Problema ou Dúvida', 'Report a Problem or Question')}
             </h2>
 
             <div className="public-card">
               {sent ? (
                 <div style={{ textAlign: 'center', padding: '28px 12px' }}>
                   <CheckCircle2 size={48} color="#7fd6a0" style={{ marginBottom: 14 }} />
-                  <h3 style={{ fontSize: 22, margin: '0 0 8px' }}>Transmissão Enviada!</h3>
+                  <h3 style={{ fontSize: 22, margin: '0 0 8px' }}>{L('Transmissão Enviada!', 'Message Sent!')}</h3>
                   <p style={{ color: '#c9dcf7', fontSize: 14, lineHeight: 1.5, marginBottom: 20 }}>
-                    Obrigado pelo seu relato. Nossa equipe de controle de missão analisará as
-                    informações para aprimorar o Mars Outpost.
+                    {L('Obrigado pelo seu relato. Nossa equipe de controle de missão analisará as informações para aprimorar o Mars Outpost.', 'Thanks for your report. Our mission control team will look at it to improve Mars Outpost.')}
                   </p>
                   <button
                     type="button"
@@ -163,7 +162,7 @@ export default function Support() {
                       fontWeight: 600,
                     }}
                   >
-                    Enviar outra mensagem
+                    {L('Enviar outra mensagem', 'Send another message')}
                   </button>
                 </div>
               ) : (
@@ -184,14 +183,14 @@ export default function Support() {
                         letterSpacing: '0.1em',
                       }}
                     >
-                      Assunto
+                      {L('Assunto', 'Subject')}
                     </label>
                     <input
                       id="support-subject"
                       type="text"
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="Ex: Lentidão no navegador, sugestão de base..."
+                      placeholder={L('Ex: Lentidão no navegador, sugestão de base...', 'E.g. slow in the browser, base suggestion...')}
                       required
                       style={{
                         width: '100%',
@@ -222,14 +221,14 @@ export default function Support() {
                         letterSpacing: '0.1em',
                       }}
                     >
-                      Seu E-mail (Opcional)
+                      {L('Seu E-mail (Opcional)', 'Your Email (Optional)')}
                     </label>
                     <input
                       id="support-email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="astronauta@exemplo.com"
+                      placeholder={L('astronauta@exemplo.com', 'astronaut@example.com')}
                       style={{
                         width: '100%',
                         height: 44,
@@ -259,14 +258,14 @@ export default function Support() {
                         letterSpacing: '0.1em',
                       }}
                     >
-                      Mensagem ou Relato
+                      {L('Mensagem ou Relato', 'Message or Report')}
                     </label>
                     <textarea
                       id="support-msg"
                       rows={4}
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Descreva com detalhes o que aconteceu..."
+                      placeholder={L('Descreva com detalhes o que aconteceu...', 'Describe in detail what happened...')}
                       required
                       style={{
                         width: '100%',
@@ -300,7 +299,7 @@ export default function Support() {
                       transition: 'all 0.2s',
                     }}
                   >
-                    Transmitir Mensagem
+                    {L('Transmitir Mensagem', 'Send Message')}
                   </button>
                 </form>
               )}
@@ -313,11 +312,11 @@ export default function Support() {
       <footer className="public-footer">
         <div>© 2026 Mars Outpost · NASA Space Apps Challenge Fortaleza</div>
         <div className="public-footer-links">
-          <Link to="/">Início</Link>
-          <Link to="/centro">Centro</Link>
-          <Link to="/suporte">Suporte</Link>
-          <Link to="/sobre">Sobre</Link>
-          <Link to="/">Jogar</Link>
+          <Link to="/">{L('Início', 'Home')}</Link>
+          <Link to="/centro">{L('Centro', 'Center')}</Link>
+          <Link to="/suporte">{L('Suporte', 'Support')}</Link>
+          <Link to="/sobre">{L('Sobre', 'About')}</Link>
+          <Link to="/">{L('Jogar', 'Play')}</Link>
         </div>
       </footer>
     </div>

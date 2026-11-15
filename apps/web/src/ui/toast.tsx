@@ -1,5 +1,6 @@
 import { CircleCheck, Info, TriangleAlert } from 'lucide-react';
 import { create } from 'zustand';
+import { t } from '../lib/i18n';
 
 type Kind = 'ok' | 'error' | 'info';
 interface Toast {
@@ -14,7 +15,7 @@ let seq = 0;
 /** Mostra uma notificação curta (some sozinha). */
 export function toast(text: string, kind: Kind = 'ok', ms = 4200) {
   const id = ++seq;
-  useToasts.setState((s) => ({ list: [...s.list.slice(-2), { id, kind, text }] }));
+  useToasts.setState((s) => ({ list: [...s.list.slice(-2), { id, kind, text: t(text) }] }));
   setTimeout(() => useToasts.setState((s) => ({ list: s.list.filter((t) => t.id !== id) })), ms);
 }
 

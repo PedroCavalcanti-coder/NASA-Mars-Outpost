@@ -11,6 +11,8 @@ const MISSION_KEY = 'mo_mission';
 export interface PlaySession {
   room: string;
   base?: string;
+  /** código sorteado e ainda não confirmado pelo servidor (pode colidir com outro mundo) */
+  fresh?: boolean;
 }
 
 function read(key: string): string | null {
@@ -36,7 +38,11 @@ export function getPlaySession(): PlaySession | null {
   try {
     const v = JSON.parse(raw) as Partial<PlaySession>;
     if (typeof v.room === 'string' && v.room) {
-      return { room: v.room, base: typeof v.base === 'string' ? v.base : undefined };
+      return {
+        room: v.room,
+        base: typeof v.base === 'string' ? v.base : undefined,
+        fresh: v.fresh === true,
+      };
     }
   } catch {
     /* valor corrompido: ignora */

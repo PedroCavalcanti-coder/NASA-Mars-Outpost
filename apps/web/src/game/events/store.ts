@@ -15,6 +15,8 @@ export interface EventSession {
   /** instante (ms) em que a votação fecha */
   deadline: number;
   result: { choice: number; outcome: EventOutcome } | null;
+  /** explosão solar real (arquivo do DONKI) ligada ao evento de radiação */
+  flare?: { classType: string; peak: string; region: number; note: string };
 }
 
 interface GameEventsStore {

@@ -70,9 +70,6 @@ vi.mock('../../game/LaunchScene', () => ({
     setPostProcessing() {}
   },
 }));
-vi.mock('../../store/auth', () => ({
-  useAuth: (selector: (state: unknown) => unknown) => selector({ user: null, logout: vi.fn() }),
-}));
 vi.mock('../components/astronaut/SuitPreview', () => ({ SuitPreview: () => null }));
 vi.mock('../components/SettingsModal', () => ({
   SettingsModal: ({ onAudioChange }: { onAudioChange: (audio: AudioSettings) => void }) => {
@@ -157,10 +154,17 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
+/** Clica em “Jogar agora” e pula a contagem regressiva do B.I.T. (os motores acendem na hora). */
+async function startLaunch() {
+  await act(async () => button('Jogar agora').click());
+  if (container.querySelector('.bit-guide--launch .bit-countdown'))
+    await act(async () => button('Pular animação →').click());
+}
+
 describe('Home initialization and recovery', () => {
   it('starts descent audio on landing events, syncs volume and stops on touchdown', async () => {
     await mount();
-    await act(async () => button('Jogar agora').click());
+    await startLaunch();
     await act(async () => fixture.spaceChange?.(false));
     const parachute = FakeAudio.instances.find((a) => a.src.endsWith('/parachute-open.mp3'));
     expect(parachute?.play).not.toHaveBeenCalled();
@@ -228,7 +232,7 @@ describe('Home initialization and recovery', () => {
     await mount();
     expect(container.querySelector('[role="alert"]')).toBeNull();
     await act(async () => button('Jogar agora').click());
-    expect(container.querySelector('dialog')?.open).toBe(true);
+    expect(container.querySelector('dialog')?.open).toBe(false);
     await act(async () => root.unmount());
     expect(fixture.retain).toHaveBeenCalledTimes(2);
     expect(fixture.release).toHaveBeenCalledTimes(2);
@@ -247,12 +251,25 @@ describe('Home initialization and recovery', () => {
     await mount(true);
     expect(container.querySelector('dialog')?.open).toBe(true);
   });
-  it('skips before completion and reopens customization after closing it', async () => {
+  it('o B.I.T. faz a contagem regressiva antes da decolagem e pular acende os motores', async () => {
     await mount();
     await act(async () => button('Jogar agora').click());
+    expect(container.querySelector('.bit-countdown strong')?.textContent).toBe('5');
+    expect(FakeAudio.instances.find((a) => a.src.endsWith('/foguete.mp3'))).toBeUndefined();
+    await act(async () => button('Pular animação →').click());
+    expect(container.querySelector('.bit-countdown')).toBeNull();
+    expect(FakeAudio.instances.find((a) => a.src.endsWith('/foguete.mp3'))?.play).toHaveBeenCalledTimes(1);
+  });
+  it('skips before completion and reopens customization after closing it', async () => {
+    await mount();
+    await startLaunch();
     await act(async () => button('Pular animação →').click());
     expect(fixture.skip).toHaveBeenCalledTimes(1);
     await act(async () => fixture.complete?.());
+    // ao fim da viagem nada abre sozinho: o botão em destaque é que abre a personalização
+    expect(container.querySelector('dialog')?.open).toBe(false);
+    expect(button('Personalizar astronauta').dataset.cta).toBe('true');
+    await act(async () => button('Personalizar astronauta').click());
     expect(container.querySelector('dialog')?.open).toBe(true);
     await act(async () =>
       container.querySelector<HTMLButtonElement>('[aria-label="Fechar janela"]')?.click(),
@@ -272,7 +289,7 @@ describe('Home initialization and recovery', () => {
   it('waits for world readiness before offering customization', async () => {
     fixture.session.ready = false;
     await mount();
-    await act(async () => button('Jogar agora').click());
+    await startLaunch();
     await act(async () => fixture.complete?.());
     expect(button('Personalizar astronauta').disabled).toBe(true);
     await act(async () => {
@@ -280,11 +297,13 @@ describe('Home initialization and recovery', () => {
       notify();
     });
     expect(button('Personalizar astronauta').disabled).toBe(false);
+    expect(container.querySelector('dialog')?.open).toBe(false);
+    await act(async () => button('Personalizar astronauta').click());
     expect(container.querySelector('dialog')?.open).toBe(true);
   });
   it('updates the existing ignition sound on mute, unmute and volume changes', async () => {
     await mount();
-    await act(async () => button('Jogar agora').click());
+    await startLaunch();
     const ignition = FakeAudio.instances.find((audio) => audio.src.endsWith('/foguete.mp3'));
     expect(ignition?.play).toHaveBeenCalledTimes(1);
     expect(ignition?.volume).toBeCloseTo(0.65 * 0.8 * 0.85);

@@ -3,9 +3,9 @@ import { z } from 'zod';
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3001),
-  /** Origens permitidas do site (separadas por vírgula). A primeira é usada nos links de e-mail. */
+  /** Origens permitidas do site (separadas por vírgula). */
   WEB_ORIGIN: z.string().default('http://localhost:5173'),
-  /** Segredo-mestre: dele saem as chaves de criptografia do token, do HMAC e do pepper de senha. */
+  /** Segredo do servidor: usado no HMAC da chave do cookie do jogador. */
   JWT_SECRET: z
     .string()
     .min(32, 'JWT_SECRET precisa ter ao menos 32 caracteres (npm run secret:jwt)'),
@@ -41,16 +41,6 @@ export const config = {
   databaseUrl: env.DATABASE_URL,
   trustProxy: env.TRUST_PROXY,
   cookieSameSite: env.COOKIE_SAMESITE,
-  cookies: { access: 'mo_at', refresh: 'mo_rt' },
-  /** Vida do token de acesso (JWE) e da sessão (refresh). */
-  accessTtlSeconds: 15 * 60,
-  socketTicketTtlSeconds: 60,
-  refreshTtlSeconds: 30 * 24 * 60 * 60,
-  /** Janela em que um refresh repetido (duas abas) é aceito sem derrubar a sessão. */
-  refreshGraceSeconds: 15,
-  resetTtlSeconds: 60 * 60,
-  maxFailedLogins: 5,
-  lockSeconds: 15 * 60,
 } as const;
 
 if (

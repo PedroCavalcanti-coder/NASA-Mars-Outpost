@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { getLang, L, setLang } from '../../lib/i18n';
 import { copyText } from '../../lib/clipboard';
 import type { OutlineSettings } from '../../lib/gameSettings';
 import { toast } from '../../ui/toast';
@@ -91,7 +92,7 @@ export function SettingsModal({
   const copyInvite = async (text: string, message: string) => {
     const ok = await copyText(text);
     toast(
-      ok ? message : 'Não foi possível copiar. Selecione o código da sala manualmente.',
+      ok ? message : L('Não foi possível copiar. Selecione o código da sala manualmente.', 'Could not copy. Select the room code manually.'),
       ok ? 'ok' : 'error',
     );
     setCopied(ok);
@@ -102,13 +103,13 @@ export function SettingsModal({
     if (onCopyRoomCode) {
       setCopied(await onCopyRoomCode());
       setTimeout(() => setCopied(false), 2600);
-    } else if (roomCode) await copyInvite(roomCode, `Código da sala ${roomCode} copiado!`);
+    } else if (roomCode) await copyInvite(roomCode, L(`Código da sala ${roomCode} copiado!`, `Room code ${roomCode} copied!`));
   };
 
   const handleCopyLink = () => {
     if (!roomCode) return;
     const link = `${window.location.origin}/jogar?sala=${encodeURIComponent(roomCode)}`;
-    void copyInvite(link, 'Link de convite da sala copiado!');
+    void copyInvite(link, L('Link de convite da sala copiado!', 'Room invite link copied!'));
   };
 
   return (
@@ -123,14 +124,14 @@ export function SettingsModal({
       <div className="game-settings-shell">
         <header className="game-settings-header">
           <div className="game-settings-title-wrap">
-            <span className="game-settings-kicker">SISTEMA DA MISSÃO</span>
-            <h2 id="settings-dialog-title">{inGame ? 'Configurações & Sala' : 'Configurações'}</h2>
+            <span className="game-settings-kicker">{L('SISTEMA DA MISSÃO', 'MISSION SYSTEM')}</span>
+            <h2 id="settings-dialog-title">{inGame ? L('Configurações & Sala', 'Settings & Room') : L('Configurações', 'Settings')}</h2>
           </div>
           <button
             type="button"
             className="game-settings-close"
             onClick={onClose}
-            aria-label="Fechar configurações"
+            aria-label={L('Fechar configurações', 'Close settings')}
           >
             <X size={20} />
           </button>
@@ -138,7 +139,7 @@ export function SettingsModal({
 
         <div className="game-settings-layout">
           {/* Menu Lateral de Sub-Painéis */}
-          <nav className="game-settings-nav" aria-label="Seções de configurações">
+          <nav className="game-settings-nav" aria-label={L('Seções de configurações', 'Settings sections')}>
             {inGame && (
               <button
                 type="button"
@@ -146,7 +147,7 @@ export function SettingsModal({
                 onClick={() => setTab('room')}
               >
                 <Users size={18} />
-                <span>Sala & Convite</span>
+                <span>{L('Sala & Convite', 'Room & Invite')}</span>
               </button>
             )}
 
@@ -156,7 +157,7 @@ export function SettingsModal({
               onClick={() => setTab('video')}
             >
               <Monitor size={18} />
-              <span>Vídeo</span>
+              <span>{L('Vídeo', 'Video')}</span>
             </button>
 
             <button
@@ -174,7 +175,7 @@ export function SettingsModal({
               onClick={() => setTab('gameplay')}
             >
               <Sliders size={18} />
-              <span>Geral</span>
+              <span>{L('Geral', 'General')}</span>
             </button>
 
             <button
@@ -183,7 +184,7 @@ export function SettingsModal({
               onClick={() => setTab('about')}
             >
               <HelpCircle size={18} />
-              <span>Sobre</span>
+              <span>{L('Sobre', 'About')}</span>
             </button>
           </nav>
 
@@ -193,12 +194,12 @@ export function SettingsModal({
             {tab === 'room' && inGame && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Sala & Convite da Expedição</h3>
-                  <p>Compartilhe o código exclusivo desta sala para jogar junto com amigos.</p>
+                  <h3>{L('Sala & Convite da Expedição', 'Expedition Room & Invite')}</h3>
+                  <p>{L('Compartilhe o código exclusivo desta sala para jogar junto com amigos.', 'Share this room\'s code to play with friends.')}</p>
                 </div>
 
                 <div className="settings-room-card">
-                  <span className="settings-room-label">CÓDIGO EXCLUSIVO DA SALA</span>
+                  <span className="settings-room-label">{L('CÓDIGO EXCLUSIVO DA SALA', 'ROOM CODE')}</span>
                   <div className="settings-room-code-display">
                     <code>{roomCode ?? 'MARS-OUTPOST-LOCAL'}</code>
                     <button
@@ -207,13 +208,12 @@ export function SettingsModal({
                       onClick={handleCopy}
                     >
                       {copied ? <Check size={16} /> : <Copy size={16} />}
-                      <span>{copied ? 'Código Copiado!' : 'Copiar Código'}</span>
+                      <span>{copied ? L('Código Copiado!', 'Code Copied!') : L('Copiar Código', 'Copy Code')}</span>
                     </button>
                   </div>
                   <p className="settings-room-instructions">
-                    Seu amigo pode entrar na sua sala clicando em{' '}
-                    <strong>"Entrar em um mundo"</strong> na tela inicial e colando este código
-                    (máximo 4 jogadores).
+                    {L('Seu amigo pode entrar na sua sala clicando em', 'Your friend can join your room by clicking')}{' '}
+                    <strong>{L('"Entrar em um mundo"', '“Join a world”')}</strong> {L(' na tela inicial e colando este código (máximo 4 jogadores).', ' on the home screen and pasting this code (up to 4 players).')}
                   </p>
                   <div className="settings-room-actions">
                     <button
@@ -222,17 +222,16 @@ export function SettingsModal({
                       onClick={handleCopyLink}
                     >
                       <Share2 size={15} />
-                      <span>Copiar Link de Convite Direto</span>
+                      <span>{L('Copiar Link de Convite Direto', 'Copy Direct Invite Link')}</span>
                     </button>
                   </div>
                 </div>
 
                 <div className="settings-danger-zone">
                   <div className="settings-danger-info">
-                    <h4>Sair da Missão Atual</h4>
+                    <h4>{L('Sair da Missão Atual', 'Leave Current Mission')}</h4>
                     <p>
-                      Encerra sua sessão na base marciana e retorna ao centro de lançamento na
-                      Terra.
+                      {L('Encerra sua sessão na base marciana e retorna ao centro de lançamento na Terra.', 'Ends your session on the Mars base and returns to the launch center on Earth.')}
                     </p>
                   </div>
                   <button
@@ -244,7 +243,7 @@ export function SettingsModal({
                     }}
                   >
                     <LogOut size={16} />
-                    <span>Sair da Sala</span>
+                    <span>{L('Sair da Sala', 'Leave Room')}</span>
                   </button>
                 </div>
               </div>
@@ -254,27 +253,27 @@ export function SettingsModal({
             {tab === 'video' && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Gráficos & Desempenho</h3>
-                  <p>Ajuste a qualidade visual para melhor fluidez no seu dispositivo.</p>
+                  <h3>{L('Gráficos & Desempenho', 'Graphics & Performance')}</h3>
+                  <p>{L('Ajuste a qualidade visual para melhor fluidez no seu dispositivo.', 'Adjust visual quality for smoother play on your device.')}</p>
                 </div>
 
                 {/* Opções de Vídeo: Baixo / Médio / Alto */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Nível de Qualidade Visual</span>
+                    <span>{L('Nível de Qualidade Visual', 'Visual Quality Level')}</span>
                     <small>
                       {video.quality === 'low' &&
-                        'Baixo · Recomendado para celulares e telas pequenas'}
+                        L('Baixo · Recomendado para celulares e telas pequenas', 'Low · Recommended for phones and small screens')}
                       {video.quality === 'medium' &&
-                        'Médio · Padrão equilibrado para PC / Notebook'}
+                        L('Médio · Padrão equilibrado para PC / Notebook', 'Medium · Balanced default for PC / laptop')}
                       {video.quality === 'high' &&
-                        'Alto · Fidelidade gráfica máxima com sombras detalhadas'}
+                        L('Alto · Fidelidade gráfica máxima com sombras detalhadas', 'High · Maximum graphics with detailed shadows')}
                     </small>
                   </div>
                   <div
                     className="settings-tier-selector"
                     role="radiogroup"
-                    aria-label="Qualidade gráfica"
+                    aria-label={L('Qualidade gráfica', 'Graphics quality')}
                   >
                     <button
                       type="button"
@@ -282,7 +281,7 @@ export function SettingsModal({
                       onClick={() => onVideoChange({ ...video, quality: 'low' })}
                       aria-pressed={video.quality === 'low'}
                     >
-                      Baixo
+                      {L('Baixo', 'Low')}
                     </button>
                     <button
                       type="button"
@@ -290,7 +289,7 @@ export function SettingsModal({
                       onClick={() => onVideoChange({ ...video, quality: 'medium' })}
                       aria-pressed={video.quality === 'medium'}
                     >
-                      Médio
+                      {L('Médio', 'Medium')}
                     </button>
                     <button
                       type="button"
@@ -298,7 +297,7 @@ export function SettingsModal({
                       onClick={() => onVideoChange({ ...video, quality: 'high' })}
                       aria-pressed={video.quality === 'high'}
                     >
-                      Alto
+                      {L('Alto', 'High')}
                     </button>
                   </div>
                 </div>
@@ -306,9 +305,9 @@ export function SettingsModal({
                 {/* Post-Processing */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Pós-processamento (Post-Processing)</span>
+                    <span>{L('Pós-processamento (Post-Processing)', 'Post-processing')}</span>
                     <small>
-                      Filtros de atmosfera marciana, vinheta e correção tonal ACES Filmic.
+                      {L('Filtros de atmosfera marciana, vinheta e correção tonal ACES Filmic.', 'Martian atmosphere filters, vignette and ACES Filmic tone mapping.')}
                     </small>
                   </div>
                   <label className="settings-toggle">
@@ -326,9 +325,9 @@ export function SettingsModal({
                 {/* Anti-aliasing (Suavização) */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Suavização de Serrilhado (Anti-aliasing)</span>
+                    <span>{L('Suavização de Serrilhado (Anti-aliasing)', 'Anti-aliasing')}</span>
                     <small>
-                      Suaviza arestas poligonais do terreno, habitats e painéis solares.
+                      {L('Suaviza arestas poligonais do terreno, habitats e painéis solares.', 'Smooths the edges of terrain, habitats and solar panels.')}
                     </small>
                   </div>
                   <label className="settings-toggle">
@@ -346,7 +345,7 @@ export function SettingsModal({
                   <>
                     <div className="settings-item">
                       <div className="settings-item-label">
-                        <span>Linha de Contorno</span>
+                        <span>{L('Linha de Contorno', 'Outline')}</span>
                         <small>
                           Realça a silhueta de astronautas, rover, equipamentos e da base.
                           {video.quality === 'low' && ' Indisponível no gráfico baixo.'}
@@ -366,7 +365,7 @@ export function SettingsModal({
                     {outline.enabled && (
                       <div className="settings-slider-item">
                         <div className="slider-header">
-                          <span>Espessura do Contorno</span>
+                          <span>{L('Espessura do Contorno', 'Outline Thickness')}</span>
                           <span className="slider-value">{outline.strength.toFixed(1)}×</span>
                         </div>
                         <input
@@ -379,7 +378,7 @@ export function SettingsModal({
                             onOutlineChange({ ...outline, strength: Number(e.target.value) })
                           }
                           className="settings-range"
-                          aria-label="Espessura do contorno"
+                          aria-label={L('Espessura do contorno', 'Outline thickness')}
                         />
                       </div>
                     )}
@@ -389,9 +388,9 @@ export function SettingsModal({
                 {/* Movimento Reduzido */}
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Reduzir Movimento de Câmera</span>
+                    <span>{L('Reduzir Movimento de Câmera', 'Reduce Camera Motion')}</span>
                     <small>
-                      Diminui a inércia dos controles orbitais para maior conforto visual.
+                      {L('Diminui a inércia dos controles orbitais para maior conforto visual.', 'Reduces camera inertia for more visual comfort.')}
                     </small>
                   </div>
                   <label className="settings-toggle">
@@ -410,16 +409,16 @@ export function SettingsModal({
             {tab === 'audio' && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Sons & Ambiência Espacial</h3>
+                  <h3>{L('Sons & Ambiência Espacial', 'Sound & Space Ambience')}</h3>
                   <p>
-                    Controle os volumes de navegação, propulsão da nave e som ambiente de Marte.
+                    {L('Controle os volumes de navegação, propulsão da nave e som ambiente de Marte.', 'Control the volume of menus, rocket engines and Mars ambience.')}
                   </p>
                 </div>
 
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Silenciar Todos os Sons</span>
-                    <small>Desativa qualquer saída de áudio do simulador.</small>
+                    <span>{L('Silenciar Todos os Sons', 'Mute All Sounds')}</span>
+                    <small>{L('Desativa qualquer saída de áudio do simulador.', 'Turns off all game audio.')}</small>
                   </div>
                   <button
                     type="button"
@@ -427,13 +426,13 @@ export function SettingsModal({
                     onClick={() => onAudioChange({ ...audio, muted: !audio.muted })}
                   >
                     {audio.muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                    <span>{audio.muted ? 'Mutado' : 'Áudio Ativo'}</span>
+                    <span>{audio.muted ? L('Mutado', 'Muted') : L('Áudio Ativo', 'Audio On')}</span>
                   </button>
                 </div>
 
                 <div className="settings-slider-item">
                   <div className="slider-header">
-                    <span>Volume Geral (Master)</span>
+                    <span>{L('Volume Geral (Master)', 'Master Volume')}</span>
                     <span className="slider-value">
                       {audio.muted ? '0%' : `${audio.masterVolume}%`}
                     </span>
@@ -453,7 +452,7 @@ export function SettingsModal({
 
                 <div className="settings-slider-item">
                   <div className="slider-header">
-                    <span>Efeitos Sonoros (SFX & Propulsão)</span>
+                    <span>{L('Efeitos Sonoros (SFX & Propulsão)', 'Sound Effects (SFX & Engines)')}</span>
                     <span className="slider-value">
                       {audio.muted ? '0%' : `${audio.sfxVolume}%`}
                     </span>
@@ -471,7 +470,7 @@ export function SettingsModal({
 
                 <div className="settings-slider-item">
                   <div className="slider-header">
-                    <span>Música Ambiente</span>
+                    <span>{L('Música Ambiente', 'Ambient Music')}</span>
                     <span className="slider-value">
                       {audio.muted ? '0%' : `${audio.musicVolume}%`}
                     </span>
@@ -495,15 +494,15 @@ export function SettingsModal({
             {tab === 'gameplay' && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Jogabilidade & Interface</h3>
-                  <p>Preferências de assistência, acessibilidade e visualização.</p>
+                  <h3>{L('Jogabilidade & Interface', 'Gameplay & Interface')}</h3>
+                  <p>{L('Preferências de assistência, acessibilidade e visualização.', 'Assistance, accessibility and display preferences.')}</p>
                 </div>
 
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Exibir Dicas de Controle na Tela</span>
+                    <span>{L('Exibir Dicas de Controle na Tela', 'Show Control Hints on Screen')}</span>
                     <small>
-                      Mostra a barra inferior com comandos de caminhada, rotação e limpeza.
+                      {L('Mostra a barra inferior com comandos de caminhada, rotação e limpeza.', 'Shows the bottom bar with walking, rotation and cleaning controls.')}
                     </small>
                   </div>
                   <label className="settings-toggle">
@@ -520,8 +519,8 @@ export function SettingsModal({
 
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Modo Alto Contraste</span>
-                    <small>Aumenta a separação de bordas e textos para maior clareza visual.</small>
+                    <span>{L('Modo Alto Contraste', 'High Contrast Mode')}</span>
+                    <small>{L('Aumenta a separação de bordas e textos para maior clareza visual.', 'Increases edge and text contrast for clearer visuals.')}</small>
                   </div>
                   <label className="settings-toggle">
                     <input
@@ -537,10 +536,33 @@ export function SettingsModal({
 
                 <div className="settings-item">
                   <div className="settings-item-label">
-                    <span>Idioma da Missão</span>
-                    <small>Comunicações da base e telemetria marciana.</small>
+                    <span>Idioma / Language</span>
+                    <small>
+                      {L(
+                        'Textos do jogo e do B.I.T. (em inglês, o B.I.T. fala com voz). Trocar recarrega a página e você volta para a mesma sala.',
+                        'Game and B.I.T. text (in English, B.I.T. speaks out loud). Switching reloads the page and you return to the same room.',
+                      )}
+                    </small>
                   </div>
-                  <span className="settings-badge">Português (Brasil)</span>
+                  <div className="settings-lang" role="radiogroup" aria-label="Idioma / Language">
+                    {(
+                      [
+                        ['en', 'English'],
+                        ['pt', 'Português (Brasil)'],
+                      ] as const
+                    ).map(([code, label]) => (
+                      <button
+                        key={code}
+                        type="button"
+                        role="radio"
+                        aria-checked={getLang() === code}
+                        className={`settings-badge ${getLang() === code ? 'is-active' : ''}`}
+                        onClick={() => setLang(code)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -549,23 +571,19 @@ export function SettingsModal({
             {tab === 'about' && (
               <div className="settings-section">
                 <div className="settings-section-head">
-                  <h3>Nossa Missão</h3>
+                  <h3>{L('Nossa Missão', 'Our Mission')}</h3>
                   <p>Mars Outpost · NASA Space Apps Challenge Fortaleza</p>
                 </div>
 
                 <div className="settings-about-body">
                   <p>
-                    O <strong>Mars Outpost</strong> é um simulador interativo e educativo que
-                    explora o desafio de construir e manter bases científicas sustentáveis em Marte.
+                    O <strong>Mars Outpost</strong> {L('é um simulador interativo e educativo que explora o desafio de construir e manter bases científicas sustentáveis em Marte.', 'is an interactive educational simulator about the challenge of building and running sustainable science bases on Mars.')}
                   </p>
                   <p>
-                    Com modelos modulares em 3D, simulação de recursos vitais (oxigênio, água,
-                    energia solar) e dados de missões reais da NASA, o projeto convida os
-                    exploradores a vivenciar a ciência por trás da colonização espacial.
+                    {L('Com modelos modulares em 3D, simulação de recursos vitais (oxigênio, água, energia solar) e dados de missões reais da NASA, o projeto convida os exploradores a vivenciar a ciência por trás da colonização espacial.', 'With modular 3D models, a simulation of vital resources (oxygen, water, solar power) and data from real NASA missions, it invites explorers to experience the science behind living in space.')}
                   </p>
                   <div className="settings-about-note">
-                    Projeto independente desenvolvido para o NASA Space Apps Challenge Fortaleza.
-                    Não há vínculo, endosso ou patrocínio oficial da NASA.
+                    {L('Projeto independente desenvolvido para o NASA Space Apps Challenge Fortaleza. Não há vínculo, endosso ou patrocínio oficial da NASA.', 'Independent project built for the NASA Space Apps Challenge Fortaleza. Not affiliated with, endorsed or sponsored by NASA.')}
                   </div>
                 </div>
               </div>
@@ -583,7 +601,7 @@ export function SettingsModal({
             )}
           </div>
           <button type="button" className="game-settings-done" onClick={onClose}>
-            Concluir
+            {L('Concluir', 'Done')}
           </button>
         </footer>
       </div>

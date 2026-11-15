@@ -5,7 +5,9 @@ import {
   type BaseInfo,
   loadBaseInfo,
   pickRandomBase,
+  takeRequestedBase,
 } from '../../lib/bases';
+import { getPlaySession } from '../../lib/gameSession';
 import type { BaseViewer } from '../BaseViewer';
 import { AssetPool, yieldFrame } from './assets';
 import { prepareAstronautPreview } from './astronautPreview';
@@ -104,7 +106,7 @@ export class Expedition {
   private host = document.createElement('div');
   preview: Awaited<ReturnType<typeof prepareAstronautPreview>> | null = null;
   private preparing: Promise<void> | null = null;
-  constructor(readonly id: BaseId) {
+  constructor(public id: BaseId) {
     this.host.style.cssText =
       'position:fixed;inset:0;visibility:hidden;pointer-events:none;z-index:-1';
     this.host.setAttribute('aria-hidden', 'true');
@@ -189,7 +191,12 @@ export class Expedition {
         }
       });
   }
-  restart() {
+  /** Nova viagem: por padrão sorteia outra base (nunca repete a da partida anterior). */
+  restart(id: BaseId = takeRequestedBase() ?? pickRandomBase(this.id)) {
+    this.id = id;
+    this.info = null;
+    this.attempt++;
+    this.preparing = null;
     this.runtime.stop();
     this.ready = this.entered = false;
     this.viewer?.dispose();
@@ -240,14 +247,12 @@ export const peekExpedition = () => current;
 export function retainExpedition() {
   clearTimeout(timer);
   if (!current) {
-    let id = pickRandomBase();
-    try {
-      const saved = sessionStorage.getItem('mo_base');
-      if (BASE_IDS.includes(saved as BaseId)) id = saved as BaseId;
-      sessionStorage.setItem('mo_base', id);
-    } catch {
-      /* Private browsing. */
-    }
+    // Recarregou no meio da partida: volta à mesma base. Senão: a base escolhida na central
+    // (pedido de uso único) ou uma sorteada — "novo jogo" nunca fica preso à base anterior.
+    const resumed = getPlaySession()?.base;
+    const id = BASE_IDS.includes(resumed as BaseId)
+      ? (resumed as BaseId)
+      : (takeRequestedBase() ?? pickRandomBase());
     current = new Expedition(id);
     void current.prepare();
   }

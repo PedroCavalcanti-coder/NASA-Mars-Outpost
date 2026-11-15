@@ -12,12 +12,14 @@ import type { ComponentType } from 'react';
 import {
   BatterySlot,
   DefaultOxygenSlot,
+  DoseSlot,
   ResearchSlot,
   ResourceSlot,
 } from './panels/EssentialSlots';
 import { EventOrb } from './panels/EventOrb';
 import { MarsCycleContext } from './panels/OxygenOrb';
 import { useGroupPanels } from './useHudPanels';
+import { L } from '../../../lib/i18n';
 
 interface EssentialBarProps {
   marsTime: {
@@ -52,8 +54,8 @@ export function EssentialBar({ marsTime, stormActive, onOpenSystemMenu }: Essent
         className="hud-essential-bar__menu-btn"
         data-bit-target="settings"
         onClick={onOpenSystemMenu}
-        title="Menu do Sistema e Configurações (O)"
-        aria-label="Abrir menu do sistema"
+        title={L('Menu do Sistema e Configurações (O)', 'System Menu and Settings (O)')}
+        aria-label={L('Abrir menu do sistema', 'Open system menu')}
       >
         <Menu size={24} />
       </button>
@@ -62,6 +64,7 @@ export function EssentialBar({ marsTime, stormActive, onOpenSystemMenu }: Essent
           <BatterySlot />
           <ResourceSlot kind="supplies" />
           <ResourceSlot kind="armor" />
+          <DoseSlot />
         </div>
         <ResearchSlot />
       </div>

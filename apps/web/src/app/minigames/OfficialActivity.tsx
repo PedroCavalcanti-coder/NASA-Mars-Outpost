@@ -12,7 +12,7 @@ function activity(req:MinigameRequest):{kind:ActivityKind;target:string} {
   if(req.kind==='greenhouse')return {kind:'greenhouse',target:String(req.index)};
   return {kind:req.kind==='drill'?'drill':req.kind==='soil'?'soil':'upload',target:'0'};
 }
-const names:Record<ActivityKind,string>={station:'Console da base',filter:'Limpeza do filtro de ar',solar:'Limpeza do painel solar',greenhouse:'Irrigação da estufa',drill:'Sondagem do subsolo',soil:'Coleta de solo',upload:'Envio de pesquisa à Terra'};
+const names:Record<ActivityKind,string>={station:'Console da base',filter:'Limpeza do filtro de ar',solar:'Limpeza do painel solar',greenhouse:'Irrigação da estufa',drill:'Sondagem do subsolo',soil:'Coleta de solo',upload:'Envio de pesquisa à Terra',ducts:'Dutos de ar'};
 /** Interactive projection of a server challenge. No score or resource delta is sent. */
 export default function OfficialActivity({request,onClose,onComplete}:{request:MinigameRequest;onClose:()=>void;onComplete:()=>void}) {
   const [initial,setInitial]=useState<ActivityAttempt|null>(null),[error,setError]=useState('');

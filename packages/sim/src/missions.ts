@@ -18,7 +18,13 @@ export type MissionId =
   | 'lab_analysis'
   | 'antenna_calibration'
   | 'power_audit'
-  | 'medical_checkup';
+  | 'medical_checkup'
+  // manutenção da base (entram no sorteio do dia junto com as de pesquisa)
+  | 'oxygen_moxie'
+  | 'water_extract'
+  | 'air_filter'
+  | 'garden_care'
+  | 'solar_clean';
 
 /** Onde a missão acontece no mundo. */
 export type MissionSite =
@@ -29,7 +35,12 @@ export type MissionSite =
   | 'comms'
   | 'power'
   | 'medical'
-  | 'upload';
+  | 'upload'
+  | 'moxie'
+  | 'water'
+  | 'filter'
+  | 'garden'
+  | 'solar';
 
 /** Pontos fixos com holograma na base (o rover e a sonda já são objetos do cenário). */
 export type StationSite = Extract<
@@ -43,8 +54,10 @@ export interface MissionDef {
   summary: string;
   site: MissionSite;
   cost: MissionCost;
-  /** pontos de pesquisa (a sondagem varia com a camada coletada) */
+  /** pontos de pesquisa: SÓ as missões de pesquisa dão (a sondagem varia com a camada coletada) */
   research: number;
+  /** missões de manutenção não dão pesquisa: devolvem recursos para a base */
+  reward?: MissionCost;
   morale?: number;
   /** não pode ser iniciada à noite (frio, pouca luz) */
   daytimeOnly: boolean;
@@ -57,14 +70,15 @@ export interface MissionDef {
 export const MISSIONS: Record<MissionId, MissionDef> = {
   soil_robot: {
     id: 'soil_robot',
-    title: 'Coleta de solo com o rover',
+    title: 'Reconhecimento com o rover',
     summary:
-      'Entre no rover, dirija até o ponto marcado e colha as amostras num minigame. Depois leve-as a um computador da base. Em dupla (motorista e passageiro) custa o dobro, rende o triplo de pontos e o minigame é dos dois.',
+      'Das 2h às 16h: dirija o rover (sozinho ou com um amigo) até o quadrado amarelo longe da base. Lá começa a corrida de 300 m desviando de pedras e buracos. Rende pesquisa e a previsão do próximo evento climático; depois, conserte o rover com o maçarico.',
     site: 'soil',
     cost: { energy: 20, supplies: 10, oxygen: 14 },
     research: 2,
     morale: 3,
-    daytimeOnly: true,
+    // a janela do rover (2h às 16h) é conferida à parte: ele pode sair antes de amanhecer
+    daytimeOnly: false,
     weight: 3,
     heavy: true,
   },
@@ -103,8 +117,9 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     title: 'Auditoria da rede elétrica',
     summary: 'Confira o painel elétrico, troque fusíveis e registre o consumo da base.',
     site: 'power',
-    cost: { energy: 5 },
-    research: 1,
+    cost: { supplies: 2 },
+    research: 0,
+    reward: { energy: 20 },
     daytimeOnly: false,
     weight: 2,
   },
@@ -113,20 +128,94 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     title: 'Exame médico da tripulação',
     summary: 'Na enfermaria, faça exames de rotina: ajuda a moral e gera dados de saúde em Marte.',
     site: 'medical',
-    cost: { supplies: 5 },
-    research: 1,
+    cost: { energy: 4 },
+    research: 0,
+    reward: { oxygen: 8, supplies: 4 },
     morale: 4,
     daytimeOnly: false,
     weight: 2,
+  },
+  oxygen_moxie: {
+    id: 'oxygen_moxie',
+    title: 'Produzir oxigênio no MOXIE',
+    summary: 'Na usina de suporte à vida, aqueça o forno e quebre o CO₂ do ar de Marte em oxigênio.',
+    site: 'moxie',
+    cost: {},
+    research: 0,
+    reward: { oxygen: 6 },
+    daytimeOnly: false,
+    weight: 3,
+  },
+  water_extract: {
+    id: 'water_extract',
+    title: 'Extrair água do subsolo',
+    summary: 'No extrator, escolha o solo com gelo e transforme o vapor em água para a base.',
+    site: 'water',
+    cost: {},
+    research: 0,
+    reward: { supplies: 6 },
+    daytimeOnly: false,
+    weight: 3,
+  },
+  air_filter: {
+    id: 'air_filter',
+    title: 'Limpar a ventilação (filtro de ar)',
+    summary: 'Tire a poeira do filtro de ar. Filtro entupido para a produção de oxigênio da base.',
+    site: 'filter',
+    cost: {},
+    research: 0,
+    daytimeOnly: false,
+    weight: 3,
+  },
+  garden_care: {
+    id: 'garden_care',
+    title: 'Cuidar da horta',
+    summary: 'Vá de canteiro em canteiro na estufa e regue um por vez. Horta em dia devolve oxigênio.',
+    site: 'garden',
+    cost: {},
+    research: 0,
+    reward: { oxygen: 10, supplies: 4 },
+    daytimeOnly: false,
+    weight: 3,
+  },
+  solar_clean: {
+    id: 'solar_clean',
+    title: 'Limpar os painéis solares',
+    summary: 'Lave 2 painéis, um de cada vez: poeira nos painéis derruba a energia da base.',
+    site: 'solar',
+    cost: {},
+    research: 0,
+    daytimeOnly: true,
+    weight: 3,
   },
 };
 
 export const MISSION_IDS = Object.keys(MISSIONS) as MissionId[];
 
-/** Quantas missões de pesquisa aparecem por Sol, por número de jogadores na sala. */
+/** Missões cumpridas por uma tarefa da base (minigame próprio, não um console de estação). */
+export const TASK_MISSIONS: Partial<Record<MissionId, true>> = {
+  oxygen_moxie: true,
+  water_extract: true,
+  air_filter: true,
+  garden_care: true,
+  solar_clean: true,
+};
+
+/** Missão de pesquisa (rende pontos) ou de manutenção (rende recursos)? */
+export const isResearchMission = (id: MissionId) => MISSIONS[id].research > 0;
+
+/**
+ * Consumo diário da tripulação: cada astronauta na sala come e bebe isto por Sol. Mais gente,
+ * mais consumo: a tripulação precisa fazer as missões e tarefas para não ficar sem suprimento.
+ */
+export const DAILY_SUPPLIES_PER_PLAYER = 7;
+/** Oxigênio que cada astronauta respira por Sol (a usina e a horta repõem). */
+export const DAILY_OXYGEN_PER_PLAYER = 9;
+
+/** Quantas missões aparecem por Sol: 4 com um astronauta, uma a mais por astronauta extra. */
 export function missionCountFor(players: number): number {
   const p = Math.max(1, Math.min(4, Math.floor(players) || 1));
-  return [0, 2, 3, 4, 5][p] ?? 2;
+  return 3 + p;
 }
 
 /**
@@ -180,7 +269,7 @@ const NAMES: Record<CostKey, string> = {
 };
 const ICONS: Record<CostKey, string> = {
   energy: '⚡',
-  supplies: '🍞',
+  supplies: '🌾',
   oxygen: '🫁',
 };
 
@@ -205,7 +294,7 @@ export function missionBlock(def: MissionDef, ctx: MissionContext, costMul = 1):
   return null;
 }
 
-/** "⚡20 · 🍞10 · 🫁14" */
+/** "⚡20 · 🌾10 · 🫁14" (mesmos ícones da HUD) */
 export function costText(cost: MissionCost): string {
   return (Object.keys(cost) as CostKey[])
     .filter((k) => (cost[k] ?? 0) > 0)
@@ -221,6 +310,10 @@ export const GARDEN_CARE_COST: MissionCost = { supplies: 2 };
 export const GARDEN_LITRES_PER_SUPPLY = 4;
 /** Todos os canteiros plantados cuidados no mesmo Sol: a horta devolve oxigênio à base. */
 export const GARDEN_OXYGEN_BONUS = 10;
+
+/** O rover sai para reconhecimento das 2h às 16h (precisa voltar antes de anoitecer). */
+export const ROVER_WINDOW = { from: 2, to: 16 } as const;
+export const roverWindowOpen = (hour: number) => hour >= ROVER_WINDOW.from && hour < ROVER_WINDOW.to;
 
 /** Pontos da coleta de solo conforme o desempenho no minigame (0..1). */
 export const soilReward = (quality: number) =>
@@ -270,6 +363,11 @@ export const STATION_LABEL: Record<MissionSite, string> = {
   comms: 'Comunicações',
   power: 'Central de energia',
   medical: 'Enfermaria',
+  moxie: 'Usina MOXIE',
+  water: 'Extrator de água',
+  filter: 'Filtro de ar',
+  garden: 'Estufa',
+  solar: 'Campo solar',
 };
 
 const norm = (kind: string) => kind.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

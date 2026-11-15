@@ -11,10 +11,12 @@ import {
   Circle,
   ClipboardList,
   Drill,
+  Droplets,
   Fan,
   Footprints,
   Sprout,
   Sun,
+  Wind,
   Wrench,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -22,6 +24,7 @@ import type { DailyTask, TaskKind } from '../../../../game/tasks/rules';
 import { useBaseOps, useDailyTasks } from '../../../../game/tasks/store';
 import { useHudContext } from '../HudContext';
 import { MissionsSection } from './MissionsSection';
+import { L } from '../../../../lib/i18n';
 
 const ICONS: Record<TaskKind, ReactNode> = {
   repair: <Wrench size={16} />,
@@ -30,6 +33,9 @@ const ICONS: Record<TaskKind, ReactNode> = {
   plant: <Sprout size={16} />,
   solar: <Sun size={16} />,
   drill: <Drill size={16} />,
+  moxie: <Wind size={16} />,
+  water: <Droplets size={16} />,
+  mission: <ClipboardList size={16} />,
 };
 
 function TaskRow({ task }: { task: DailyTask }) {
@@ -54,10 +60,10 @@ function TaskRow({ task }: { task: DailyTask }) {
           type="button"
           className="hud-btn hud-btn--secondary hud-task__go"
           onClick={() => onGoToTask(task.kind, task.index)}
-          title="O astronauta vai até lá e a tarefa abre ao chegar"
+          title={L('O astronauta vai até lá e a tarefa abre ao chegar', 'The astronaut walks there and the task opens on arrival')}
         >
           <Footprints size={14} />
-          <span>Ir</span>
+          <span>{L('Ir', 'Go')}</span>
         </button>
       )}
     </li>
@@ -68,29 +74,27 @@ export function TasksPanel() {
   const tasks = useDailyTasks();
   const sol = useBaseOps((s) => s.sol);
   const repairs = tasks.filter((t) => t.kind === 'repair');
-  const required = tasks.filter((t) => t.required && t.kind !== 'repair');
-  const optional = tasks.filter((t) => !t.required);
-  const doneRequired = required.filter((t) => t.done).length;
+  // filtro, horta, painéis, MOXIE e água agora são missões do dia (sorteadas em MissionsSection)
+  const optional = tasks.filter((t) => t.kind === 'plant');
 
   return (
     <div className="hud-panel-content hud-panel-tasks">
       <div className="hud-panel-intro">
         <ClipboardList size={18} className="hud-panel-intro-icon" />
         <p>
-          <strong>Sol {sol}.</strong> Clique numa máquina da base ou em “Ir” para fazer a tarefa.
-          Canteiros e filtro sem cuidado hoje sofrem na virada do Sol.
+          <strong>Sol {sol}.</strong> {L('Missões novas a cada dia: o que não for feito hoje some na virada do Sol. Clique em “Ir” ou no equipamento da base.', 'New missions every day: whatever is not done today disappears when the sol ends. Click “Go” or the base equipment.')}
         </p>
       </div>
 
       <MissionsSection />
 
       {tasks.length === 0 ? (
-        <p className="hud-tasks__empty">Carregando a base…</p>
+        <p className="hud-tasks__empty">{L('Carregando a base…', 'Loading the base…')}</p>
       ) : (
         <>
           {repairs.length > 0 && (
             <>
-              <h4 className="hud-tasks__heading">Reparos pendentes</h4>
+              <h4 className="hud-tasks__heading">{L('Reparos pendentes', 'Pending repairs')}</h4>
               <ul className="hud-tasks">
                 {repairs.map((task) => (
                   <TaskRow key={task.id} task={task} />
@@ -98,21 +102,10 @@ export function TasksPanel() {
               </ul>
             </>
           )}
-          <h4 className="hud-tasks__heading">
-            Todo dia{' '}
-            <span className={doneRequired === required.length ? 'is-ok' : ''}>
-              {doneRequired}/{required.length}
-            </span>
-          </h4>
-          <ul className="hud-tasks">
-            {required.map((t) => (
-              <TaskRow key={t.id} task={t} />
-            ))}
-          </ul>
 
           {optional.length > 0 && (
             <>
-              <h4 className="hud-tasks__heading">Hoje (clima)</h4>
+              <h4 className="hud-tasks__heading">{L('Opcional', 'Optional')}</h4>
               <ul className="hud-tasks">
                 {optional.map((t) => (
                   <TaskRow key={t.id} task={t} />

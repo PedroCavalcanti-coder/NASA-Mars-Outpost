@@ -3,15 +3,17 @@ import { Clock, Compass, KeyRound, Trash2, User, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getGuestName, saveGuestName } from '../../lib/guest';
 import { api } from '../../net/api';
-import { useAuth } from '../../store/auth';
 import './joinWorldModal.css';
+import { L } from '../../lib/i18n';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onJoin: (roomCode: string, nickname: string) => void;
+  onJoin: (roomCode: string, nickname: string, baseId?: string, hasSuit?: boolean) => void;
   /** código já preenchido (convite por link) */
   initialCode?: string;
+  /** aba aberta ao mostrar a janela ("Meus mundos" abre direto na lista) */
+  initialTab?: Tab;
 }
 
 type Tab = 'code' | 'recent';
@@ -29,17 +31,22 @@ const BASE_NAMES: Record<string, string> = {
 
 function ago(iso: string) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (days <= 0) return 'hoje';
-  if (days === 1) return 'ontem';
-  return `há ${days} dias`;
+  if (days <= 0) return L('hoje', 'today');
+  if (days === 1) return L('ontem', 'yesterday');
+  return L(`há ${days} dias`, `${days} days ago`);
 }
 
-export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Props) {
+export function JoinWorldModal({
+  open,
+  onClose,
+  onJoin,
+  initialCode = '',
+  initialTab = 'code',
+}: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const user = useAuth((s) => s.user);
   const [tab, setTab] = useState<Tab>('code');
   const [code, setCode] = useState(initialCode);
-  const [nickname, setNickname] = useState(() => user?.name ?? getGuestName() ?? '');
+  const [nickname, setNickname] = useState(() => getGuestName() ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [recents, setRecents] = useState<RecentWorld[] | null>(null);
@@ -51,9 +58,10 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
     if (open && !d.open) {
       d.showModal();
       setError('');
+      setTab(initialTab);
     }
     if (!open && d.open) d.close();
-  }, [open]);
+  }, [open, initialTab]);
 
   // Mundos recentes: os que este jogador salvou (e ainda não passaram de 30 dias)
   useEffect(() => {
@@ -72,27 +80,31 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
   }, [open, tab]);
 
   /** O apelido é validado e conferido no servidor: ninguém entra com o nome de quem já está no mapa. */
-  async function enter(roomCode: string, rawName: string) {
+  async function enter(roomCode: string, rawName: string, baseId?: string) {
     const cleanName = rawName.trim();
     if (busy) return;
     if (!GAME_ROOM_CODE_RE.test(roomCode))
-      return setError('Código inválido. Use de 3 a 40 letras, números, hífen ou sublinhado.');
+      return setError(L('Código inválido. Use de 3 a 40 letras, números, hífen ou sublinhado.', 'Invalid code. Use 3 to 40 letters, numbers, hyphens or underscores.'));
     if (cleanName.length < NICKNAME_MIN || cleanName.length > NICKNAME_MAX) {
-      return setError(`O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`);
+      return setError(L(`O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`, `Your nickname needs ${NICKNAME_MIN} to ${NICKNAME_MAX} characters.`));
     }
     setBusy(true);
+    let realBase = baseId;
+    let hasSuit = false;
     try {
-      const r = await api<{ ok: boolean; error?: string }>('/worlds/check-nickname', {
+      const r = await api<{ ok: boolean; error?: string; baseId?: string; hasSuit?: boolean }>('/worlds/check-nickname', {
         body: { code: roomCode, name: cleanName },
       });
-      if (!r.ok) return setError(r.error ?? 'Apelido indisponível.');
+      if (!r.ok) return setError(r.error ?? L('Apelido indisponível.', 'Nickname not available.'));
+      realBase = r.baseId ?? baseId;
+      hasSuit = Boolean(r.hasSuit);
     } catch {
-      return setError('Não foi possível consultar a sala. Verifique a conexão e tente novamente.');
+      return setError(L('Não foi possível consultar a sala. Verifique a conexão e tente novamente.', 'Could not check the room. Check your connection and try again.'));
     } finally {
       setBusy(false);
     }
     saveGuestName(cleanName);
-    onJoin(roomCode, cleanName);
+    onJoin(roomCode, cleanName, realBase, hasSuit);
     onClose();
   }
 
@@ -122,15 +134,15 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
       <div className="join-world-shell">
         <header className="join-world-header">
           <div className="join-world-brand">
-            <span className="join-world-kicker">EXPLORAÇÃO COLETIVA</span>
-            <h2 id="join-world-title">Entrar em um Mundo</h2>
+            <span className="join-world-kicker">{L('EXPLORAÇÃO COLETIVA', 'TEAM EXPLORATION')}</span>
+            <h2 id="join-world-title">{L('Entrar em um Mundo', 'Join a World')}</h2>
           </div>
-          <button type="button" className="join-world-close" onClick={onClose} aria-label="Fechar">
+          <button type="button" className="join-world-close" onClick={onClose} aria-label={L('Fechar', 'Close')}>
             <X size={20} />
           </button>
         </header>
 
-        <div className="join-tabs" role="tablist" aria-label="Como entrar">
+        <div className="join-tabs" role="tablist" aria-label={L('Como entrar', 'How to join')}>
           <button
             type="button"
             role="tab"
@@ -138,7 +150,7 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
             className={`join-tab ${tab === 'code' ? 'join-tab--on' : ''}`}
             onClick={() => setTab('code')}
           >
-            <KeyRound size={15} /> Código da sala
+            <KeyRound size={15} /> {L('Código da sala', 'Room code')}
           </button>
           <button
             type="button"
@@ -147,20 +159,20 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
             className={`join-tab ${tab === 'recent' ? 'join-tab--on' : ''}`}
             onClick={() => setTab('recent')}
           >
-            <Clock size={15} /> Mundos recentes
+            <Clock size={15} /> {L('Meus mundos', 'My worlds')}
           </button>
         </div>
 
         {tab === 'code' ? (
           <form onSubmit={handleSubmit} className="join-world-form">
             <p className="join-world-desc">
-              Conecte-se à base marciana de um amigo inserindo o código compartilhado da missão.
+              {L('Conecte-se à base marciana de um amigo inserindo o código compartilhado da missão.', 'Join a friend\'s Mars base by typing the shared mission code.')}
             </p>
 
             <div className="join-field-group">
               <label htmlFor="join-room-code" className="join-field-label">
                 <KeyRound size={16} />
-                <span>Código Exclusivo da Sala</span>
+                <span>{L('Código Exclusivo da Sala', 'Room Code')}</span>
               </label>
               <input
                 id="join-room-code"
@@ -177,14 +189,14 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
                 maxLength={40}
               />
               <span className="join-field-hint">
-                O anfitrião encontra o código no topo da tela ou nas configurações.
+                {L('O anfitrião encontra o código no topo da tela ou nas configurações.', 'The host finds the code at the top of the screen or in the settings.')}
               </span>
             </div>
 
             <div className="join-field-group">
               <label htmlFor="join-nickname" className="join-field-label">
                 <User size={16} />
-                <span>Seu Apelido de Astronauta</span>
+                <span>{L('Seu Apelido de Astronauta', 'Your Astronaut Nickname')}</span>
               </label>
               <input
                 id="join-nickname"
@@ -210,7 +222,7 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
 
             <footer className="join-world-footer">
               <button type="button" className="join-btn-cancel" onClick={onClose}>
-                Cancelar
+                {L('Cancelar', 'Cancel')}
               </button>
               <button type="submit" className="join-btn-submit" disabled={busy}>
                 <Compass size={18} />
@@ -221,16 +233,15 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
         ) : (
           <div className="join-world-form">
             <p className="join-world-desc">
-              Mundos que você salvou. Entrar de novo antes de 30 dias renova o vínculo; depois disso
-              o mundo sai da sua lista (e é apagado se ninguém mais o tiver).
+              {L('Seus 5 mundos mais recentes. Cada "Jogar agora" cria um mundo novo e, passando de 5, o mais antigo sai da lista. Mundos sem uso há 30 dias também saem.', 'Your 5 most recent worlds. Each “Play now” creates a new world and, past 5, the oldest leaves the list. Worlds unused for 30 days also leave.')}
             </p>
 
-            {recents === null && <p className="join-recent-empty">Carregando…</p>}
+            {recents === null && <p className="join-recent-empty">{L('Carregando…', 'Loading…')}</p>}
             {recents?.length === 0 && (
               <p className="join-recent-empty">
                 {canSave
-                  ? 'Nenhum mundo salvo ainda. Ao sair de um mundo, escolha "Salvar e sair".'
-                  : 'Para salvar mundos, permita o cookie de salvamento na tela inicial ou entre na sua conta.'}
+                  ? 'Nenhum mundo ainda. Clique em "Jogar agora" para criar o primeiro.'
+                  : 'Para salvar mundos, permita o cookie de salvamento na tela inicial.'}
               </p>
             )}
 
@@ -248,16 +259,16 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
                     type="button"
                     className="join-recent-go"
                     disabled={busy}
-                    onClick={() => void enter(w.code, w.nickname || nickname)}
+                    onClick={() => void enter(w.code, w.nickname || nickname, w.baseId)}
                   >
-                    Entrar
+                    {L('Entrar', 'Join')}
                   </button>
                   <button
                     type="button"
                     className="join-recent-del"
                     onClick={() => void forget(w)}
                     aria-label={`Esquecer o mundo ${w.code}`}
-                    title="Esquecer este mundo"
+                    title={L('Esquecer este mundo', 'Forget this world')}
                   >
                     <Trash2 size={16} />
                   </button>

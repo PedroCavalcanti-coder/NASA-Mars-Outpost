@@ -2,6 +2,7 @@ import { Droplets, RotateCcw } from 'lucide-react';
 import { useId } from 'react';
 import { CROPS, type CropIndex, healthy, plantHealth } from './greenhouseState';
 import type { useGreenhouse } from './useGreenhouse';
+import { L } from '../../../lib/i18n';
 
 /** Vector counterpart of the base's hydroponic beds and crop stages. */
 function Plant({
@@ -307,11 +308,9 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
       viewBox="0 0 1000 660"
       aria-labelledby={`${id}-title ${id}-description`}
     >
-      <title id={`${id}-title`}>Uma pequena estufa em Marte</title>
+      <title id={`${id}-title`}>{L('Uma pequena estufa em Marte', 'A small greenhouse on Mars')}</title>
       <desc id={`${id}-description`}>
-        Canteiros hidropônicos com brotos, plantas de folhas levemente murchas e tomateiros adultos.
-        Segure a válvula na tubulação à esquerda para regar todos os canteiros. As folhas e os
-        sinais verdes mostram a recuperação.
+        {L('Canteiros hidropônicos com brotos, plantas de folhas levemente murchas e tomateiros adultos. Segure a válvula na tubulação à esquerda para regar todos os canteiros. As folhas e os sinais verdes mostram a recuperação.', 'Hydroponic beds with sprouts, slightly wilted leafy plants and grown tomato plants. Hold the valve on the left pipe to water all beds. The leaves and green signs show the recovery.')}
       </desc>
       <defs>
         <linearGradient id={`${id}-sky`} x2="0" y2="1">
@@ -431,8 +430,8 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
           type="button"
           className="greenhouse-control greenhouse-water-control"
           disabled={game.complete}
-          aria-label="Segure para irrigar todas as plantas"
-          title="Segure para irrigar"
+          aria-label={L('Segure para irrigar todas as plantas', 'Hold to water all the plants')}
+          title={L('Segure para irrigar', 'Hold to water')}
           onPointerDown={game.down}
           onPointerUp={game.up}
           onPointerCancel={game.up}
@@ -467,8 +466,8 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
             type="button"
             className="greenhouse-replay"
             onClick={game.reset}
-            aria-label="Cuidar novamente"
-            title="Cuidar novamente"
+            aria-label={L('Cuidar novamente', 'Care again')}
+            title={L('Cuidar novamente', 'Care again')}
           >
             <RotateCcw size={28} />
           </button>

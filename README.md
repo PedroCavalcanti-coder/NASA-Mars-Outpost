@@ -10,14 +10,13 @@ Challenge, no hackathon de Fortaleza.
 
 | Parte | Situação |
 | --- | --- |
-| Site (home, contas, central do jogador) | ✅ pronto |
-| Cadastro, login, sessões, recuperação de senha | ✅ pronto |
-| Amigos (pedidos, presença online) e mensagens em tempo real | ✅ pronto |
+| Site (home, centro, suporte) | ✅ pronto |
+| Jogador temporário (sem login) e mundos de até 4 jogadores | ✅ pronto |
 | API, Socket.IO e banco de dados (Neon) | ✅ pronto |
-| Jogar sem conta (pop-up de apelido) e cena 3D da base | ✅ pronto: sorteia 1 das 8 bases |
+| Jogar (pop-up de apelido) e cena 3D da base | ✅ pronto: sorteia 1 das 8 bases |
 | Jogo: simulação, mundos, papéis, eventos | 🚧 próxima etapa |
 
-Esta base é o alicerce: o jogo se encaixa nela usando a mesma conta, os mesmos amigos e o mesmo WebSocket.
+Esta base é o alicerce: o jogo se encaixa nela usando o mesmo jogador temporário e o mesmo WebSocket.
 
 ## O jogo
 
@@ -34,6 +33,13 @@ ameaçam ou favorecem a missão. Quem joga **administra a base**, não controla 
 - **Avaliação em cinco dimensões:** sobrevivência, sustentabilidade, ciência, eficiência operacional e colaboração.
 
 O jogo é uma abstração educativa: não dimensiona uma base real em Marte.
+
+## Dados da NASA (para os jurados)
+
+Arquivo curado e embutido (sem API ao vivo): explosões solares reais do **DONKI**, doses de radiação
+medidas pelo **RAD do Curiosity**, locais reais das bases (**Mars Trek**) e fotos com ID do Photojournal.
+No jogo, tudo aparece no painel **"Dados da NASA"**. Explicação completa, em inglês, em
+[`docs/NASA_DATA.md`](docs/NASA_DATA.md).
 
 ## Stack
 
@@ -101,24 +107,30 @@ bloqueio de conta, CSRF, amigos, mensagens, rotação de tokens e troca de senha
 ```text
 apps/
   web/                 Site (React + Vite)
-    src/app/pages/     Home, Login, Cadastro, Central, Amigos, Mensagens, Perfil
-    src/store/         Zustand: sessão (auth) e tempo real (realtime)
-    src/net/           Cliente HTTP (com renovação automática de sessão) e Socket.IO
-    src/ui/            Botão, campos, avatar, toasts, logo
   server/              API + Socket.IO
-    src/security/      Senhas (scrypt), tokens (JWE), derivação de chaves
-    src/auth/          Cadastro, login, sessões, redefinição de senha
-    src/friends/       Pedidos de amizade, busca por apelido
-    src/messages/      Mensagens diretas entre amigos
-    src/realtime/      Socket.IO, presença online
+    src/worlds/        Jogador temporário, vínculos jogador<->mundo, salvamento
+    src/realtime/      Socket.IO do jogo (salas, simulação)
     src/db/            Schema Drizzle, cliente Neon, migrações
-    drizzle/           Migrações SQL geradas
+    drizzle/           Migrações SQL
 packages/
-  shared/              Tipos, constantes, schemas Zod e protocolo do socket
-  sim/                 Simulação do jogo (esqueleto, a ser preenchido)
+  shared/              Tipos, constantes e protocolo
+  sim/                 Simulação do jogo
 Assets/                Modelos 3D, animações e arquivos do Blender (fonte única)
-scripts/               gen-jwt-secret.mjs, smoke.mjs
+scripts/               gen-jwt-secret.mjs
 ```
+
+## Jogador temporário e mundos
+
+Não há login nem cadastro. Ao aceitar o cookie de salvamento, o servidor cria um **jogador** (id aleatório + o
+último apelido usado) e entrega ao navegador uma chave `HttpOnly`; no banco só o HMAC dela é guardado. O jogador
+é **temporário**: cada partida renova a validade e, sem jogar por 30 dias, ele some junto com os vínculos.
+
+- Ao entrar num mundo, o jogador fica **vinculado** a ele para sempre (enquanto existir).
+- Até **4 jogadores** compartilham o mesmo mundo; um quinto não entra.
+- Cada jogador guarda até **5 mundos**. Passando disso, o mais antigo sai só da lista **dele**.
+- Apagar um mundo (ou perdê-lo pelo limite) remove só o vínculo de quem o fez; quem continua vinculado mantém o
+  mundo. **Sem nenhum vínculo restante, o mundo é apagado.**
+- Recusar/revogar o cookie apaga o jogador e os vínculos.
 
 ## Jogar sem conta e as 8 bases
 
@@ -134,104 +146,22 @@ build, sem duplicar arquivos; `.blend`, scripts e modelos brutos nunca vão para
 
 ## Segurança
 
-**Senhas.** HMAC-SHA512 com *pepper* e depois **scrypt** (N=2¹⁵, r=8, p=1, sal aleatório por senha), comparação
-em tempo constante. Os parâmetros ficam no hash, então dá para endurecê-los e rehashear no próximo login. Para
-e-mails inexistentes o login gasta o mesmo tempo de uma senha errada (sem enumeração de contas por timing).
+**Cookies e CSRF.** A chave do jogador fica em cookie `httpOnly`, `Secure` em produção e `SameSite`. Requisições que
+alteram dados rejeitam `Origin` desconhecida.
 
-**Token de acesso criptografado.** O token de acesso é um JWT **criptografado (JWE, `dir` + `A256GCM`)**, não só
-assinado: quem o intercepta não lê o usuário nem a sessão, e a tag do AES-GCM garante a integridade. Valida emissor,
-público, tipo e expiração (15 minutos). As chaves vêm do `JWT_SECRET` por HKDF-SHA256, uma para cada finalidade.
-
-**Sessões e refresh tokens.** Cada login é uma sessão no banco, com um refresh token opaco de 256 bits guardado
-apenas como HMAC. O refresh **gira a cada uso**; reapresentar um token antigo fora de uma janela de 15 segundos
-(duas abas renovando juntas) é tratado como roubo e **revoga a sessão inteira**. O usuário vê e encerra seus
-dispositivos no perfil. Trocar ou redefinir a senha derruba as outras sessões e desconecta os sockets delas na hora.
-
-**Cookies e CSRF.** Os tokens ficam em cookies `httpOnly`, `Secure` em produção e `SameSite` (nunca no
-`localStorage`). Requisições que alteram dados rejeitam `Origin` desconhecida.
-
-**Abuso.** Limite de requisições por IP (generoso, porque muita gente divide a mesma rede em eventos), bloqueio
-de 15 minutos da conta após 5 senhas erradas, cabeçalhos do Helmet com CSP, corpo de requisição limitado e logs que
-nunca registram cookies ou tokens.
-
-**Recuperação de senha.** Token aleatório de 256 bits, uso único, válido por 1 hora, guardado só como HMAC. A
-resposta é sempre a mesma exista ou não o e-mail.
-
-**WebSocket.** O socket se autentica com um *ticket* de 60 segundos obtido pela API (funciona mesmo com site e API
-em domínios diferentes) e é derrubado quando a sessão é revogada.
-
-**Privacidade.** O e-mail é visível só para o dono da conta. Os amigos se encontram por **apelido** único.
-
-> Ainda não há envio de e-mail. Em desenvolvimento, o link de redefinição de senha aparece no console do servidor.
-> Para produção, implemente `sendMail` em `apps/server/src/mailer.ts` (Resend ou SMTP).
+**Abuso.** Limite de requisições por IP, cabeçalhos do Helmet com CSP, corpo de requisição limitado e logs que nunca
+registram cookies.
 
 ## API
 
-Todas as rotas ficam em `/api`. Erros seguem `{ "error": "mensagem", "fields": { "campo": "mensagem" } }`.
+Todas as rotas ficam em `/api`. Erros seguem `{ "error": "mensagem" }`.
 
 | Método e rota | Descrição |
 | --- | --- |
-| `POST /auth/register` · `POST /auth/login` | Cria conta / entra |
-| `POST /auth/refresh` · `POST /auth/logout` | Renova a sessão / sai |
-| `GET /auth/me` · `PATCH /auth/me` | Usuário atual / altera o nome |
-| `POST /auth/change-password` | Troca a senha (derruba os outros dispositivos) |
-| `POST /auth/forgot-password` · `POST /auth/reset-password` | Recuperação de senha |
-| `GET /auth/sessions` · `DELETE /auth/sessions/:id` | Dispositivos conectados |
-| `POST /auth/socket-ticket` | Ingresso de 60 s para abrir o WebSocket |
-| `GET /friends` · `POST /friends` | Lista de amigos e pedidos / envia pedido por apelido |
-| `POST /friends/:id/accept` · `DELETE /friends/:id` | Aceita / recusa, cancela ou desfaz |
-| `GET /users/search?q=` | Busca por apelido (sem expor e-mail) |
-| `GET /messages/unread` · `GET /messages/:userId` · `POST /messages/:userId/read` | Mensagens diretas |
+| `POST /worlds/consent` · `DELETE /worlds/consent` | Cria/renova o jogador e o cookie / apaga o jogador |
+| `GET /worlds/recent` | Mundos vinculados ao jogador (até 5) |
+| `DELETE /worlds/:code` | Remove o vínculo do jogador com o mundo |
+| `POST /worlds/check-nickname` | O apelido está livre na sala? |
 | `GET /health` | Saúde do servidor e do banco |
 
-### Eventos do Socket.IO
-
-Definidos e tipados em `packages/shared/src/protocol.ts`.
-
-| Servidor → cliente | Quando |
-| --- | --- |
-| `presence:list`, `presence:update` | Amigos online / um amigo entrou ou saiu |
-| `friend:request`, `friend:accepted`, `friend:removed` | Mudanças na lista de amigos |
-| `dm:message`, `dm:read` | Mensagem recebida / amigo leu a conversa |
-| `session:revoked` | A sessão foi encerrada: o site volta ao login |
-
-| Cliente → servidor | Descrição |
-| --- | --- |
-| `dm:send` | Envia mensagem a um amigo (com *ack*; limite de 10 a cada 10 s) |
-| `dm:read` | Marca a conversa como lida |
-
-## Banco de dados
-
-As tabelas vivem no schema `outpost` do PostgreSQL (`users`, `sessions`, `password_resets`, `friendships`,
-`direct_messages`), com o controle de migrações em `outpost.__migrations`. Elas não interferem nas tabelas do
-schema `public` de protótipos anteriores que dividem o mesmo banco Neon.
-
-## Deploy
-
-O servidor mantém conexões WebSocket, então precisa de um **processo Node persistente** (Render, Railway, Fly.io…).
-Funções serverless da Vercel não servem para ele.
-
-1. `npm ci && npm run build && npm run build:server`, depois `npm start`.
-2. Defina `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production` e `WEB_ORIGIN` (e `TRUST_PROXY=true` atrás de proxy).
-3. As migrações rodam sozinhas na inicialização.
-4. Com o site em outro domínio (ex.: Vercel), defina no build do site `VITE_API_URL` e `VITE_SOCKET_URL` com a URL
-   do servidor, e no servidor `COOKIE_SAMESITE=none`. Para evitar cookies entre domínios, sirva tudo do mesmo
-   domínio: em produção o próprio servidor entrega o site.
-5. O estado de presença fica em memória, então use uma única instância (ou o adapter Redis do Socket.IO ao escalar).
-
-## Roteiro
-
-A campanha jogável completa é o objetivo da próxima fase:
-
-1. Simulação de recursos e tripulação (`packages/sim`, determinística e testável).
-2. Mundos compartilhados de até 4 jogadores, com convite entre amigos e persistência.
-3. Papéis, construção de instalações e tarefas.
-4. Eventos, votações e velocidade do tempo compartilhada.
-5. Pesquisa e logística (duas janelas de carga).
-6. Relatórios diário e final, tutorial progressivo e interface educativa.
-7. Cena 3D isométrica low-poly da base (Three.js).
-
-## Créditos
-
-Projeto da equipe do hackathon NASA Space Apps de Fortaleza. A arte do site é original (SVG), sem logotipos nem
-material da NASA.
+O jogo roda no namespace Socket.IO `/game` (`apps/server/src/realtime/game.ts`).
