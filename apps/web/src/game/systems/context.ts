@@ -30,11 +30,6 @@ export interface SystemContext {
   /** Modo de câmera atual ('follow' segue o jogador, 'free' câmera livre). */
   readonly cameraMode: 'follow' | 'free';
 
-  /**
-   * Faz o relógio do mundo avançar até a hora dada (0..24), como ao dormir.
-   * Devolve quantas horas passaram (0 se não for permitido, ex.: outro jogador coordena a sala).
-   */
-  sleepUntil(hour: number): number;
 
   // ---- Ações permitidas para os sistemas ----
 
@@ -56,10 +51,10 @@ export interface SystemContext {
   blockExitFromBase(on: boolean): void;
 
   /**
-   * Coloca o astronauta para dormir ou o acorda:
+   * Bloqueia os controles do astronauta:
    * impede novos comandos e toca a animação de Idle.
    */
-  setPlayerSleeping(on: boolean): void;
+  setPlayerBlocked(on: boolean): void;
 
   /**
    * Transiciona uma sobreposição preta sobre a tela para efeito de fade/escurecimento.

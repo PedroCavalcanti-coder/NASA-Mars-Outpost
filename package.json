@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Jogo educativo de colônia em Marte — hackathon da NASA em Fortaleza.",
+  "description": "Jogo educativo de col\u00f4nia em Marte \u2014 hackathon da NASA em Fortaleza.",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -26,7 +26,9 @@
     "test": "vitest run",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "smoke": "node --env-file=.env scripts/smoke.mjs"
+    "smoke": "node --env-file=.env scripts/smoke.mjs",
+    "navigation:build": "tsx scripts/build-navigation.ts",
+    "navigation:check": "tsx scripts/build-navigation.ts --check"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.6",

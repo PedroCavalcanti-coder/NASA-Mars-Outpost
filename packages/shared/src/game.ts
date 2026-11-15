@@ -1,3 +1,10 @@
+import type { GameCommand, GameConfirmation, GameplaySnapshot, GameplayUpdate, WorldSaveV3 } from './gameplay';
+import type {
+  MovementInput,
+  MovementSnapshot,
+  MovementAction,
+  MovementActionResult,
+} from './movement';
 import type { SuitConfig } from './astronaut';
 import type { DuoGestureId, GestureStart } from './gestures';
 import type { IntegrityState, RepairIntent } from './integrity';
@@ -154,6 +161,17 @@ export interface GameVehicleState {
   x: number;
   z: number;
   h: number;
+}
+
+/** Atualização de um único painel/canteiro; evita sobrescrever o trabalho de outro jogador. */
+export interface GameStageChange {
+  index: number;
+  stage: number;
+}
+
+export interface GameCarePatch {
+  filter?: number;
+  crops?: { index: number; sol: number; needsCare?: boolean }[];
 }
 
 /**
@@ -314,9 +332,9 @@ export interface GameWorldState {
 /** Dias sem entrar no mundo até o vínculo com o jogador expirar (sem vínculos o mundo é apagado). */
 export const WORLD_LINK_DAYS = 30;
 /** Intervalo do salvamento automático (ms). */
-export const WORLD_AUTOSAVE_MS = 5 * 60_000;
+export const WORLD_AUTOSAVE_MS = 30_000;
 /** Tamanho máximo do JSON de missão aceito num salvamento (bytes). */
-export const WORLD_MISSION_MAX_BYTES = 12_000;
+export const WORLD_MISSION_MAX_BYTES = 256 * 1024;
 /** Apelido: tamanho e comparação (sem acento/caixa) usados no servidor e no cliente. */
 export const NICKNAME_MIN = 2;
 export const NICKNAME_MAX = 24;
@@ -329,7 +347,8 @@ export const normalizeNickname = (name: string) =>
     .toLowerCase();
 
 /** O que fica gravado no banco (JSON) para retomar um mundo. */
-export interface WorldSave {
+export type WorldSave = LegacyWorldSave | WorldSaveV3;
+export interface LegacyWorldSave {
   v: 1 | 2;
   integrity?: IntegrityState;
   /** tempo de jogo decorrido: o relógio retoma de onde parou */
@@ -358,6 +377,11 @@ export interface RecentWorld {
 export type GameAck<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export interface GameJoinRequest {
+  gameplayVersion: number;
+  movementVersion: number;
+  navigationHash: string;
+  /** Segredo por instância do cliente; não é publicado no roster. */
+  resumeToken?: string;
   code: string;
   name: string;
   suit: SuitConfig;
@@ -365,6 +389,9 @@ export interface GameJoinRequest {
 }
 
 export interface GameJoinResult {
+  gameplay: GameplaySnapshot;
+  movement: MovementSnapshot;
+  baseId: string;
   self: GamePlayerInfo;
   players: GamePlayerState[];
   world: GameWorldState;
@@ -380,10 +407,16 @@ export interface GameJoinResult {
 }
 
 export interface GameServerToClient {
+  'game:snapshot': (snapshot: GameplaySnapshot) => void;
+  'game:update': (update: GameplayUpdate) => void;
+  'movement:snapshot': (snapshot: MovementSnapshot) => void;
+  'vehicle:denied': (reason: string) => void;
   'world:integrity': (state: IntegrityState) => void;
-  'player:joined': (p: GamePlayerInfo) => void;
+  'player:joined': (p: GamePlayerState) => void;
   'player:left': (id: string) => void;
   'player:state': (id: string, s: GameMotion) => void;
+  /** Polling envia colegas juntos para não descartar cada segundo/terceiro pacote do mesmo quadro. */
+  'players:states': (states: { id: string; motion: GameMotion }[]) => void;
   'world:storm': (value: number) => void;
   'world:solar': (stages: number[]) => void;
   'world:crops': (stages: number[]) => void;
@@ -398,8 +431,6 @@ export interface GameServerToClient {
   'event:result': (eid: string, choice: number, roll: number) => void;
   /** coleta de solo em dupla: o motorista abriu (`start`) ou alguém terminou a sua parte (`done`, nota 0..1) */
   'soil:msg': (id: string, kind: 'start' | 'done', eid: string, quality: number) => void;
-  /** alguém quer (ou desistiu de) pular a noite: todos precisam apertar */
-  'sleep:msg': (id: string, ready: boolean) => void;
   /** convite para um gesto em dupla, vindo de outro jogador (validado pelo servidor) */
   'gesture:invite': (fromId: string, gesture: DuoGestureId) => void;
   /** os dois jogadores executam o gesto agora */
@@ -412,24 +443,30 @@ export interface GameServerToClient {
 }
 
 export interface GameClientToServer {
+  'game:command': (command: GameCommand, ack: (result: GameConfirmation) => void) => void;
+  'game:resync': () => void;
+  'movement:input': (input: MovementInput) => void;
+  'movement:action': (action: MovementAction, ack: (result: MovementActionResult) => void) => void;
   'world:repair': (
     intent: RepairIntent,
     ack: (r: GameAck<{ state: IntegrityState }>) => void,
   ) => void;
   'world:repair-pause': (active: boolean) => void;
-  'room:join': (req: GameJoinRequest, ack: (r: GameAck<GameJoinResult>) => void) => void;
+  'room:join': (
+    req: GameJoinRequest,
+    ack: (r: GameAck<GameJoinResult> | { ok: false; error: string; baseId: string }) => void,
+  ) => void;
   'player:state': (s: GameMotion) => void;
   'world:storm': (value: number) => void;
-  'world:solar': (stages: number[]) => void;
-  'world:crops': (stages: number[]) => void;
+  'world:solar': (changes: GameStageChange[]) => void;
+  'world:crops': (changes: GameStageChange[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
-  'world:care': (c: GameCareState) => void;
-  'mission:event': (ev: GameMissionEvent) => void;
+  'world:care': (c: GameCarePatch) => void;
+  'mission:event': (ev: GameMissionEvent, ack: (r: GameAck) => void) => void;
   'player:emote': (emote: number) => void;
   'event:vote': (eid: string, choice: number) => void;
   'event:result': (eid: string, choice: number, roll: number) => void;
   'soil:msg': (kind: 'start' | 'done', eid: string, quality: number) => void;
-  'sleep:msg': (ready: boolean) => void;
   'gesture:invite': (gesture: DuoGestureId, targetId: string) => void;
   'gesture:accept': (fromId: string) => void;
   'player:chat': (message: string) => void;

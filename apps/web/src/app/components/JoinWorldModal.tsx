@@ -1,4 +1,4 @@
-import { NICKNAME_MAX, NICKNAME_MIN, type RecentWorld } from '@mars/shared';
+import { GAME_ROOM_CODE_RE, NICKNAME_MAX, NICKNAME_MIN, type RecentWorld } from '@mars/shared';
 import { Clock, Compass, KeyRound, Trash2, User, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { getGuestName, saveGuestName } from '../../lib/guest';
@@ -74,7 +74,9 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
   /** O apelido é validado e conferido no servidor: ninguém entra com o nome de quem já está no mapa. */
   async function enter(roomCode: string, rawName: string) {
     const cleanName = rawName.trim();
-    if (!roomCode) return setError('Por favor, informe o código da sala.');
+    if (busy) return;
+    if (!GAME_ROOM_CODE_RE.test(roomCode))
+      return setError('Código inválido. Use de 3 a 40 letras, números, hífen ou sublinhado.');
     if (cleanName.length < NICKNAME_MIN || cleanName.length > NICKNAME_MAX) {
       return setError(`O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`);
     }
@@ -85,7 +87,7 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
       });
       if (!r.ok) return setError(r.error ?? 'Apelido indisponível.');
     } catch {
-      /* servidor fora do ar: a sala local não tem conflito; o servidor confere de novo ao entrar */
+      return setError('Não foi possível consultar a sala. Verifique a conexão e tente novamente.');
     } finally {
       setBusy(false);
     }

@@ -16,7 +16,6 @@ export interface PanelMeta {
 export const KNOWN_PANEL_META: Record<string, PanelMeta> = {
   recursos: { shortcut: 'R', order: 10 },
   missao: { shortcut: 'M', order: 20 },
-  nap: { shortcut: 'Z', order: 25 },
   tarefas: { shortcut: 'T', order: 15 },
   sala: { shortcut: 'P', order: 30 },
   camera: { shortcut: 'C', order: 40 },

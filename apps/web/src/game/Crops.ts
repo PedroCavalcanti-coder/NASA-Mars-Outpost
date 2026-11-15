@@ -12,16 +12,14 @@ const STAGE_MODELS: Record<CropKind, [string, string, string]> = {
   Alface: ['PLANTA_Alface_1_Muda', 'PLANTA_Alface_3_Media', 'PLANTA_Alface_4_Colheita'],
   Tomate: ['PLANTA_Tomate_1_Muda', 'PLANTA_Tomate_3_Florada', 'PLANTA_Tomate_5_Colheita'],
 };
-const KINDS: CropKind[] = ['Batata', 'Alface', 'Tomate'];
 const INITIAL_BY_NAME: Record<string, CropStage> = { Vazio: 0, Broto: 1, Crescida: 2, Colheita: 3 };
 
 /**
- * Tempo (s de mundo) para cada fase de crescimento, com pequena variação por canteiro.
+ * Tempo (s de mundo) para cada fase de crescimento.
  * Da muda à colheita são 2 fases: 2 × 2,5 Sols = 5 dias marcianos (1 Sol = 600 s).
  */
 const SOL_SECONDS = 600;
-const GROW_MIN = 2.4 * SOL_SECONDS;
-const GROW_SPREAD = 0.2 * SOL_SECONDS;
+const GROW_TIME = 2.5 * SOL_SECONDS;
 
 export interface CropSlot {
   index: number;
@@ -69,7 +67,7 @@ export class CropSystem {
 
     markers.forEach((marker, i) => {
       if (i >= GAME_MAX_CROPS || !marker.parent) return;
-      const kind = KINDS[i % KINDS.length]!;
+      const kind: CropKind = 'Batata';
       const word = /_Batata_\d_([A-Za-z]+)_\d+$/.exec(marker.name)?.[1] ?? 'Vazio';
       const stage = INITIAL_BY_NAME[word] ?? 0;
       const world = new THREE.Vector3();
@@ -149,18 +147,25 @@ export class CropSystem {
         visuals,
         proxy,
         timer: 0,
-        growTime: GROW_MIN + (((i * 7919) % 100) / 100) * GROW_SPREAD,
+        growTime: GROW_TIME,
       };
       this.slots.push(slot);
-      this.show(slot);
     });
+    this.showAll();
   }
 
-  private show(slot: CropSlot) {
+  private showAll() {
+    // A estufa compartilha um visual de crescimento entre os canteiros plantados.
+    const planted = this.slots.filter((slot) => slot.stage > 0);
+    const visibleStage = planted.length ? Math.min(...planted.map((slot) => slot.stage)) : 0;
+    for (const slot of this.slots) this.show(slot, slot.stage === 0 ? 0 : visibleStage);
+  }
+
+  private show(slot: CropSlot, visibleStage: number) {
     const hint = slot.proxy.children.find((c) => c.userData.emptyHint);
     if (hint) hint.visible = slot.stage === 0;
     slot.visuals.forEach((v, s) => {
-      if (v) v.visible = s === slot.stage;
+      if (v) v.visible = s === visibleStage;
     });
   }
 
@@ -171,7 +176,7 @@ export class CropSystem {
     if (next === slot.stage) return;
     slot.stage = next;
     slot.timer = 0;
-    this.show(slot);
+    this.showAll();
   }
 
   /** Estágios atuais, na ordem dos canteiros (para sincronizar com a sala). */

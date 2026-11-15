@@ -1,3 +1,5 @@
+import { NAVIGATION_HASH } from '@mars/shared';
+
 /** As 8 bases marcianas modeladas (arquivos em Assets/bases). */
 export const BASE_IDS = [
   'jezero',
@@ -50,12 +52,12 @@ export interface BaseInfo {
   };
 }
 
-export const baseModelUrl = (id: BaseId) => `/assets/bases/base_${id}.glb`;
+export const baseModelUrl = (id: BaseId) => `/assets/bases/base_${id}.glb?v=${NAVIGATION_HASH}`;
 export const baseThumbUrl = (id: BaseId) => `/assets/bases/thumb_${id}.jpg`;
 
 /** Nome, descrição e dimensões da base (arquivo JSON gerado junto do modelo). */
 export async function loadBaseInfo(id: BaseId, signal?: AbortSignal): Promise<BaseInfo> {
-  const res = await fetch(`/assets/bases/base_${id}.json`, { signal });
+  const res = await fetch(`/assets/bases/base_${id}.json?v=${NAVIGATION_HASH}`, { signal });
   if (!res.ok) throw new Error(`Base ${id} não encontrada`);
   const j = (await res.json()) as Omit<BaseInfo, 'id'>;
   return {

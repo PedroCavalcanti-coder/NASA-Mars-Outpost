@@ -69,7 +69,8 @@ export async function worldRoutes(app: FastifyInstance) {
           error: `O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`,
         };
       }
-      if (GAME_ROOM_CODE_RE.test(code) && isNicknameTaken(code, name)) {
+      if (!GAME_ROOM_CODE_RE.test(code)) return { ok: false, error: 'Código de sala inválido' };
+      if (isNicknameTaken(code, name)) {
         return {
           ok: false,
           error: 'Já há um astronauta com esse apelido neste mundo. Escolha outro.',

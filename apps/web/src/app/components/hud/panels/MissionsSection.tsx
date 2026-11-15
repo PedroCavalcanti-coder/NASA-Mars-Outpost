@@ -38,7 +38,6 @@ import { useHudContext } from '../HudContext';
 const SITE_ICON: Record<MissionSite, ReactNode> = {
   rover: <Truck size={16} />,
   soil: <Truck size={16} />,
-  rest: <Truck size={16} />,
   upload: <Radio size={16} />,
   drill: <Drill size={16} />,
   lab: <FlaskConical size={16} />,

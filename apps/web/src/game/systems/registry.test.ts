@@ -18,10 +18,9 @@ function createMockContext(): SystemContext {
     teleportPlayerTo: vi.fn(),
     setPlayerSpeedScale: vi.fn(),
     blockExitFromBase: vi.fn(),
-    setPlayerSleeping: vi.fn(),
+    setPlayerBlocked: vi.fn(),
     fadeScreen: vi.fn(),
     getInfirmaryPoint: vi.fn(),
-    sleepUntil: vi.fn(() => 0),
   };
 }
 

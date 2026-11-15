@@ -18,16 +18,14 @@ describe('Survival Module - Registro e Integração', () => {
     const unregister = registerSurvivalModule();
     const registry = new GameSystemRegistry(true);
 
-    expect(registry.getSystem('survival-oxygen')).toBeDefined();
-    expect(registry.getSystem('survival-cold')).toBeDefined();
-    expect(registry.getSystem('survival-nap')).toBeDefined();
+    expect(registry.getSystem('survival-oxygen')).toBeUndefined();
+    expect(registry.getSystem('survival-cold')).toBeUndefined();
 
     unregister();
 
     const emptyRegistry = new GameSystemRegistry(true);
     expect(emptyRegistry.getSystem('survival-oxygen')).toBeUndefined();
     expect(emptyRegistry.getSystem('survival-cold')).toBeUndefined();
-    expect(emptyRegistry.getSystem('survival-nap')).toBeUndefined();
   });
 
   it('registra os painéis de sobrevivência na HUD nos grupos corretos', () => {
@@ -37,7 +35,7 @@ describe('Survival Module - Registro e Integração', () => {
     expect(essentialPanels.some((p) => p.id === 'oxygen')).toBe(true);
 
     const missionPanels = getPanelsByGroup('missao');
-    expect(missionPanels.some((p) => p.id === 'nap')).toBe(true);
+    expect(missionPanels).toHaveLength(0);
 
     unregister();
 

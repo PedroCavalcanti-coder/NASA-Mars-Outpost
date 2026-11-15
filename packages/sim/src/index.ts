@@ -13,3 +13,17 @@ export function describeSim() {
   return `${GAME_NAME}: simulação v${SIM_VERSION}`;
 }
 export { migrateMission } from './state';
+
+export * from './operations';
+
+export * from './drilling';
+
+export * from './missions';
+
+export * from './voting';
+
+export * from './scoring';
+
+export * from './world';
+
+export * from './saves';

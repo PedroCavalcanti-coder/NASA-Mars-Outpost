@@ -19,6 +19,7 @@
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/static": "^10.1.10",
     "@mars/shared": "*",
+    "@mars/sim": "*",
     "@neondatabase/serverless": "^1.2.0",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.8",

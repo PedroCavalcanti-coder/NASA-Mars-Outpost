@@ -1,3 +1,4 @@
+import OfficialActivity from '../minigames/OfficialActivity';
 import { DUO_GESTURES, type DuoGestureId, WORLD_AUTOSAVE_MS } from '@mars/shared';
 import { ensureShielding, migrateMission } from '@mars/sim';
 import { TriangleAlert } from 'lucide-react';
@@ -51,8 +52,6 @@ import {
   clearMissionSnapshot,
   clearPlaySession,
   getPlaySession,
-  loadMissionSnapshot,
-  saveMissionSnapshot,
   savePlaySession,
 } from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
@@ -225,11 +224,6 @@ function ReadyGame() {
   const viewer = useRef<BaseViewer | null>(null);
   const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
-  // tela de introdução: fica até o jogador clicar em "Começar" (e a base terminar de carregar)
-  // recarregou a página no meio do jogo: sem a introdução (ela é só da primeira entrada)
-  const [intro, setIntro] = useState<'show' | 'leaving' | 'gone'>(() =>
-    getPlaySession() ? 'gone' : 'show',
-  );
   const [error, setError] = useState<string | null>(null);
   const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
   const uploadDone = useRef(false);
@@ -281,43 +275,8 @@ function ReadyGame() {
   const missionStarted = useMission((m) => m.state.log.length > 0 && m.state.status === 'playing');
 
   // Cada base sorteada começa uma missão nova (exceto ao recarregar a página: a missão volta).
-  const firstMission = useRef(true);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia a missão a cada base sorteada
-  useEffect(() => {
-    const first = firstMission.current;
-    firstMission.current = false;
-    savePlaySession({ room: roomCode, base: baseId });
-    const saved = first
-      ? loadMissionSnapshot<ReturnType<typeof useMission.getState>['state']>(roomCode)
-      : null;
-    if (saved && typeof saved.sol === 'number' && saved.resources) {
-      useMission.setState({
-        state: ensureShielding(saved),
-        feedback: null,
-        lastEntries: [],
-        error: null,
-      });
-    } else {
-      startMission();
-      useGameEvents.getState().clear();
-    }
-  }, [baseId, startMission]);
+  useEffect(()=>{savePlaySession({room:roomCode,base:baseId});useGameEvents.getState().clear();},[baseId,roomCode]);
 
-  // guarda a missão para o recarregar da página (no máximo a cada 2 s)
-  useEffect(() => {
-    let timer: number | undefined;
-    const unsub = useMission.subscribe(() => {
-      if (timer) return;
-      timer = window.setTimeout(() => {
-        timer = undefined;
-        saveMissionSnapshot(roomCode, useMission.getState().state);
-      }, 2000);
-    });
-    return () => {
-      unsub();
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [roomCode]);
 
   const [emoteCooling, setEmoteCooling] = useState(false);
   // força o DevPanel a atualizar rótulos de ações que mudam de estado
@@ -332,7 +291,11 @@ function ReadyGame() {
     Array<{ id: number; name: string; emoji: string; local: boolean }>
   >([]);
   const chatId = useRef(0);
-  const [players, setPlayers] = useState<{ count: number; mode: 'online' | 'local' }>({
+  const [players, setPlayers] = useState<{
+    count: number;
+    mode: 'online' | 'local';
+    status?: 'connected' | 'reconnecting' | 'failed';
+  }>({
     count: 1,
     mode: 'online',
   });
@@ -436,19 +399,13 @@ function ReadyGame() {
       onWorldInfo: (info) => {
         if (!alive) return;
         setPersist({ linked: info.linked, canSave: info.canSave });
-        // missão gravada pelo último jogador que salvou este mundo
-        const m = info.mission as { sol?: unknown; resources?: unknown; log?: unknown } | undefined;
-        if (
-          m &&
-          typeof m === 'object' &&
-          typeof m.sol === 'number' &&
-          m.resources &&
-          Array.isArray(m.log)
-        ) {
-          useMission.setState({
-            state: migrateMission(info.mission),
-          });
-          toast('💾 Mundo retomado de onde você parou.', 'ok');
+
+      },
+      onRoomBaseChange: (id) => {
+        if (BASE_IDS.includes(id as BaseId)) setBaseId(id as BaseId);
+        else {
+          clearPlaySession();
+          nav('/');
         }
       },
       onRoomRejected: () => {
@@ -493,9 +450,9 @@ function ReadyGame() {
           } catch {
             /* Private browsing. */
           }
+          previous?.dispose();
           replacement.activate(el, options);
           viewer.current = replacement;
-          previous?.dispose();
           setInfo(meta);
           setLoading(false);
         })
@@ -523,20 +480,6 @@ function ReadyGame() {
     viewer.current?.setOutlineSettings(outline);
   }, [outline]);
 
-  // Salvamento automático a cada 5 minutos, depois que o mundo foi salvo/vinculado a este jogador
-  // biome-ignore lint/correctness/useExhaustiveDependencies: o intervalo só depende do vínculo
-  useEffect(() => {
-    if (!persist.linked || !persist.canSave) return;
-    const id = window.setInterval(() => void saveWorld(true), WORLD_AUTOSAVE_MS);
-    return () => window.clearInterval(id);
-  }, [persist.linked, persist.canSave]);
-
-  /** Mission sem o histórico longo: cabe no limite do salvamento. */
-  function missionSnapshot() {
-    const m = useMission.getState().state;
-    return { ...m, log: m.log.slice(0, 25) };
-  }
-
   async function saveWorld(silent = false) {
     const v = viewer.current;
     if (!v) return false;
@@ -544,7 +487,7 @@ function ReadyGame() {
       setSaving(true);
       setSaveError('');
     }
-    const r = await v.saveWorld(missionSnapshot());
+    const r = await v.saveWorld();
     if (r.ok) setPersist((p) => ({ ...p, linked: true }));
     if (!silent) {
       setSaving(false);
@@ -595,23 +538,8 @@ function ReadyGame() {
    * A decisão do evento chegou (a minha ou a da sala): aplica recursos na missão e efeitos no
    * mundo. Com a blindagem zerada, as perdas de energia, mantimentos e oxigênio saem em dobro.
    */
-  function resolveEvent(event: GameEventDef, outcome: EventOutcome): EventOutcome {
-    const shielding = useMission.getState().state.resources.armor?.value ?? 100;
-    const deltas = scaleDamage(outcome.deltas, shielding);
-    const final: EventOutcome = deltas ? { ...outcome, deltas } : outcome;
-    // o evento sempre entra no diário, mesmo quando não custa nem rende nada
-    useMission.getState().run({
-      type: 'reward',
-      tone: final.tone,
-      title: event.title,
-      text: final.text,
-      deltas: { ...deltas, armor: undefined },
-    });
-    // a blindagem vem das fraturas do casco: perder blindagem abre fraturas (a decisão é só de quem escolheu)
-    if (deltas?.armor) viewer.current?.damageArmor(-deltas.armor);
-    viewer.current?.applyEventEffects(final);
-    return final;
-  }
+  function resolveEvent(_event: GameEventDef,outcome: EventOutcome): EventOutcome {return outcome;}
+
 
   // o fluxo de decisão dos eventos (pausa, votação, resultado) usa o viewer e o resolveEvent atuais
   const resolveRef = useRef(resolveEvent);
@@ -619,7 +547,7 @@ function ReadyGame() {
   useEffect(() => {
     setEventFlowContext({
       viewer: () => viewer.current,
-      apply: (event, outcome) => resolveRef.current(event, outcome),
+      apply: (event: GameEventDef, outcome: EventOutcome) => resolveRef.current(event, outcome),
     });
     return () => setEventFlowContext(null);
   }, []);
@@ -824,36 +752,8 @@ function ReadyGame() {
           <Suspense fallback={null}>
             {minigame.kind === 'repair' ? (
               <RepairMinigame id={minigame.id} viewer={viewer.current} onClose={closeMinigame} />
-            ) : minigame.kind === 'solar' ? (
-              <SolarCleaningPreview onClose={closeMinigame} onComplete={finishMinigame} />
-            ) : minigame.kind === 'oxygen' ? (
-              <OxygenFilterPreview onClose={closeMinigame} onComplete={finishMinigame} />
-            ) : minigame.kind === 'greenhouse' ? (
-              <GreenhousePreview onClose={closeMinigame} onComplete={finishMinigame} />
-            ) : minigame.kind === 'station' ? (
-              <StationConsoleGame
-                title={minigame.title}
-                hint={minigame.hint}
-                onClose={closeMinigame}
-                onComplete={finishMinigame}
-              />
-            ) : minigame.kind === 'upload' ? (
-              <DataUploadGame onClose={closeMinigame} onComplete={finishMinigame} />
-            ) : minigame.kind === 'soil' ? (
-              <SoilSamplingGame
-                coop={minigame.coop}
-                role={minigame.role}
-                onReady={(q) => viewer.current?.soilPartReady(q)}
-                onClose={closeMinigame}
-                onComplete={finishMinigame}
-              />
             ) : (
-              <DrillingMinigame
-                baseId={minigame.baseId}
-                target={minigame.target}
-                onClose={closeMinigame}
-                onComplete={finishMinigame}
-              />
+              <OfficialActivity request={minigame} onClose={closeMinigame} onComplete={()=>finishMinigame()} />
             )}
           </Suspense>,
           document.body,
@@ -864,13 +764,13 @@ function ReadyGame() {
 
         <MissionVeil />
         <EventFx />
-        {touch && !loading && !error && intro === 'gone' && (
+        {touch && !loading && !error && (
           <TouchJoystick viewer={viewer.current} />
         )}
-        {/* Tablet de eventos: só com a base à vista (sem minigame, introdução nem fim de missão) */}
-        {intro === 'gone' && !loading && !error && !minigame && eventsPending && <EventTablet />}
+        {/* Tablet de eventos: só com a base à vista (sem minigame nem fim de missão) */}
+        {!loading && !error && !minigame && eventsPending && <EventTablet />}
         {/* Curiosidades: só quando nada mais está na tela (eventos e minigames têm prioridade) */}
-        {intro === 'gone' && !loading && !error && !minigame && !eventsPending && <LoreCard />}
+        {!loading && !error && !minigame && !eventsPending && <LoreCard />}
         {duoInvite && (
           <div className="duo-invite" role="alert">
             <span>
@@ -936,7 +836,7 @@ function ReadyGame() {
               <h2 id="leave-title">Salvar o mundo antes de sair?</h2>
               <p>
                 {persist.canSave
-                  ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O salvamento que vale é o do último jogador a salvar.'
+                  ? 'O mundo fica ligado à sua conta/navegador por 30 dias (entrar de novo renova). O servidor preserva o progresso da sala.'
                   : 'Para salvar é preciso permitir o cookie de salvamento na tela inicial ou entrar na sua conta. Você pode sair sem salvar.'}
               </p>
               {saveError && (
@@ -966,51 +866,9 @@ function ReadyGame() {
           </div>
         )}
 
-        {/* Introdução + carregamento: o texto é lido enquanto a base prepara */}
-        {intro !== 'gone' && !error && (
-          <div
-            className={`game__loading game__intro ${intro === 'leaving' ? 'is-leaving' : ''}`}
-            role="dialog"
-            aria-label="Introdução da missão"
-          >
-            <img src="/assets/branding/mars-outpost-logo.svg" alt="" className="game__intro-logo" />
-            <span className="game__loading-kicker">SOL 1 · ZONA DE POUSO · JEZERO</span>
-            <h2 className="game__loading-title">Bem-vindo a Marte, {name ?? 'Explorador'}</h2>
-            <div className="game__intro-text">
-              <p>
-                Sua cápsula pousou em Marte. Aqui o dia dura 24 h 39 min e a noite traz um frio que
-                a base precisa vencer com energia, oxigênio e mantimentos.
-              </p>
-              <p>
-                Sua missão: manter a base viva e produzir pesquisa. Limpe os painéis solares, troque
-                o filtro de ar, cuide da horta (5 dias da muda à colheita) e cumpra as missões do
-                dia. Quem faz tudo sozinho escolhe bem: cada missão gasta recursos.
-              </p>
-              <ul>
-                <li>
-                  <b>WASD</b> ou clique para andar · <b>T</b> abre as tarefas do Sol
-                </li>
-                <li>
-                  No celular: use o <b>joystick</b> ou <b>toque num objeto</b> (painel, horta,
-                  filtro, cama, rover…) e o astronauta vai até ele e usa
-                </li>
-                <li>
-                  clique no rover para entrar · duplo clique nele para sair · arraste para girar a
-                  câmera · role para dar zoom
-                </li>
-              </ul>
-            </div>
-            <button
-              type="button"
-              className="game__intro-btn"
-              disabled={loading}
-              onClick={() => {
-                setIntro('leaving');
-                window.setTimeout(() => setIntro('gone'), 600);
-              }}
-            >
-              {loading ? 'Preparando a base…' : 'Começar missão'}
-            </button>
+        {loading && !error && (
+          <div className="game__loading" role="status">
+            <h2 className="game__loading-title">Preparando a base…</h2>
           </div>
         )}
 

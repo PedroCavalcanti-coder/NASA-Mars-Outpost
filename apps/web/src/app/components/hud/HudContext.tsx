@@ -12,7 +12,11 @@ import type { BaseInfo } from '../../../lib/bases';
 
 export interface HudContextValue {
   roomCode: string;
-  players: { count: number; mode: 'online' | 'local' };
+  players: {
+    count: number;
+    mode: 'online' | 'local';
+    status?: 'connected' | 'reconnecting' | 'failed';
+  };
   /** copia o código da sala; devolve se conseguiu */
   onCopyInvite: () => void | Promise<boolean>;
   cameraMode: 'follow' | 'free';

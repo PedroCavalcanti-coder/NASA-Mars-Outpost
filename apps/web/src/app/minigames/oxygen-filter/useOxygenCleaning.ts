@@ -10,6 +10,44 @@ import { guideProgress } from '../../../game/guide/events';
 import { useGameSettings } from '../../../lib/gameSettings';
 
 export function useOxygenCleaning() {
+  const settings = useGameSettings((state) => state.audio);
+  const ambient = useRef<GainNode | null>(null);
+  useEffect(() => {
+    const context = new AudioContext();
+    const gain = context.createGain();
+    const audio = useGameSettings.getState().audio;
+    gain.gain.value = audio.muted ? 0 : (audio.masterVolume * audio.sfxVolume) / 10000;
+    gain.connect(context.destination);
+    ambient.current = gain;
+    let closed = false;
+    let source: AudioBufferSourceNode | null = null;
+    void fetch('/assets/audio/o2-filter-loop.wav')
+      .then((response) => response.arrayBuffer())
+      .then((buffer) => context.decodeAudioData(buffer))
+      .then((buffer) => {
+        if (closed) return;
+        source = context.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(gain);
+        source.start();
+      }).catch(() => {});
+    const resume = () => { void context.resume().catch(() => {}); };
+    resume();
+    window.addEventListener('pointerdown', resume);
+    return () => {
+      closed = true;
+      window.removeEventListener('pointerdown', resume);
+      source?.stop();
+      void context.close();
+      ambient.current = null;
+    };
+  }, []);
+  useEffect(() => {
+    if (ambient.current) {
+      ambient.current.gain.value = settings.muted ? 0 : (settings.masterVolume * settings.sfxVolume) / 10000;
+    }
+  }, [settings]);
   const [removed, setRemoved] = useState<ReadonlySet<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);

@@ -1,3 +1,8 @@
+import { createWorldSave } from '@mars/sim';
+import { GAMEPLAY_VERSION, GAME_STEP_MS, GAME_PUBLISH_MS, type GameConfirmation } from '@mars/shared';
+import { RoomSimulation } from './simulation';
+import { MOVEMENT_VERSION, NAVIGATION_HASH, MOVEMENT_DT } from '@mars/shared';
+import { RoomMovement } from './movement';
 import {
   applyMissionEvent,
   applyTimeChange,
@@ -48,6 +53,10 @@ import { GestureBroker } from './gestures';
 
 interface SocketData {
   room?: string;
+  gameTokens: number; gameAt: number; actionAt: number; resyncAt: number; needsGameplaySnapshot?: boolean;
+  joining?: boolean;
+  motionTokens: number;
+  motionRefillAt: number;
   info?: GamePlayerInfo;
   /** balde de fichas: evita inundar a sala com mensagens */
   tokens: number;
@@ -60,7 +69,9 @@ interface SocketData {
 
 interface Room {
   code: string;
-  players: Map<string, { info: GamePlayerInfo; motion?: GameMotion }>;
+  simulation: RoomSimulation;
+  movement: RoomMovement;
+  players: Map<string, { info: GamePlayerInfo; motion?: GameMotion; resumeToken?: string }>;
   world: GameWorldState;
   baseId: string;
   /** já existe uma linha no banco para este mundo */
@@ -77,8 +88,6 @@ interface Room {
 type GameNs = Namespace<GameClientToServer, GameServerToClient, Record<string, never>, SocketData>;
 
 const MAX_ROOMS = 500;
-/** limite do mundo: nada que se mova pode estar além disso (unidades de mundo) */
-const WORLD_LIMIT = 200;
 const STATE_RATE = 40; // mensagens por segundo
 const rooms = new Map<string, Room>();
 /** criações em andamento (a leitura do banco é assíncrona): duas entradas simultâneas dividem a mesma sala */
@@ -148,18 +157,24 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
   if (live) return live;
   let pending = creating.get(code);
   if (!pending) {
+    if (rooms.size + creating.size >= MAX_ROOMS) throw new Error('Servidor cheio');
     pending = (async () => {
       let saved: Awaited<ReturnType<typeof loadWorld>> = null;
       try {
         saved = await loadWorld(code);
       } catch (err) {
         console.error('[game] falha ao ler o mundo salvo:', (err as Error).message);
+        throw new Error('Não foi possível consultar o mundo. Tente novamente.');
       }
+      const movement = new RoomMovement(saved?.baseId ?? baseId, saved?.save.vehicle);
+      const simulation = new RoomSimulation(saved?.baseId ?? baseId, code, movement, saved?.save);
       const room: Room = {
+        simulation,
         code,
+        movement,
         players: new Map(),
         gestures: new GestureBroker(),
-        world: worldFromSave(saved?.save ?? null),
+        world: simulation.projectWorld(),
         baseId: saved?.baseId ?? baseId,
         saved: Boolean(saved),
         mission: saved?.save.mission,
@@ -172,24 +187,21 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
   return pending;
 }
 
-/** Estado do mundo no formato do banco. */
-function snapshot(room: Room, mission: unknown): WorldSave | null {
-  return sanitizeSave({
-    elapsedMs: worldClock(room.world, Date.now()).elapsedMs,
-    solar: room.world.solar,
-    crops: room.world.crops,
-    vehicle: room.world.vehicle,
-    care: room.world.care,
-    board: room.world.board,
-    timeScale: room.world.timeScale,
-    paused: room.world.paused,
-    integrity: room.world.integrity,
-    mission,
-  });
+function scheduleCleanup(room: Room) {
+  if (room.players.size || room.cleanup) return;
+  room.cleanup = setTimeout(() => {
+    if (!room.players.size && rooms.get(room.code) === room) rooms.delete(room.code);
+  }, 2 * 60_000);
+  room.cleanup.unref();
 }
 
-const finite = (n: unknown, lim: number): n is number =>
-  typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= lim;
+/** Estado do mundo no formato do banco. */
+function snapshot(room: Room, _mission?: unknown): WorldSave {
+  return createWorldSave(room.simulation.state, room.world.vehicle);
+}
+export async function flushGameSaves() {
+  await Promise.allSettled([...rooms.values()].filter(r => r.saved).map(r => r.simulation.save(save => saveWorld(r.code,r.baseId,save))));
+}
 
 function cleanName(raw: unknown): string {
   const s = typeof raw === 'string' ? raw : '';
@@ -202,22 +214,6 @@ function cleanName(raw: unknown): string {
   return clean || 'Astronauta';
 }
 
-function parseMotion(raw: unknown): GameMotion | null {
-  if (!raw || typeof raw !== 'object') return null;
-  const m = raw as Record<string, unknown>;
-  if (!finite(m.x, WORLD_LIMIT) || !finite(m.z, WORLD_LIMIT) || !finite(m.h, 20)) return null;
-  const kind =
-    m.m === 'walk' ||
-    m.m === 'clean' ||
-    m.m === 'plant' ||
-    m.m === 'harvest' ||
-    m.m === 'drive' ||
-    m.m === 'ride'
-      ? m.m
-      : 'idle';
-  return { x: m.x, z: m.z, h: m.h, m: kind };
-}
-
 function takeToken(data: SocketData, cost = 1): boolean {
   const now = Date.now();
   const elapsed = (now - data.refillAt) / 1000;
@@ -225,6 +221,42 @@ function takeToken(data: SocketData, cost = 1): boolean {
   data.tokens = Math.min(STATE_RATE, data.tokens + elapsed * STATE_RATE);
   if (data.tokens < cost) return false;
   data.tokens -= cost;
+  return true;
+}
+
+function mergeStages(current: number[], raw: unknown, max: number, top: number): number[] | null {
+  if (!Array.isArray(raw) || !raw.length || raw.length > max) return null;
+  const next = [...current];
+  let changed = false;
+  for (const change of raw) {
+    if (!change || typeof change !== 'object') continue;
+    const { index, stage } = change;
+    if (
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= max ||
+      !Number.isInteger(stage) ||
+      stage < 0 ||
+      stage > top
+    )
+      continue;
+    if (next[index] === stage) continue;
+    while (next.length <= index) next.push(0);
+    next[index] = stage;
+    changed = true;
+  }
+  return changed ? next : null;
+}
+
+function takeMotionToken(data: SocketData) {
+  const now = Date.now();
+  data.motionTokens = Math.min(
+    STATE_RATE,
+    data.motionTokens + (Math.max(0, now - data.motionRefillAt) * STATE_RATE) / 1000,
+  );
+  data.motionRefillAt = now;
+  if (data.motionTokens < 1) return false;
+  data.motionTokens--;
   return true;
 }
 
@@ -237,40 +269,113 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
   const sweep = setInterval(() => void purgeExpired().catch(() => {}), 24 * 60 * 60 * 1000);
   sweep.unref();
 
-  const hazards = setInterval(() => {
-    for (const room of rooms.values()) {
-      if (!room.players.size) continue;
-      const w = room.world;
-      const c = worldClock(w, Date.now());
-      w.integrity ??= newIntegrity();
-      const rev = w.integrity.revision;
-      const wind = w.integrity.wind;
-      tickIntegrity(w.integrity, c.elapsedMs / 1000, Date.now(), c.hour);
-      if (w.integrity.wind > wind) {
-        w.solar = w.solar.map((n) => Math.max(0, n - 1));
-        ns.to(room.code).emit('world:solar', w.solar);
-      }
-      const e = w.integrity.event;
-      const storm = e?.id === 'dust_storm' && c.elapsedMs / 1000 - e.start >= 15 ? 0.85 : 0;
-      if (w.storm !== storm) {
-        w.storm = storm;
-        ns.to(room.code).emit('world:storm', storm);
-      }
-      if (w.integrity.revision !== rev) ns.to(room.code).emit('world:integrity', w.integrity);
+  function publish(room: Room) {
+    room.world = room.simulation.projectWorld();
+    const update = room.simulation.update();
+    if (!update) return;
+    for (const id of room.players.keys()) {
+      const socket = ns.sockets.get(id);
+      if (!socket) continue;
+      // Engine.IO congestion: keep only one current snapshot outside the transport queue.
+      const transport = socket.conn;
+      if ((transport as unknown as {writeBuffer:unknown[]}).writeBuffer.length > 2) { socket.data.needsGameplaySnapshot = true; continue; }
+      if (socket.data.needsGameplaySnapshot) {
+        socket.data.needsGameplaySnapshot = false;
+        socket.emit('game:snapshot',room.simulation.snapshot());
+      } else socket.emit('game:update',update);
     }
-  }, 250);
+  }
+  let gamePrevious = performance.now(), gameAccumulator = 0, publishAccumulator = 0;
+  const hazards = setInterval(() => {
+    const current = performance.now();
+    // Bounded catch-up: no unprocessed wall time is assigned to the world clock.
+    gameAccumulator = Math.min(500,gameAccumulator+Math.max(0,current-gamePrevious));
+    gamePrevious = current;
+    const now=Date.now();
+    let steps=0;
+    while(gameAccumulator>=GAME_STEP_MS && steps++<5) {
+      gameAccumulator-=GAME_STEP_MS; publishAccumulator+=GAME_STEP_MS;
+      for(const room of rooms.values()) if(room.players.size) {
+        const before=room.simulation.state.mission.nextLogId;
+        const pause=room.simulation.state.pauses.join(',');
+        room.simulation.step();
+        room.world=room.simulation.projectWorld(now);
+        if(before!==room.simulation.state.mission.nextLogId || pause!==room.simulation.state.pauses.join(','))publish(room);
+      }
+    }
+    if(publishAccumulator>=GAME_PUBLISH_MS) {
+      publishAccumulator%=GAME_PUBLISH_MS;
+      for(const room of rooms.values())if(room.players.size)publish(room);
+    }
+    for(const room of rooms.values())if(room.saved && room.simulation.autosaveDue(now))
+      void room.simulation.save(save=>saveWorld(room.code,room.baseId,save)).catch(err=>console.error('[game] autosave:',err.message));
+  },GAME_STEP_MS);
   hazards.unref();
 
+  let previousStep = performance.now(),
+    accumulator = 0,
+    snapshotElapsed = 0;
+  const movementTimer = setInterval(() => {
+    const current = performance.now();
+    const elapsed = Math.min(5 * MOVEMENT_DT, (current - previousStep) / 1000);
+    previousStep = current;
+    accumulator += elapsed;
+    snapshotElapsed += elapsed;
+    const now = Date.now();
+    while (accumulator >= MOVEMENT_DT) {
+      accumulator -= MOVEMENT_DT;
+      for (const room of rooms.values()) {
+        const scale =
+          room.world.paused || room.world.repairPause
+            ? 0
+            : normalizeTimeScale(room.world.timeScale);
+        room.movement.step(now, scale, room.world.storm > 0.25);
+        for (const [id, p] of room.players) p.motion = room.movement.players.get(id)?.state;
+        room.world.vehicle = {
+          x: room.movement.rover.x,
+          z: room.movement.rover.z,
+          h: room.movement.rover.h,
+        };
+      }
+    }
+    if (snapshotElapsed >= 0.05) {
+      snapshotElapsed %= 0.05;
+      for (const room of rooms.values())
+        if (room.players.size) {
+          const scale =
+            room.world.paused || room.world.repairPause
+              ? 0
+              : normalizeTimeScale(room.world.timeScale);
+          ns.to(room.code).volatile.emit('movement:snapshot', room.movement.snapshot(now, scale));
+        }
+    }
+  }, 10);
+  movementTimer.unref();
+
+  ns.server.httpServer.once('close', () => {
+    clearInterval(movementTimer);
+    clearInterval(sweep);
+    clearInterval(hazards);
+    for (const room of rooms.values()) clearTimeout(room.cleanup);
+    rooms.clear();
+    creating.clear();
+  });
+
   ns.on('connection', (socket) => {
+    socket.data.motionTokens = STATE_RATE;
+    socket.data.motionRefillAt = Date.now();
     socket.data.tokens = STATE_RATE;
     socket.data.refillAt = Date.now();
 
     socket.on('room:join', async (raw, ack) => {
       const reply = typeof ack === 'function' ? ack : () => {};
-      if (socket.data.room) return reply({ ok: false, error: 'Você já está numa sala' });
+      if (socket.data.room || socket.data.joining)
+        return reply({ ok: false, error: 'Você já está entrando numa sala' });
       if (!takeToken(socket.data, 10)) return reply({ ok: false, error: 'Calma!' });
 
       const req = (raw ?? {}) as unknown as Record<string, unknown>;
+      if (req.gameplayVersion !== GAMEPLAY_VERSION || req.movementVersion !== MOVEMENT_VERSION || req.navigationHash !== NAVIGATION_HASH)
+        return reply({ ok: false, error: 'Versão do jogo incompatível. Atualize a página.' });
       const code = typeof req.code === 'string' ? req.code.trim().toUpperCase() : '';
       if (!GAME_ROOM_CODE_RE.test(code))
         return reply({ ok: false, error: 'Código de sala inválido' });
@@ -288,77 +393,103 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!rooms.has(code) && rooms.size >= MAX_ROOMS) {
         return reply({ ok: false, error: 'Servidor cheio' });
       }
-      let owner: string | null = null;
+      socket.data.joining = true;
       try {
-        owner = await ownerFromCookies(socket.handshake.headers.cookie);
-      } catch {
-        owner = null;
-      }
-      const room = await getRoom(code, baseId);
-      if (socket.disconnected) return;
-      if (room.cleanup) {
-        clearTimeout(room.cleanup);
-        room.cleanup = undefined;
-      }
-      if (room.players.size >= GAME_MAX_PLAYERS) {
-        return reply({ ok: false, error: `Sala cheia (máx. ${GAME_MAX_PLAYERS} astronautas)` });
-      }
-      // Apelido único entre quem está no mapa (conferido e reservado no mesmo passo, sem await no meio)
-      const wanted = normalizeNickname(name);
-      if ([...room.players.values()].some((p) => normalizeNickname(p.info.name) === wanted)) {
-        return reply({
-          ok: false,
-          error: 'Já há um astronauta com esse apelido neste mundo. Escolha outro.',
-        });
-      }
-
-      const used = new Set([...room.players.values()].map((p) => p.info.slot));
-      let slot = 0;
-      while (used.has(slot)) slot++;
-
-      const info: GamePlayerInfo = {
-        id: socket.id,
-        name,
-        suit: normalizeSuit(req.suit),
-        slot,
-      };
-      const others = [...room.players.values()].map((p) => ({ ...p.info, motion: p.motion }));
-      if (room.world.repairPause && room.world.repairPause !== 'empty') {
-        room.world.repairPause = undefined;
-        room.world.timeUpdatedAt = Date.now();
-      }
-      room.players.set(socket.id, { info });
-      ns.to(room.code).emit('world:time', timeState(room.world, Date.now()));
-      socket.data.room = code;
-      socket.data.info = info;
-      socket.data.owner = owner;
-      void socket.join(code);
-      socket.to(code).emit('player:joined', info);
-
-      // Mundo já salvo: entrar de novo renova o vínculo (a contagem dos 30 dias recomeça)
-      let linked = false;
-      if (owner && room.saved) {
+        let owner: string | null = null;
         try {
-          await touchLink(owner, code, name);
-          linked = true;
-        } catch (err) {
-          console.error('[game] falha ao renovar o vínculo:', (err as Error).message);
+          owner = await ownerFromCookies(socket.handshake.headers.cookie);
+        } catch {
+          owner = null;
         }
-      }
-      socket.data.linked = linked;
+        if (socket.disconnected) return;
+        const room = await getRoom(code, baseId);
+        if (socket.disconnected) {
+          scheduleCleanup(room);
+          return;
+        }
+        if (room.baseId !== baseId) {
+          scheduleCleanup(room);
+          return reply({ ok: false, error: 'Esta sala usa outra base.', baseId: room.baseId });
+        }
+        const resumeToken =
+          typeof req.resumeToken === 'string' && /^[a-f0-9]{48}$/.test(req.resumeToken)
+            ? req.resumeToken
+            : undefined;
+        const previous =
+          resumeToken && [...room.players.values()].find((p) => p.resumeToken === resumeToken);
+        // A conexão antiga pode ainda estar esperando o ping expirar depois de trocar de Wi-Fi.
+        // Só quem conhece o segredo desta instância pode substituí-la.
+        if (previous) ns.sockets.get(previous.info.id)?.disconnect(false);
+        if (room.players.size >= GAME_MAX_PLAYERS) {
+          return reply({ ok: false, error: `Sala cheia (máx. ${GAME_MAX_PLAYERS} astronautas)` });
+        }
+        const wanted = normalizeNickname(name);
+        if ([...room.players.values()].some((p) => normalizeNickname(p.info.name) === wanted)) {
+          return reply({
+            ok: false,
+            error: 'Já há um astronauta com esse apelido neste mundo. Escolha outro.',
+          });
+        }
+        if (room.cleanup) {
+          clearTimeout(room.cleanup);
+          room.cleanup = undefined;
+        }
 
-      if (room.world.repairPause === 'empty') {
-        room.world.repairPause = undefined;
-        room.world.timeUpdatedAt = Date.now();
+        const used = new Set([...room.players.values()].map((p) => p.info.slot));
+        let slot = 0;
+        while (used.has(slot)) slot++;
+
+        const info: GamePlayerInfo = {
+          id: socket.id,
+          name,
+          suit: normalizeSuit(req.suit),
+          slot,
+        };
+        const others = [...room.players.values()].map((p) => ({ ...p.info, motion: p.motion }));
+        room.players.set(socket.id, {
+          info,
+          motion: room.movement.join(socket.id, slot, resumeToken),
+          resumeToken,
+        });
+        room.simulation.join(socket.id,name,resumeToken);
+        publish(room);
+        socket.data.room = code;
+        socket.data.info = info;
+        socket.data.owner = owner;
+        void socket.join(code);
+        socket
+          .to(code)
+          .emit('player:joined', { ...info, motion: room.players.get(socket.id)?.motion });
+
+        // O banco não bloqueia a entrada nem deixa o roster do ACK desatualizado.
+        const linked = Boolean(owner && room.saved);
+        socket.data.linked = linked;
+        if (owner && linked)
+          void touchLink(owner, code, name).catch((err: Error) => {
+            console.error('[game] falha ao renovar o vínculo:', err.message);
+          });
+        reply({
+          ok: true,
+          baseId: room.baseId,
+          gameplay: room.simulation.snapshot(),
+          movement: room.movement.snapshot(
+            Date.now(),
+            room.world.paused ? 0 : normalizeTimeScale(room.world.timeScale),
+          ),
+          self: info,
+          players: others,
+          world: room.world,
+          serverNow: Date.now(),
+          persistence: { linked, canSave: Boolean(owner), mission: room.mission },
+        });
+      } catch (err) {
+        reply({
+          ok: false,
+          error: err instanceof Error ? err.message : 'Não foi possível entrar na sala.',
+        });
+      } finally {
+        socket.data.joining = false;
       }
-      reply({
-        ok: true,
-        self: info,
-        players: others,
-        world: room.world,
-        serverNow: Date.now(),
-        persistence: { linked, canSave: Boolean(owner), mission: room.mission },
-      });
     });
 
     /** Salva o mundo (botão "salvar e sair" ou salvamento automático do cliente a cada 5 min). */
@@ -374,11 +505,11 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           error: 'Para salvar, aceite o cookie de salvamento ou entre na sua conta.',
         });
       }
-      const mission = (payload as { mission?: unknown } | undefined)?.mission;
-      const save = snapshot(room, mission ?? room.mission);
+      if (payload && Object.keys(payload).length) return reply({ok:false,error:'O servidor monta o salvamento.'});
+      const save = snapshot(room);
       if (!save) return reply({ ok: false, error: 'Dados de salvamento inválidos' });
       try {
-        await saveWorld(room.code, room.baseId, save);
+        await room.simulation.save(save => saveWorld(room.code, room.baseId, save));
         room.saved = true;
         room.mission = save.mission;
         await touchLink(owner, room.code, socket.data.info?.name ?? '');
@@ -407,9 +538,22 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       }
       try {
         const saved = await loadWorld(room.code);
+        if (socket.disconnected || room.players.size !== 1 || !room.players.has(socket.id))
+          return reply({
+            ok: false,
+            error: 'A tripulação mudou durante a restauração. Tente novamente estando sozinho.',
+          });
         if (!saved) return reply({ ok: false, error: 'Nenhum salvamento encontrado.' });
-        room.world = worldFromSave(saved.save);
-        room.mission = saved.save.mission;
+        await room.simulation.flush();
+        const player = room.players.get(socket.id);
+        room.movement = new RoomMovement(room.baseId, saved.save.vehicle);
+        if (player)
+          player.motion = room.movement.join(socket.id, player.info.slot, player.resumeToken);
+        socket.emit('movement:snapshot', room.movement.snapshot(Date.now(), 1));
+        room.simulation = new RoomSimulation(room.baseId,room.code,room.movement,saved.save);
+        room.simulation.join(socket.id,socket.data.info?.name ?? 'Astronauta',player?.resumeToken);
+        room.world=room.simulation.projectWorld();
+        socket.emit('game:snapshot',room.simulation.snapshot());
         reply({ ok: true, restored: true });
       } catch (err) {
         console.error('[game] falha ao restaurar o mundo:', (err as Error).message);
@@ -417,205 +561,61 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       }
     });
 
-    socket.on('world:repair', (intent, ack) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data) || !intent || typeof intent !== 'object')
-        return ack?.({ ok: false, error: 'Pedido inválido' });
-      const c = worldClock(room.world, Date.now());
-      const state = (room.world.integrity ??= newIntegrity());
-      if (
-        ![
-          'ready',
-          'stop',
-          'restart',
-          'event',
-          'emergency',
-          'damage',
-          'reserve',
-          'heartbeat',
-          'release',
-          'plate',
-          'screw',
-        ].includes(intent.op)
-      )
-        return ack?.({ ok: false, error: 'Pedido inválido' });
-      if (intent.op === 'reserve') {
-        const f = state.fractures.find((f) => f.id === intent.fracture);
-        const anchors = REPAIR_ANCHORS[room.baseId as keyof typeof REPAIR_ANCHORS];
-        const a = f && anchors?.[f.anchor];
-        const motion = room.players.get(socket.id)?.motion;
-        if (!a || !motion || Math.hypot(motion.x - a.approach[0], motion.z - a.approach[2]) > 3.5)
-          return ack?.({ ok: false, error: 'Aproxime-se da fratura.' });
-      }
-      if (
-        !repairIntent(
-          state,
-          intent,
-          socket.id,
-          c.elapsedMs / 1000,
-          Date.now(),
-          process.env.NODE_ENV !== 'production',
-        )
-      )
-        return ack?.({ ok: false, error: 'Reparo ocupado ou indisponível' });
-      ns.to(room.code).emit('world:integrity', state);
-      ack?.({ ok: true, state });
+    socket.on('game:command',(raw,ack)=> {
+      if(typeof ack!=='function')return;
+      const room=socket.data.room?rooms.get(socket.data.room):undefined;
+      if(!room)return;
+      const now=Date.now(),data=socket.data;
+      const reject=(code:'RATE_LIMITED'|'INVALID_COMMAND')=>ack({ok:false,operationId:typeof raw?.operationId==='string'?raw.operationId:'',generation:room.simulation.state.generation,revision:room.simulation.state.revision,code,error:code});
+      if(Buffer.byteLength(JSON.stringify(raw??{}),'utf8')>8192)return reject('INVALID_COMMAND');
+      data.gameTokens=Math.min(20,data.gameTokens+(now-data.gameAt)*0.02);data.gameAt=now;
+      if(data.gameTokens<1)return reject('RATE_LIMITED');
+      data.gameTokens--;
+      const continuous=raw?.payload?.type==='actions';
+      if(continuous && now-data.actionAt<90)return reject('RATE_LIMITED');
+      if(continuous)data.actionAt=now;
+      const result=room.simulation.command(socket.id,raw,isCoordinator(room,socket.id));
+      if(result.ok && raw.payload.type==='ready') room.movement.action(socket.id,'ready');
+      ack(result);
+      if(result.ok && !continuous)publish(room);
     });
-    socket.on('world:repair-pause', (active) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (room) {
-        const was = room.world.paused === true;
-        applyTimeChange(room.world, Date.now(), {
-          paused: was,
-          scale: normalizeTimeScale(room.world.timeScale),
-        });
-        room.world.repairPause = active === true && room.players.size === 1 ? socket.id : undefined;
-        const t = timeState(room.world, Date.now());
-        ns.to(room.code).emit('world:time', t);
-      }
+    socket.on('game:resync',()=> {
+      const room=socket.data.room?rooms.get(socket.data.room):undefined;
+      if(!room||Date.now()-socket.data.resyncAt<500)return;
+      socket.data.resyncAt=Date.now();socket.emit('game:snapshot',room.simulation.snapshot());
+    });
+    socket.on('world:repair',(intent,ack)=> {
+      const reply=typeof ack==='function'?ack:()=>{};
+      const room=socket.data.room?rooms.get(socket.data.room):undefined;
+      if(!room || !takeToken(socket.data) || !intent || typeof intent!=='object' || !room.simulation.repair(socket.id,intent,process.env.NODE_ENV!=='production' && isCoordinator(room,socket.id)))
+        return reply({ok:false,error:'Reparo ocupado ou indisponível'});
+      publish(room);reply({ok:true,state:room.simulation.state.integrity});
     });
 
-    socket.on('player:state', (raw) => {
-      const code = socket.data.room;
-      const room = code ? rooms.get(code) : undefined;
-      if (!room || !takeToken(socket.data)) return;
-      const motion = parseMotion(raw);
-      if (!motion) return;
-      const p = room.players.get(socket.id);
-      if (p) p.motion = motion;
-      socket.to(room.code).volatile.emit('player:state', socket.id, motion);
-    });
-
-    socket.on('world:storm', (value) => {
+    socket.on('movement:input', (input) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2)) return;
-      const v =
-        typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
-      room.world.storm = v;
-      socket.to(room.code).emit('world:storm', v);
+      if (room && takeMotionToken(socket.data)) room.movement.input(socket.id, input, Date.now());
     });
-
-    /** Pausa / velocidade / salto de tempo: vale para a sala inteira. */
-    socket.on('world:time', (raw) => {
+    socket.on('movement:action', (action, ack) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2) || !raw || typeof raw !== 'object') return;
-      const now = Date.now();
-      // com mais de um astronauta, só o coordenador decide; os outros recebem o estado de volta
-      if (room.players.size > 1 && !isCoordinator(room, socket.id)) {
-        socket.emit('world:time', timeState(room.world, now));
-        return;
-      }
-      const req = raw as unknown as Record<string, unknown>;
-      const t = applyTimeChange(room.world, now, {
-        paused: req.paused === true,
-        scale: normalizeTimeScale(req.scale),
-        advanceMs: typeof req.advanceMs === 'number' ? req.advanceMs : 0,
-      });
-      ns.to(room.code).emit('world:time', t);
+      if (!room || !takeToken(socket.data, 2) || typeof ack !== 'function') return;
+      const error = action === 'infirmary' ? 'Socorro exclusivo do servidor.' : room.simulation.state.players[socket.id]?.blocked && action !== 'ready' ? 'Astronauta ocupado.' : room.movement.action(socket.id, action);
+      const scale =
+        room.world.paused || room.world.repairPause ? 0 : normalizeTimeScale(room.world.timeScale);
+      const snapshot = room.movement.snapshot(Date.now(), scale);
+      ack({ ok: !error, error: error ?? undefined, snapshot });
+      ns.to(room.code).emit('movement:snapshot', snapshot);
     });
+    // Legacy player:state is deliberately ignored: clients cannot assign positions.
 
-    socket.on('world:solar', (stages) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2) || !Array.isArray(stages)) return;
-      const next = room.world.solar.slice();
-      for (let i = 0; i < Math.min(stages.length, GAME_MAX_SOLAR); i++) {
-        const s = stages[i];
-        if (typeof s === 'number' && Number.isFinite(s))
-          next[i] = Math.max(0, Math.min(4, Math.round(s)));
-      }
-      room.world.solar = next;
-      socket.to(room.code).emit('world:solar', next);
-    });
-
-    socket.on('world:crops', (stages) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2) || !Array.isArray(stages)) return;
-      const next: number[] = [];
-      for (let i = 0; i < Math.min(stages.length, GAME_MAX_CROPS); i++) {
-        const s = stages[i];
-        next.push(
-          typeof s === 'number' && Number.isFinite(s) ? Math.max(0, Math.min(3, Math.round(s))) : 0,
-        );
-      }
-      room.world.crops = next;
-      socket.to(room.code).emit('world:crops', next);
-    });
-
-    socket.on('world:vehicle', (raw) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2) || !raw || typeof raw !== 'object') return;
-      const v = raw as unknown as Record<string, unknown>;
-      if (!finite(v.x, WORLD_LIMIT) || !finite(v.z, WORLD_LIMIT) || !finite(v.h, 20)) return;
-      room.world.vehicle = { x: v.x, z: v.z, h: v.h };
-      socket.to(room.code).emit('world:vehicle', room.world.vehicle);
-    });
-
-    socket.on('world:care', (raw) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2)) return;
-      const care = normalizeCare(raw);
-      if (!care) return;
-      room.world.care = care;
-      socket.to(room.code).emit('world:care', care);
-    });
-
-    socket.on('mission:event', (raw) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 3)) return;
-      const ev = normalizeMissionEvent(raw);
-      if (!ev) return;
-      // missão repetida no mesmo Sol (duas pessoas ao mesmo tempo) ou de um Sol antigo: ignora
-      const board = applyMissionEvent(room.world.board, ev);
-      if (!board) return;
-      room.world.board = board;
-      socket.to(room.code).emit('mission:event', ev);
-    });
+    // Removed authority paths remain explicit refusals for clients from older releases.
+    socket.on('mission:event',(_raw,ack)=> { if(typeof ack==='function')ack({ok:false,error:'Atualize a página: progresso validado pelo servidor.'}); });
 
     socket.on('player:chat', (raw) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room || !takeToken(socket.data, 2) || typeof raw !== 'string') return;
       const message = raw.trim().slice(0, 240);
       if (message) socket.to(room.code).emit('player:chat', socket.id, message);
-    });
-
-    /** Voto num evento da base: repassa a todos (o servidor só valida o formato). */
-    socket.on('event:vote', (eid, choice) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2)) return;
-      if (typeof eid !== 'string' || eid.length > 40) return;
-      if (!Number.isInteger(choice) || choice < 0 || choice > 5) return;
-      socket.to(room.code).emit('event:vote', socket.id, eid, choice);
-    });
-
-    /** Decisão final do evento: vale só a primeira por evento e sala. */
-    socket.on('event:result', (eid, choice, roll) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2)) return;
-      if (typeof eid !== 'string' || eid.length > 40) return;
-      if (!Number.isInteger(choice) || choice < 0 || choice > 5) return;
-      if (typeof roll !== 'number' || !Number.isFinite(roll) || roll < 0 || roll > 1) return;
-      room.decidedEvents ??= new Set();
-      if (room.decidedEvents.has(eid)) return;
-      room.decidedEvents.add(eid);
-      socket.to(room.code).emit('event:result', eid, choice, roll);
-    });
-
-    /** Coleta de solo em dupla: repassa o início e as notas aos outros da sala. */
-    socket.on('soil:msg', (kind, eid, quality) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2)) return;
-      if (kind !== 'start' && kind !== 'done') return;
-      if (typeof eid !== 'string' || eid.length > 40) return;
-      if (typeof quality !== 'number' || !Number.isFinite(quality) || quality < 0 || quality > 1)
-        return;
-      socket.to(room.code).emit('soil:msg', socket.id, kind, eid, quality);
-    });
-
-    /** Voto para pular a noite: repassa a todos (cada cliente confere se todos apertaram). */
-    socket.on('sleep:msg', (ready) => {
-      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
-      if (!room || !takeToken(socket.data, 2) || typeof ready !== 'boolean') return;
-      socket.to(room.code).emit('sleep:msg', socket.id, ready);
     });
 
     socket.on('player:emote', (raw) => {
@@ -651,7 +651,16 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!room || !takeToken(socket.data, 3)) return;
       const res = room.gestures.accept(socket.id, fromId, (id) => room.players.get(id), Date.now());
       if (!res.ok) return void socket.emit('gesture:denied', res.reason);
+      if (!room.movement.gesture(res.start))
+        return void socket.emit('gesture:denied', 'Sem espaço livre para o gesto.');
       ns.to(room.code).emit('gesture:start', res.start);
+      ns.to(room.code).emit(
+        'movement:snapshot',
+        room.movement.snapshot(
+          Date.now(),
+          room.world.paused ? 0 : normalizeTimeScale(room.world.timeScale),
+        ),
+      );
     });
 
     socket.on('disconnect', () => {
@@ -668,26 +677,27 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         room.world.repairPause = undefined;
         room.world.timeUpdatedAt = Date.now();
       }
+      room.simulation.leave(socket.id);
+      room.movement.remove(socket.id, leaving?.resumeToken);
       room.players.delete(socket.id);
+      ns.to(room.code).emit(
+        'movement:snapshot',
+        room.movement.snapshot(
+          Date.now(),
+          room.world.paused ? 0 : normalizeTimeScale(room.world.timeScale),
+        ),
+      );
       room.gestures.remove(socket.id);
       socket.to(room.code).emit('player:left', socket.id);
+      publish(room);
       if (room.saved && socket.data.linked && socket.data.owner) {
         void touchLink(socket.data.owner, room.code, socket.data.info?.name ?? '').catch(() => {});
       }
       if (room.players.size === 0) {
-        applyTimeChange(room.world, Date.now(), {
-          paused: room.world.paused === true,
-          scale: normalizeTimeScale(room.world.timeScale),
-        });
-        room.world.repairPause = 'empty';
-        // o último jogador a sair deixa o mundo como ele ficou (se o mundo é salvo)
-        if (room.saved) {
-          const save = snapshot(room, room.mission);
-          if (save) void saveWorld(room.code, room.baseId, save).catch(() => {});
-        }
+        room.world=room.simulation.projectWorld();
+        if(room.saved)void room.simulation.save(save=>saveWorld(room.code,room.baseId,save)).catch(()=>{});
         // mantém o mundo por 2 min: quem cai e volta reencontra a mesma partida
-        room.cleanup = setTimeout(() => rooms.delete(room.code), 2 * 60_000);
-        room.cleanup.unref();
+        scheduleCleanup(room);
       }
     });
   });

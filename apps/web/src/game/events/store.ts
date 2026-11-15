@@ -18,6 +18,7 @@ export interface EventSession {
 }
 
 interface GameEventsStore {
+  dismissed: string[];
   /** fila de eventos esperando a base (o primeiro é o que o tablet mostra) */
   queue: GameEventDef[];
   session: EventSession | null;
@@ -31,6 +32,7 @@ interface GameEventsStore {
 }
 
 export const useGameEvents = create<GameEventsStore>((set) => ({
+  dismissed: [],
   queue: [],
   session: null,
   push: (events) =>

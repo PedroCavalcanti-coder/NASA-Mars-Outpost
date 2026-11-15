@@ -63,7 +63,13 @@ export function RoomPanel() {
           </div>
           <span className="hud-room-stat-value">
             {players.mode === 'online' ? (
-              <span className="hud-badge-online">Online (servidor ativo)</span>
+              <span className="hud-badge-online" role="status">
+                {players.status === 'reconnecting'
+                  ? 'Reconectando…'
+                  : players.status === 'failed'
+                    ? 'Conexão encerrada'
+                    : 'Online (servidor ativo)'}
+              </span>
             ) : (
               <span className="hud-badge-local">Local (abas deste navegador)</span>
             )}

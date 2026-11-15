@@ -54,26 +54,6 @@ export function clearPlaySession() {
   write(MISSION_KEY, null);
 }
 
-/** Estado da missão guardado para sobreviver a um recarregamento (só vale para a mesma sala). */
-export function saveMissionSnapshot(room: string, state: unknown) {
-  try {
-    write(MISSION_KEY, JSON.stringify({ room, state }));
-  } catch {
-    /* estado grande demais ou não serializável: ignora */
-  }
-}
-
-export function loadMissionSnapshot<T>(room: string): T | null {
-  const raw = read(MISSION_KEY);
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw) as { room?: string; state?: T };
-    return v.room === room && v.state ? v.state : null;
-  } catch {
-    return null;
-  }
-}
-
 export function clearMissionSnapshot() {
   write(MISSION_KEY, null);
 }

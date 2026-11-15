@@ -110,9 +110,9 @@ describe('tarefas do Sol', () => {
     const tasks = buildTasks(base);
     const kinds = tasks.map((t) => t.kind);
     expect(kinds[0]).toBe('filter');
-    expect(tasks.filter((t) => t.kind === 'crop').map((t) => t.index)).toEqual([0, 2]);
-    expect(tasks.find((t) => t.id.startsWith('crop-0'))?.done).toBe(true);
-    expect(tasks.find((t) => t.id.startsWith('crop-2'))?.done).toBe(false);
+    expect(tasks.filter((t) => t.kind === 'crop')).toHaveLength(1);
+    expect(tasks.find((t) => t.kind === 'crop')?.done).toBe(false);
+    expect(tasks.find((t) => t.kind === 'crop')?.title).toBe('Irrigar a estufa');
     expect(tasks.filter((t) => t.kind === 'solar').map((t) => t.index)).toEqual([1, 2]);
     expect(kinds).toContain('plant');
   });

@@ -13,7 +13,8 @@ const SOCKET_URL: string = import.meta.env.VITE_SOCKET_URL ?? '';
  */
 export function connectSocket(): AppSocket {
   return io(SOCKET_URL, {
-    transports: ['websocket'],
+    transports: ['websocket', 'polling'],
+    tryAllTransports: true,
     withCredentials: true,
     auth: (cb) => {
       api<{ ticket: string }>('/auth/socket-ticket', { method: 'POST' })

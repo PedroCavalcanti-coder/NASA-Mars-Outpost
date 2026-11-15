@@ -90,6 +90,8 @@ export const ASTRONAUT_MODEL_SCALE = 0.75;
 
 /** Mensagem do servidor para os dois jogadores: `a` convidou, `b` aceitou. */
 export interface GestureStart {
+  /** Canonical map-space anchors selected by the movement authority. */
+  poses?: { a: { x: number; z: number; h: number }; b: { x: number; z: number; h: number } };
   a: string;
   b: string;
   gesture: DuoGestureId;

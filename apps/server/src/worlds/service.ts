@@ -1,3 +1,4 @@
+import { createWorldSave, migrateWorldSave, validSaveSize } from '@mars/sim';
 import { restoreIntegrity } from '@mars/shared';
 import { createHmac, randomBytes } from 'node:crypto';
 import {
@@ -54,46 +55,13 @@ export async function ownerFromCookies(header: string | undefined): Promise<stri
   return key && KEY_RE.test(key) ? `k:${hashKey(key)}` : null;
 }
 
-/** Valida o JSON recebido do cliente: só números pequenos e listas limitadas. */
-export function sanitizeSave(raw: {
-  integrity?: unknown;
-  elapsedMs: number;
-  solar: number[];
-  crops: number[];
-  vehicle?: { x: number; z: number; h: number };
-  timeScale?: unknown;
-  paused?: unknown;
-  care?: unknown;
-  board?: unknown;
-  mission?: unknown;
-}): WorldSave | null {
-  const clampList = (l: number[], max: number, top: number) =>
-    l.slice(0, max).map((n) => Math.max(0, Math.min(top, Math.round(Number(n) || 0))));
-  const save: WorldSave = {
-    v: 2,
-    integrity: restoreIntegrity(raw.integrity),
-    elapsedMs: Math.max(0, Math.min(1e12, Math.round(raw.elapsedMs))),
-    solar: clampList(raw.solar, GAME_MAX_SOLAR, 4),
-    crops: clampList(raw.crops, GAME_MAX_CROPS, 3),
-  };
-  if (raw.vehicle) save.vehicle = raw.vehicle;
-  if (raw.timeScale === 2 || raw.timeScale === 3) save.timeScale = raw.timeScale;
-  if (raw.paused === true) save.paused = true;
-  const care = normalizeCare(raw.care);
-  if (care) save.care = care;
-  const board = normalizeBoard(raw.board);
-  if (board) save.board = board;
-  if (raw.mission !== undefined) {
-    let json = '';
-    try {
-      json = JSON.stringify(raw.mission) ?? '';
-    } catch {
-      return null;
-    }
-    if (json.length > WORLD_MISSION_MAX_BYTES) return null;
-    save.mission = JSON.parse(json);
-  }
-  return save;
+/** Structural migration is shared with the simulation owner; size counts UTF-8 bytes. */
+export function sanitizeSave(raw: unknown): WorldSave | null {
+  if(!validSaveSize(raw))return null;
+  const {state}=migrateWorldSave(raw,1,'migration');
+  const vehicle=(raw as WorldSave | undefined)?.vehicle;
+  const validVehicle=vehicle && [vehicle.x,vehicle.z,vehicle.h].every(n=>typeof n==='number' && Number.isFinite(n) && Math.abs(n)<=200) ? vehicle : undefined;
+  return createWorldSave(state,validVehicle);
 }
 
 export async function loadWorld(code: string) {
@@ -103,6 +71,7 @@ export async function loadWorld(code: string) {
 
 /** Grava (sobrescreve) o mundo: vale sempre o estado do último jogador que salvou. */
 export async function saveWorld(code: string, baseId: string, save: WorldSave) {
+  if(!validSaveSize(save))throw new Error('Salvamento excede 256 KiB.');
   const now = new Date();
   await db
     .insert(worlds)

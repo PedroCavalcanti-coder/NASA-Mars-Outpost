@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { copyText } from '../../lib/clipboard';
 import type { OutlineSettings } from '../../lib/gameSettings';
 import { toast } from '../../ui/toast';
 import './settingsModal.css';
@@ -50,7 +51,7 @@ interface Props {
   onOutlineChange?: (next: OutlineSettings) => void;
   inGame?: boolean;
   roomCode?: string;
-  onCopyRoomCode?: () => void;
+  onCopyRoomCode?: () => boolean | Promise<boolean>;
   onLeaveRoom?: () => void;
 }
 
@@ -87,25 +88,27 @@ export function SettingsModal({
     if (!open && d.open) d.close();
   }, [open, inGame]);
 
-  const handleCopy = () => {
-    if (!roomCode) return;
-    if (onCopyRoomCode) {
-      onCopyRoomCode();
-    } else {
-      navigator.clipboard.writeText(roomCode);
-      toast(`Código da sala ${roomCode} copiado!`, 'ok');
-    }
-    setCopied(true);
+  const copyInvite = async (text: string, message: string) => {
+    const ok = await copyText(text);
+    toast(
+      ok ? message : 'Não foi possível copiar. Selecione o código da sala manualmente.',
+      ok ? 'ok' : 'error',
+    );
+    setCopied(ok);
     setTimeout(() => setCopied(false), 2600);
+  };
+
+  const handleCopy = async () => {
+    if (onCopyRoomCode) {
+      setCopied(await onCopyRoomCode());
+      setTimeout(() => setCopied(false), 2600);
+    } else if (roomCode) await copyInvite(roomCode, `Código da sala ${roomCode} copiado!`);
   };
 
   const handleCopyLink = () => {
     if (!roomCode) return;
     const link = `${window.location.origin}/jogar?sala=${encodeURIComponent(roomCode)}`;
-    navigator.clipboard.writeText(link);
-    toast('Link de convite da sala copiado!', 'ok');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2600);
+    void copyInvite(link, 'Link de convite da sala copiado!');
   };
 
   return (

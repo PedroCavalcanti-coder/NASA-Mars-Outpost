@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { LORE } from '../../../game/lore/lore';
 import { useLore } from '../../../game/lore/store';
 import { GameClock } from '../../../game/sim/clock';
+import { useGameSettings } from '../../../lib/gameSettings';
 
 /**
  * Curiosidade da base: mesma janela dos eventos, com a história real do objeto, foto de arquivo e
@@ -17,6 +18,12 @@ export function LoreCard() {
   useEffect(() => {
     if (!id) return;
     ok.current?.focus();
+    const { audio } = useGameSettings.getState();
+    if (!audio.muted && audio.masterVolume > 0 && audio.sfxVolume > 0) {
+      const sound = new Audio('/assets/audio/card-info.mp3');
+      sound.volume = (audio.masterVolume * audio.sfxVolume) / 10000;
+      void sound.play().catch(() => {});
+    }
     if (!GameClock.isPaused() && GameClock.canControl()) {
       paused.current = GameClock.setPaused(true) !== false;
     }

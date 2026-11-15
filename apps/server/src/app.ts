@@ -15,6 +15,7 @@ import { db } from './db/client';
 import { friendRoutes } from './friends/routes';
 import { installErrorHandler } from './http';
 import { messageRoutes } from './messages/routes';
+import { originAllowed } from './security/origin';
 import { worldRoutes } from './worlds/routes';
 
 export async function buildApp() {
@@ -47,7 +48,10 @@ export async function buildApp() {
     },
     hsts: config.isProd,
   });
-  await app.register(cors, { origin: config.webOrigins, credentials: true });
+  await app.register(cors, {
+    origin: (origin, cb) => cb(null, !origin || originAllowed(origin)),
+    credentials: true,
+  });
   await app.register(cookie);
   await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
   installAuth(app);

@@ -96,6 +96,10 @@ const TURN_SPEED = 14; // rad/s
 const CORNER_BLEND = 1.3; // distância (u) em que a curva começa a ser suavizada
 
 export class AstronautActor implements Collider {
+  networkControlled = false;
+  private readonly bodyVisual = new THREE.Group();
+  private readonly correctionOffset = new THREE.Vector3();
+  private networkMotion: ActorMotion = 'idle';
   readonly root = new THREE.Group();
   readonly id: string;
   readonly name: string;
@@ -161,6 +165,7 @@ export class AstronautActor implements Collider {
     this.name = name;
     this.isLocal = isLocal;
     this.root.visible = false;
+    this.root.add(this.bodyVisual);
     this.ready = this.init(suit);
   }
 
@@ -196,13 +201,18 @@ export class AstronautActor implements Collider {
         : this.taskKind === 'harvest'
           ? 'harvest'
           : 'clean';
-    return this.isMoving ? 'walk' : 'idle';
+    return this.networkControlled ? this.networkMotion : this.isMoving ? 'walk' : 'idle';
+  }
+
+  get taskActivity(): ActorTask | 'idle' {
+    return this.taskLeft > 0 ? this.taskKind : 'idle';
   }
 
   private taskKind: ActorTask = 'clean';
 
   /** Está se deslocando (ou tem um caminho/tecla ativos)? */
   get isMoving() {
+    if (this.networkControlled) return this.networkMotion === 'walk' || (this.isLocal && this.pathActive);
     return this.pathActive || this.input !== null || this.vel.lengthSq() > 0.04;
   }
 
@@ -246,7 +256,7 @@ export class AstronautActor implements Collider {
 
     applySuitAppearance(model, cloneSuit(suit));
     this.setExpression(FACE_HAPPY);
-    this.root.add(model);
+    this.bodyVisual.add(model);
 
     this.mixer = new THREE.AnimationMixer(model);
     for (const clip of animations) this.actions.set(clip.name, this.mixer.clipAction(clip));
@@ -521,6 +531,24 @@ export class AstronautActor implements Collider {
 
   // ------------------------------------------------------------------ rede (jogador remoto)
 
+  smoothNetworkCorrection(dx: number, dz: number) {
+    if (Math.hypot(dx, dz) > 0.3) this.correctionOffset.set(0, 0, 0);
+    else {
+      this.correctionOffset.x += dx;
+      this.correctionOffset.z += dz;
+      this.correctionOffset.clampLength(0, 0.3);
+    }
+  }
+
+  applyNetworkPose(s: ActorSnapshot, grid: BaseGrid | null) {
+    this.networkMotion = s.m;
+    this.root.position.set(s.x, grid?.groundY(s.x, s.z) ?? 0.04, s.z);
+    this.currentHeading = s.h;
+    this.root.rotation.y = s.h;
+    this.vel.set(0, 0);
+    if (this.isLocal && !this.isBusy) this.crossfadeTo(s.m === 'walk' ? 'Walk' : 'Idle', 0.15);
+  }
+
   applySnapshot(s: ActorSnapshot) {
     this.remoteTarget = s;
   }
@@ -533,6 +561,14 @@ export class AstronautActor implements Collider {
    */
   update(dt: number, ctx: MoveContext, animate = true) {
     if (!this.revealed) return;
+    this.correctionOffset.multiplyScalar(Math.exp(-dt * 20));
+    const { x: ox, z: oz } = this.correctionOffset;
+    const h = this.currentHeading;
+    this.bodyVisual.position.set(
+      Math.cos(h) * ox - Math.sin(h) * oz,
+      0,
+      Math.sin(h) * ox + Math.cos(h) * oz,
+    );
     this.emote.update(dt);
     if (animate) this.mixer?.update(dt);
     this.updateFace(dt);
@@ -572,6 +608,8 @@ export class AstronautActor implements Collider {
       }
       return;
     }
+
+    if (this.networkControlled) return;
 
     // ---- 1. direção desejada (teclado ou caminho) ----
     let wantX = 0;
@@ -743,7 +781,7 @@ export class AstronautActor implements Collider {
     const dx = t.x - pos.x;
     const dz = t.z - pos.z;
     const dist = Math.hypot(dx, dz);
-    if (dist > 6) {
+    if (this.networkControlled || dist > 6) {
       pos.x = t.x;
       pos.z = t.z;
     } else {
@@ -753,7 +791,10 @@ export class AstronautActor implements Collider {
     }
     if (grid) pos.y += (grid.groundY(pos.x, pos.z) - pos.y) * Math.min(1, dt * 12);
 
-    this.turnTowards(dist > 0.15 ? Math.atan2(dx, dz) : t.h, dt);
+    if (this.networkControlled) {
+      this.currentHeading = t.h;
+      this.root.rotation.y = t.h;
+    } else this.turnTowards(dist > 0.15 ? Math.atan2(dx, dz) : t.h, dt);
 
     if (this.emoteLeft > 0 && (t.m !== 'idle' || dist > 0.15)) this.cancelEmote();
     if (t.m !== this.remoteMotion) {

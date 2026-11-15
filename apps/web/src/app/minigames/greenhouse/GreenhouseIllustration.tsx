@@ -395,6 +395,17 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
       <path d="M0 660V434H1000V660Z" fill={`url(#${id}-floor)`} />
       <path d="M0 432H1000" stroke="#263f3d" strokeWidth="16" />
 
+      {/* Canteiros distantes representam o restante da estufa. */}
+      {[250, 710].map((x) => (
+        <g key={x} aria-hidden="true" opacity=".68" transform={`translate(${x} 385) scale(.42)`}>
+          <rect x="-145" y="-24" width="290" height="65" rx="12" fill="#a8b8a2" stroke="#49645a" strokeWidth="6" />
+          <ellipse cy="-20" rx="140" ry="18" fill="#526d56" />
+          <Plant x={-85} y={-24} scale={0.6} />
+          <Plant x={0} y={-24} scale={0.7} />
+          <Plant x={85} y={-24} scale={0.6} />
+        </g>
+      ))}
+
       <path
         d="M72 576V304Q72 280 100 280H907Q932 280 932 307V576"
         fill="none"

@@ -4,7 +4,7 @@ import { purgeSessions } from './auth/sessions';
 import { config } from './config';
 import { closeDb } from './db/client';
 import { runMigrations } from './db/migrate';
-import { registerGameNamespace } from './realtime/game';
+import { registerGameNamespace, flushGameSaves } from './realtime/game';
 import { createSocketServer } from './realtime/socket';
 
 await runMigrations();
@@ -25,6 +25,7 @@ async function shutdown() {
   if (closing) return;
   closing = true;
   clearInterval(cleanup);
+  await flushGameSaves();
   io.close();
   await app.close();
   await closeDb();

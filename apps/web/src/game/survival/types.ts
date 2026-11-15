@@ -40,17 +40,5 @@ export const COLD_SETTINGS = {
   COLD_OXYGEN_COST: 4,
 } as const;
 
-export const NAP_SETTINGS = {
-  /** Só dá para dormir quando já é noite (fator de noite acima disto) */
-  MIN_NIGHT_TO_SLEEP: 0.5,
-  /** Hora do dia (0..24) em que o astronauta acorda */
-  WAKE_HOUR: 6.5,
-  /** Oxigênio da base gasto por hora de sono (a base segue respirando) */
-  OXYGEN_PER_HOUR: 1.2,
-  /** Mantimentos gastos pela refeição da noite, uma vez por sono */
-  SUPPLIES_COST: 2,
-  /** Limite de intensidade de tempestade que ainda permite adormecer */
-  MAX_STORM_FOR_NAP: 0.5,
-} as const;
 
 export type OxygenStatus = 'safe' | 'consuming' | 'critical' | 'depleted';

@@ -6,10 +6,10 @@ import {
 } from '@mars/shared';
 import { Server } from 'socket.io';
 import { loadAuth } from '../auth/sessions';
-import { config } from '../config';
 import { bus } from '../events';
 import { areFriends, friendIds } from '../friends/service';
 import { markRead, saveMessage } from '../messages/service';
+import { originAllowed } from '../security/origin';
 import { verifyToken } from '../security/tokens';
 import { addPresence, isOnline, removePresence } from './presence';
 
@@ -32,21 +32,27 @@ const sessionRoom = (id: string) => `session:${id}`;
 
 export function createSocketServer(http: HttpServer): IO {
   const io: IO = new Server(http, {
-    cors: { origin: config.webOrigins, credentials: true },
+    cors: { origin: (origin, cb) => cb(null, !origin || originAllowed(origin)), credentials: true },
+    allowRequest: (req, cb) =>
+      cb(null, !req.headers.origin || originAllowed(req.headers.origin, req.headers.host)),
     serveClient: false,
     maxHttpBufferSize: 16 * 1024, // mensagens são curtas; corta payloads gigantes
   });
 
   /** Autentica no handshake com o ingresso de 60 s (POST /api/auth/socket-ticket). */
   io.use(async (socket, next) => {
-    const ticket = (socket.handshake.auth as { ticket?: unknown } | undefined)?.ticket;
-    const claims = await verifyToken(typeof ticket === 'string' ? ticket : undefined, 'socket');
-    const auth = claims ? await loadAuth(claims) : null;
-    if (!auth) return next(new Error('unauthorized'));
-    socket.data.userId = auth.user.id;
-    socket.data.sessionId = auth.sessionId;
-    socket.data.sent = [];
-    next();
+    try {
+      const ticket = (socket.handshake.auth as { ticket?: unknown } | undefined)?.ticket;
+      const claims = await verifyToken(typeof ticket === 'string' ? ticket : undefined, 'socket');
+      const auth = claims ? await loadAuth(claims) : null;
+      if (!auth) return next(new Error('unauthorized'));
+      socket.data.userId = auth.user.id;
+      socket.data.sessionId = auth.sessionId;
+      socket.data.sent = [];
+      next();
+    } catch {
+      next(new Error('unauthorized'));
+    }
   });
 
   io.on('connection', async (socket) => {
@@ -64,10 +70,11 @@ export function createSocketServer(http: HttpServer): IO {
       const parsed = sendMessageSchema.safeParse(raw);
       if (!parsed.success) return reply({ ok: false, error: 'Mensagem inválida' });
       const { to, text } = parsed.data;
+      // Reserva a ficha antes do await, inclusive para pedidos simultâneos.
+      socket.data.sent.push(now);
       try {
         if (!(await areFriends(userId, to)))
           return reply({ ok: false, error: 'Vocês não são amigos' });
-        socket.data.sent.push(now);
         const message = await saveMessage(userId, to, text);
         io.to(userRoom(to)).emit('dm:message', message);
         // outras abas/dispositivos do remetente também recebem
@@ -105,14 +112,19 @@ export function createSocketServer(http: HttpServer): IO {
     });
 
     // Entra nas salas e anuncia a presença.
-    await socket.join([userRoom(userId), sessionRoom(sessionId)]);
-    const friends = await friendIds(userId);
-    if (closed) return; // desconectou durante a preparação
-    present = true;
-    const becameOnline = addPresence(userId, socket.id);
-    socket.emit('presence:list', friends.filter(isOnline));
-    if (becameOnline) {
-      for (const f of friends) io.to(userRoom(f)).emit('presence:update', { userId, online: true });
+    try {
+      await socket.join([userRoom(userId), sessionRoom(sessionId)]);
+      const friends = await friendIds(userId);
+      if (closed) return; // desconectou durante a preparação
+      present = true;
+      const becameOnline = addPresence(userId, socket.id);
+      socket.emit('presence:list', friends.filter(isOnline));
+      if (becameOnline) {
+        for (const f of friends)
+          io.to(userRoom(f)).emit('presence:update', { userId, online: true });
+      }
+    } catch (err) {
+      console.error('[socket] falha ao preparar presença:', (err as Error).message);
     }
   });
 
@@ -156,7 +168,7 @@ export function createSocketServer(http: HttpServer): IO {
     }
   }, 5 * 60_000);
   sweep.unref();
-  io.engine.on('close', () => clearInterval(sweep));
+  http.once('close', () => clearInterval(sweep));
 
   return io;
 }

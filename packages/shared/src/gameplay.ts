@@ -1,0 +1,109 @@
+import { z } from 'zod';
+import type { MissionState, LogEntry } from './campaign';
+import type { IntegrityState, RepairIntent } from './integrity';
+
+export const GAMEPLAY_VERSION = 1;
+export const GAME_STEP_MS = 100;
+export const GAME_PUBLISH_MS = 500;
+export const WORLD_SAVE_MAX_BYTES = 256 * 1024;
+export type PauseReason = 'manual' | 'event' | 'repair' | 'loading' | 'empty' | 'ended';
+export type ActivityKind = 'station' | 'drill' | 'soil' | 'solar' | 'filter' | 'greenhouse' | 'upload';
+export interface GameplayPlayer {
+  id: string; name: string; ready: boolean; tank: number; exposure: number;
+  inside: boolean; driving: boolean; rescued: number; rescueUntil: number;
+  blocked: boolean; cold: boolean; carrying: number;
+}
+export interface Challenge {
+  rolls: number[]; target: string; debris: number[]; files: number[];
+  soil: number[]; blocks: number[];
+}
+export interface ActivityAttempt {
+  id: string; player: string; kind: ActivityKind; target: string; sol: number;
+  startedAt: number; elapsed: number; expiresAt: number; seq: number;
+  challenge: Challenge; marks: boolean[]; lastAction: number;
+  drill: { depth: number; heat: number; jammed: boolean }; holding: boolean;
+  removed: number[]; coverage: number[]; water: number; moisture: number;
+  samples: number[]; file: number; transmitted: number; batch: number;
+  quality: number | null; participants: string[];
+}
+export interface OfficialEvent {
+  eid: string; id: string; sol: number; mode: 'solo' | 'decider' | 'vote';
+  deciderId: string | null; voters: { id: string; name: string }[];
+  votes: Record<string, number>; remainingMs: number;
+  result: { choice: number; outcome: EventResult } | null;
+}
+export interface EventResult {
+  tone: 'good' | 'bad' | 'info'; text: string;
+  deltas?: Partial<Record<'energy' | 'supplies' | 'oxygen' | 'armor' | 'research', number>>;
+}
+export interface GameplayState {
+  version: typeof GAMEPLAY_VERSION; generation: string; revision: number;
+  elapsedMs: number; interactionMs: number; scale: 1 | 2 | 3; pauses: PauseReason[];
+  started: boolean; mission: MissionState; integrity: IntegrityState;
+  solar: number[]; crops: number[]; growth: number[];
+  care: { crops: number[]; filter: number; needsCare: boolean[] };
+  board: { sol: number; ids: string[]; done: string[]; garden: number; players: number };
+  quotas: { moxie: number; water: number; bench: number }; rocks: number[];
+  storm: number; stormLeft: number; wind: number;
+  eventQueue: { eid: string; id: string; sol: number }[];
+  event: OfficialEvent | null; eventSols: number[];
+  pending: { id: string; remainingMs: number; research: number }[];
+  players: Record<string, GameplayPlayer>; attempts: Record<string, ActivityAttempt>;
+}
+export interface GameplaySnapshot { version: number; serverNow: number; state: GameplayState }
+export interface GameplayUpdate {
+  version: number; generation: string; previousRevision: number; revision: number;
+  serverNow: number; state: Omit<GameplayState, 'mission'> & { mission: Omit<MissionState, 'log'> };
+  entries: LogEntry[];
+}
+const short = z.string().min(1).max(96);
+const index = z.number().int().min(0).max(255);
+const point = z.object({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) }).strict();
+export const activityActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('mark'), round: index }).strict(),
+  z.object({ type: z.literal('drill'), holding: z.boolean() }).strict(),
+  z.object({ type: z.literal('collect') }).strict(),
+  z.object({ type: z.literal('sample'), index }).strict(),
+  z.object({ type: z.literal('brush'), points: z.array(point).min(1).max(32) }).strict(),
+  z.object({ type: z.literal('remove'), ids: z.array(index).min(1).max(16) }).strict(),
+  z.object({ type: z.literal('water'), holding: z.boolean() }).strict(),
+  z.object({ type: z.literal('transmit'), file: index, holding: z.boolean() }).strict(),
+]);
+export type ActivityAction = z.infer<typeof activityActionSchema>;
+export const gameCommandSchema = z.object({
+  version: z.literal(GAMEPLAY_VERSION), operationId: short, generation: short,
+  payload: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('ready') }).strict(),
+    z.object({ type: z.literal('time'), paused: z.boolean(), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) }).strict(),
+    z.object({ type: z.literal('start'), kind: z.enum(['station','drill','soil','solar','filter','greenhouse','upload']), target: short }).strict(),
+    z.object({ type: z.literal('actions'), attempt: short, seq: z.number().int().min(1).max(100000), actions: z.array(activityActionSchema).min(1).max(32) }).strict(),
+    z.object({ type: z.literal('finish'), attempt: short }).strict(),
+    z.object({ type: z.literal('cancel'), attempt: short }).strict(),
+    z.object({ type: z.literal('interact'), kind: z.enum(['plant','harvest','rock','moxie','water','bench','deliver']), target: short }).strict(),
+    z.object({ type: z.literal('event:open'), eid: short }).strict(),
+    z.object({ type: z.literal('event:choose'), eid: short, choice: index }).strict(),
+    z.object({ type: z.literal('action'), action: z.enum(['research','expedition']) }).strict(),
+  ]),
+}).strict();
+export type GameCommand = z.infer<typeof gameCommandSchema>;
+export type GamePayload = GameCommand['payload'];
+export type GameErrorCode = 'INVALID_COMMAND' | 'STALE_GENERATION' | 'NOT_READY' | 'PAUSED' | 'ENDED' | 'FORBIDDEN' | 'TOO_FAR' | 'UNAVAILABLE' | 'BUSY' | 'INSUFFICIENT_RESOURCES' | 'INVALID_SEQUENCE' | 'EXPIRED' | 'RATE_LIMITED' | 'OFFLINE';
+export type GameConfirmation = { ok: true; operationId: string; generation: string; revision: number; attempt?: ActivityAttempt } | { ok: false; operationId: string; generation: string; revision: number; code: GameErrorCode; error: string };
+export interface GameplayContext {
+  x: number; z: number; inside: boolean; sheltered: boolean; driving: boolean;
+  ready: boolean;
+}
+/** Adapter implemented by the existing movement owner; gameplay never integrates physics. */
+export interface GameplayMovement {
+  context(id: string): GameplayContext | undefined;
+  near(id: string, target: string, distance: number): boolean;
+  restrict(id: string, blocked: boolean, cold: boolean): void;
+  rescue(id: string): void;
+}
+export interface WorldSaveV3 {
+  v: 3; simulation: GameplayState;
+  elapsedMs: number; solar: number[]; crops: number[]; integrity: IntegrityState;
+  vehicle?: { x: number; z: number; h: number };
+  care: GameplayState['care']; board: GameplayState['board'];
+  timeScale: 1 | 2 | 3; paused: boolean; mission: MissionState;
+}

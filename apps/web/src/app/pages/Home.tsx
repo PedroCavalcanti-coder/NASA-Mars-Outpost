@@ -392,7 +392,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
               <ArrowRight />
             </span>
             <span className="launch-cta-label">
-              Jogar Agora<small>Sua missão começa aqui!</small>
+              Jogar Agora
             </span>
           </button>
         </div>

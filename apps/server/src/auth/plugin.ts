@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { config } from '../config';
 import { HttpError } from '../http';
+import { originAllowed } from '../security/origin';
 import { verifyToken } from '../security/tokens';
 import { type Authenticated, loadAuth } from './sessions';
 
@@ -12,22 +13,6 @@ declare module 'fastify' {
 
 const bearer = (header: string | undefined) =>
   header?.startsWith('Bearer ') ? header.slice(7) : undefined;
-
-/** Origens aceitas em requisições que alteram dados (defesa extra contra CSRF). */
-function originAllowed(origin: string, host: string | undefined) {
-  if (config.webOrigins.includes(origin.replace(/\/$/, ''))) return true;
-  try {
-    const url = new URL(origin);
-    if (url.host === host) return true; // site servido pelo próprio servidor
-    // Só em desenvolvimento: acesso pela rede local (o proxy do Vite troca o Host da requisição).
-    return (
-      !config.isProd &&
-      /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(url.hostname)
-    );
-  } catch {
-    return false;
-  }
-}
 
 export function installAuth(app: FastifyInstance) {
   app.decorateRequest('auth', null);
