@@ -37,7 +37,7 @@ function loadAstronautGLTF() {
 }
 
 /** O que o astronauta está fazendo (viaja pela rede para animar o astronauta remoto). */
-export type ActorMotion = 'idle' | 'walk' | 'clean' | 'plant' | 'harvest' | 'drive';
+export type ActorMotion = 'idle' | 'walk' | 'clean' | 'plant' | 'harvest' | 'drive' | 'ride';
 
 /** Tarefas de campo: cada uma tem animação, ferramenta e duração próprias. */
 export type ActorTask = 'clean' | 'plant' | 'harvest';

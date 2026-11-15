@@ -68,16 +68,32 @@ export class CropSystem {
       const world = new THREE.Vector3();
       marker.getWorldPosition(world);
 
-      // canteiro vazio: um montinho de terra, para o bloco nunca "sumir" depois da colheita
-      const mound = new THREE.Mesh(this.moundGeo, this.moundMat);
-      mound.position.copy(marker.position);
-      mound.quaternion.copy(marker.quaternion);
-      mound.scale.copy(marker.scale);
-      mound.receiveShadow = true;
-      mound.userData.keepSeparate = true;
-      mound.visible = false;
-      marker.parent.add(mound);
-      const visuals: Array<THREE.Object3D | null> = [mound];
+      // canteiro vazio: a caixa de terra do modelo (`PLANTA_<planta>_0_Vazio`), para o bloco nunca
+      // "sumir" antes de plantar nem depois de a planta morrer; sem o modelo, um montinho de terra
+      let empty: THREE.Object3D | null = null;
+      const bed = plants?.getObjectByName(`PLANTA_${kind}_0_Vazio`);
+      if (bed) {
+        empty = bed.clone(true);
+        empty.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (m.isMesh) {
+            m.castShadow = true;
+            m.receiveShadow = true;
+            m.userData.keepSeparate = true;
+          }
+        });
+        onPlantMesh(empty);
+      } else {
+        empty = new THREE.Mesh(this.moundGeo, this.moundMat);
+        (empty as THREE.Mesh).receiveShadow = true;
+        empty.userData.keepSeparate = true;
+      }
+      empty.position.copy(marker.position);
+      empty.quaternion.copy(marker.quaternion);
+      empty.scale.copy(marker.scale);
+      empty.visible = false;
+      marker.parent.add(empty);
+      const visuals: Array<THREE.Object3D | null> = [empty];
       for (let s = 1; s <= 3; s++) {
         const src = plants?.getObjectByName(STAGE_MODELS[kind][s - 1]!);
         if (!src) {

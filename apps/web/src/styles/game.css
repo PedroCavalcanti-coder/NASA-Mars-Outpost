@@ -951,10 +951,105 @@
   border-radius: 10px;
   background: var(--game-gold, #ffb511);
   color: #1a1203;
-  font: 800 18px "Barlow", sans-serif;
+  font:
+    800 18px "Barlow",
+    sans-serif;
   cursor: pointer;
 }
 .game__intro-btn:disabled {
   opacity: 0.55;
   cursor: progress;
+}
+
+/* ---------- Toque: joystick virtual e aviso de rotação ---------- */
+.touch-joystick {
+  position: fixed;
+  z-index: 34;
+  left: calc(22px + env(safe-area-inset-left, 0px));
+  bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(120, 172, 225, 0.5);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(20, 40, 84, 0.55), rgba(9, 18, 42, 0.45));
+  backdrop-filter: blur(6px);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.touch-joystick__knob {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 196, 64, 0.85);
+  background: radial-gradient(
+    circle at 35% 30%,
+    rgba(255, 216, 120, 0.9),
+    rgba(214, 140, 20, 0.85)
+  );
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* a faixa de mensagens sai da frente do joystick */
+.game--touch .hud-bottom {
+  left: calc(172px + env(safe-area-inset-left, 0px));
+}
+
+.game--touch canvas {
+  touch-action: none;
+}
+
+.rotate-gate {
+  position: fixed;
+  z-index: 2000;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  background: rgba(4, 10, 24, 0.96);
+  color: #e7f1ff;
+  text-align: center;
+}
+
+.rotate-gate svg {
+  color: #ffb511;
+  animation: rotate-gate-spin 2.4s ease-in-out infinite;
+}
+
+.rotate-gate h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.rotate-gate p {
+  margin: 0;
+  max-width: 320px;
+  color: #b9d0ee;
+  line-height: 1.5;
+}
+
+@keyframes rotate-gate-spin {
+  0%,
+  20% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}
+
+/* telas baixas (celular deitado): o tablet de eventos e os painéis ganham folga */
+@media (pointer: coarse) {
+  .game button,
+  .game [role="button"] {
+    touch-action: manipulation;
+  }
 }

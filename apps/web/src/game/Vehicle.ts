@@ -15,6 +15,11 @@ const WHEEL_RADIUS = 0.5 * SCALE;
 export interface DriveInput {
   /** direção desejada no mundo (já relativa à câmera), ou null para frear */
   dir: { x: number; z: number } | null;
+  /**
+   * Controle de carro (W/S acelera e dá ré, A/D esterça), relativo ao próprio rover.
+   * Tem prioridade sobre `dir`.
+   */
+  manual?: { throttle: number; steer: number } | null;
 }
 
 /**
@@ -137,11 +142,13 @@ export class Rover {
    * Colisão: o centro do carro nunca entra numa célula proibida (paredes, base, rochas…).
    */
   drive(dt: number, input: DriveInput, grid: BaseGrid | null) {
-    let desired = input.dir;
+    const manual = input.manual ?? null;
+    let desired = manual ? null : input.dir;
     let remaining = Number.POSITIVE_INFINITY; // distância até o ponto do caminho
     let limit = ROVER_MAX_SPEED;
+    if (manual) this.stopPath();
 
-    if (!desired && this.waypoints.length > 0) {
+    if (!desired && !manual && this.waypoints.length > 0) {
       const t = this.waypoints[this.index];
       if (t) {
         const dx = t.x - this.root.position.x;
@@ -169,7 +176,12 @@ export class Rover {
     // Se o destino está atrás, o carro dá ré em vez de dar a volta no lugar.
     let targetSpeed = 0;
     let curvature = 0;
-    if (desired) {
+    if (manual) {
+      // W anda para a FRENTE do rover, S dá ré; A vira à esquerda e D à direita (heading cresce
+      // para a esquerda do carro, e a curvatura inverte sozinha na ré, como num carro de verdade)
+      targetSpeed = manual.throttle > 0 ? limit : manual.throttle < 0 ? -3.2 : 0;
+      curvature = manual.steer / MIN_TURN_RADIUS;
+    } else if (desired) {
       const want = Math.atan2(desired.x, desired.z);
       let diff = want - this.heading;
       while (diff > Math.PI) diff -= Math.PI * 2;

@@ -10,6 +10,8 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onJoin: (roomCode: string, nickname: string) => void;
+  /** código já preenchido (convite por link) */
+  initialCode?: string;
 }
 
 type Tab = 'code' | 'recent';
@@ -32,11 +34,11 @@ function ago(iso: string) {
   return `há ${days} dias`;
 }
 
-export function JoinWorldModal({ open, onClose, onJoin }: Props) {
+export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const user = useAuth((s) => s.user);
   const [tab, setTab] = useState<Tab>('code');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(initialCode);
   const [nickname, setNickname] = useState(() => user?.name ?? getGuestName() ?? '');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

@@ -488,3 +488,23 @@ a:hover {
 .logo__word span:last-child {
   color: var(--brand-hi);
 }
+
+/* celular deitado: avisos menores, no meio da base da tela (sem cobrir o joystick nem o tablet) */
+@media (max-height: 520px) and (orientation: landscape) {
+  .toaster {
+    right: auto;
+    left: 50%;
+    bottom: 8px;
+    width: min(440px, 56vw);
+    transform: translateX(-50%);
+  }
+  .toast {
+    padding: 6px 10px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+  .toast svg {
+    width: 16px;
+    height: 16px;
+  }
+}

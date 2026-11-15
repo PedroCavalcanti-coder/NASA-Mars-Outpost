@@ -20,6 +20,8 @@ import type {
   BaseViewer as Viewer,
 } from '../../game/BaseViewer';
 import { registerDevAction } from '../../game/dev/devActions';
+import { type EventOutcome, GAME_EVENTS, type GameEventDef } from '../../game/events/events';
+import { useGameEvents } from '../../game/events/store';
 import { MISSIONS, type MissionId } from '../../game/missions/rules';
 import {
   expeditionSnapshot,
@@ -27,8 +29,22 @@ import {
   retainExpedition,
   subscribeExpedition,
 } from '../../game/runtime/expedition';
-import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
+import {
+  BASE_IDS,
+  type BaseId,
+  type BaseInfo,
+  loadBaseInfo,
+  pickRandomBase,
+} from '../../lib/bases';
 import { copyText } from '../../lib/clipboard';
+import {
+  clearMissionSnapshot,
+  clearPlaySession,
+  getPlaySession,
+  loadMissionSnapshot,
+  saveMissionSnapshot,
+  savePlaySession,
+} from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
@@ -36,11 +52,13 @@ import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionVeil } from '../components/hud/MissionVeil';
+import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
+import { EventTablet } from '../components/mission/EventTablet';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
-import Home from './Home';
+import { Spinner } from '../../ui/Empty';
 
 // Minigames das tarefas do Sol: carregados só quando abertos
 const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/SolarCleaningPreview'));
@@ -61,9 +79,80 @@ const SoilSamplingGame = lazy(() => import('../minigames/missions/SoilSamplingGa
  */
 export default function Game() {
   useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
+  const authReady = useAuth((s) => s.ready);
   const session = peekExpedition();
-  if (!session?.entered || !session.ready) return <Home arrivalOnly />;
-  return <ReadyGame />;
+  if (session?.entered && session.ready) return <ReadyGame />;
+  // sem partida em andamento (digitou /jogar na barra de endereço): volta ao início, onde se
+  // escolhe o traje e se faz a viagem; recarregar DENTRO do jogo continua a mesma partida
+  if (!getPlaySession() && !session?.entered) return <RedirectHome />;
+  if (!authReady) return <Spinner />;
+  return <ResumeGame />;
+}
+
+/**
+ * `/jogar` sem partida em andamento: volta ao início. Um convite (`?sala=`) abre a janela de
+ * entrar no mundo com o código já preenchido; `?base=` só escolhe a base da próxima viagem.
+ */
+function RedirectHome() {
+  const [params] = useSearchParams();
+  const sala = params.get('sala')?.trim();
+  const base = params.get('base');
+  if (base && BASE_IDS.includes(base as BaseId)) {
+    try {
+      sessionStorage.setItem('mo_base', base);
+    } catch {
+      /* navegação privada: usa a base sorteada */
+    }
+  }
+  return <Navigate to={sala ? `/?sala=${encodeURIComponent(sala)}` : '/'} replace />;
+}
+
+/** Recarregou a página no meio do jogo: reabre a mesma base e a mesma sala, sem o pouso. */
+function ResumeGame() {
+  const nav = useNavigate();
+  useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
+  useEffect(() => {
+    const lease = retainExpedition();
+    const s = lease.session;
+    const enter = () => {
+      if (s.ready && !s.entered) s.enter();
+    };
+    enter();
+    const off = subscribeExpedition(enter);
+    return () => {
+      off();
+      lease.release();
+    };
+  }, []);
+  const error = peekExpedition()?.error;
+  return (
+    <main className="game">
+      <div className="game__loading" role="status">
+        {error ? (
+          <>
+            <TriangleAlert size={28} />
+            <h2 className="game__loading-title">Não foi possível retomar</h2>
+            <p>{error}</p>
+            <button
+              type="button"
+              className="game__intro-btn"
+              onClick={() => {
+                clearPlaySession();
+                nav('/', { replace: true });
+              }}
+            >
+              Voltar ao início
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="game__loading-kicker">RETOMANDO A MISSÃO</span>
+            <h2 className="game__loading-title">Voltando para a sua base…</h2>
+          </>
+        )}
+      </div>
+    </main>
+  );
 }
 
 function ReadyGame() {
@@ -98,11 +187,15 @@ function ReadyGame() {
   const [baseId, setBaseId] = useState<BaseId>(() => {
     if (queryBase) return queryBase;
     if (detectedBaseFromRoom) return detectedBaseFromRoom;
-    return peekExpedition()?.id ?? pickRandomBase();
+    const resumed = getPlaySession()?.base as BaseId | undefined;
+    return peekExpedition()?.id ?? resumed ?? pickRandomBase();
   });
 
   const [roomCode] = useState(() => {
     if (queryRoom) return queryRoom.toUpperCase();
+    // recarregou a página: continua na mesma sala (o mesmo mundo e o mesmo save)
+    const resumedRoom = getPlaySession()?.room;
+    if (resumedRoom) return resumedRoom;
     const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
     return `MARS-${baseId.toUpperCase()}-${rand}`;
   });
@@ -112,7 +205,10 @@ function ReadyGame() {
   const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
   // tela de introdução: fica até o jogador clicar em "Começar" (e a base terminar de carregar)
-  const [intro, setIntro] = useState<'show' | 'leaving' | 'gone'>('show');
+  // recarregou a página no meio do jogo: sem a introdução (ela é só da primeira entrada)
+  const [intro, setIntro] = useState<'show' | 'leaving' | 'gone'>(() =>
+    getPlaySession() ? 'gone' : 'show',
+  );
   const [error, setError] = useState<string | null>(null);
   const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
   const closeMinigame = useCallback(() => {
@@ -148,16 +244,48 @@ function ReadyGame() {
   const [driving, setDriving] = useState(false);
   const [persist, setPersist] = useState({ linked: false, canSave: false });
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const touch = useIsTouch();
+  const eventsPending = useGameEvents((s) => s.queue.length > 0);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const startMission = useMission((m) => m.start);
   const missionStarted = useMission((m) => m.state.log.length > 0 && m.state.status === 'playing');
 
-  // Cada base sorteada começa uma missão nova.
+  // Cada base sorteada começa uma missão nova (exceto ao recarregar a página: a missão volta).
+  const firstMission = useRef(true);
   // biome-ignore lint/correctness/useExhaustiveDependencies: reinicia a missão a cada base sorteada
   useEffect(() => {
-    startMission();
+    const first = firstMission.current;
+    firstMission.current = false;
+    savePlaySession({ room: roomCode, base: baseId });
+    const saved = first
+      ? loadMissionSnapshot<ReturnType<typeof useMission.getState>['state']>(roomCode)
+      : null;
+    if (saved && typeof saved.sol === 'number' && saved.resources) {
+      useMission.setState({ state: saved, feedback: null, lastEntries: [], error: null });
+    } else {
+      startMission();
+      useGameEvents.getState().clear();
+    }
   }, [baseId, startMission]);
+
+  // guarda a missão para o recarregar da página (no máximo a cada 2 s)
+  useEffect(() => {
+    let timer: number | undefined;
+    const unsub = useMission.subscribe(() => {
+      if (timer) return;
+      timer = window.setTimeout(() => {
+        timer = undefined;
+        saveMissionSnapshot(roomCode, useMission.getState().state);
+      }, 2000);
+    });
+    return () => {
+      unsub();
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [roomCode]);
 
   const [emoteCooling, setEmoteCooling] = useState(false);
   // força o DevPanel a atualizar rótulos de ações que mudam de estado
@@ -287,7 +415,10 @@ function ReadyGame() {
       },
       onRoomRejected: () => {
         // apelido em uso / sala cheia: volta ao início para escolher outro
-        window.setTimeout(() => nav('/'), 1800);
+        window.setTimeout(() => {
+          clearPlaySession();
+          nav('/');
+        }, 1800);
       },
       onRoomError: (msg) => {
         toast(msg, 'error');
@@ -390,8 +521,53 @@ function ReadyGame() {
     setLeaveOpen(true);
   }
 
+  function leaveToHome() {
+    clearPlaySession();
+    nav('/');
+  }
+
   async function saveAndLeave() {
-    if (await saveWorld()) nav('/');
+    if (await saveWorld()) leaveToHome();
+  }
+
+  /** Mundo novo: sala nova e missão do zero (recarrega a base já na sala nova). */
+  function newWorld() {
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    clearMissionSnapshot();
+    savePlaySession({ room: `MARS-${baseId.toUpperCase()}-${rand}`, base: baseId });
+    window.location.replace('/jogar');
+  }
+
+  /** Voltar ao último save: o servidor recarrega o mundo salvo e a página reabre nele. */
+  async function restoreLastSave() {
+    const v = viewer.current;
+    if (!v || restoring) return;
+    setRestoring(true);
+    setRestoreError('');
+    const r = await v.restoreWorld();
+    if (r.ok) {
+      clearMissionSnapshot();
+      window.location.replace('/jogar');
+      return;
+    }
+    setRestoring(false);
+    setRestoreError(r.error);
+  }
+
+  /** O jogador escolheu no tablet: aplica recursos na missão e os efeitos no mundo. */
+  function resolveEvent(event: GameEventDef, outcome: EventOutcome) {
+    const deltas = outcome.deltas ?? {};
+    const has = Object.values(deltas).some((v) => v);
+    if (has) {
+      useMission.getState().run({
+        type: 'reward',
+        tone: outcome.tone,
+        title: event.title,
+        text: outcome.text,
+        deltas,
+      });
+    }
+    viewer.current?.applyEventEffects(outcome);
   }
 
   function rollBase() {
@@ -543,6 +719,14 @@ function ReadyGame() {
           run: () => setMinigame(req),
         }),
       ),
+      ...GAME_EVENTS.map((ev) =>
+        registerDevAction({
+          id: `dev:event:${ev.id}`,
+          label: `Evento (${ev.kind === 'major' ? 'grande' : 'fácil'}): ${ev.title}`,
+          group: 'Eventos',
+          run: () => useGameEvents.getState().push([ev]),
+        }),
+      ),
       registerDevAction({
         id: 'dev:roll-base',
         label: 'Sortear Outra Base Marciana',
@@ -561,7 +745,8 @@ function ReadyGame() {
   if (!name) return <Navigate to="/" replace />;
 
   return (
-    <main className="game">
+    <main className={`game ${touch ? 'game--touch' : ''}`}>
+      <RotateGate />
       {minigame &&
         createPortal(
           <Suspense fallback={null}>
@@ -597,6 +782,13 @@ function ReadyGame() {
         <div className="game__vignette" />
 
         <MissionVeil />
+        {touch && !loading && !error && intro === 'gone' && (
+          <TouchJoystick viewer={viewer.current} />
+        )}
+        {/* Tablet de eventos: só com a base à vista (sem minigame, introdução nem fim de missão) */}
+        {intro === 'gone' && !loading && !error && !minigame && eventsPending && (
+          <EventTablet onResolve={resolveEvent} />
+        )}
         {duoInvite && (
           <div className="duo-invite" role="alert">
             <span>
@@ -639,7 +831,14 @@ function ReadyGame() {
 
         {/* Tela de Fim de Missão: vitória (100% dos dados) ou evacuação */}
         {!loading && !error && (
-          <MissionEnd onRestart={() => startMission()} onExit={() => nav('/')} />
+          <MissionEnd
+            onRestart={newWorld}
+            onExit={leaveToHome}
+            canRestore={persist.linked && persist.canSave}
+            onRestore={() => void restoreLastSave()}
+            restoring={restoring}
+            restoreError={restoreError}
+          />
         )}
 
         {/* Sair: salvar o mundo? */}
@@ -666,7 +865,7 @@ function ReadyGame() {
                 <button type="button" onClick={() => setLeaveOpen(false)} disabled={saving}>
                   Continuar jogando
                 </button>
-                <button type="button" onClick={() => nav('/')} disabled={saving}>
+                <button type="button" onClick={leaveToHome} disabled={saving}>
                   Sair sem salvar
                 </button>
                 {persist.canSave && (
@@ -707,6 +906,10 @@ function ReadyGame() {
               <ul>
                 <li>
                   <b>WASD</b> ou clique para andar · <b>T</b> abre as tarefas do Sol
+                </li>
+                <li>
+                  No celular: use o <b>joystick</b> ou <b>toque num objeto</b> (painel, horta,
+                  filtro, cama, rover…) e o astronauta vai até ele e usa
                 </li>
                 <li>
                   <b>E</b> entra e sai do rover · arraste para girar a câmera · role para dar zoom

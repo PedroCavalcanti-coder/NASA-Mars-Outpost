@@ -34,6 +34,8 @@ export const GRID = {
 export const OXYGEN_PLANT = {
   /** O₂ que a base produz por Sol com filtro limpo e energia */
   perSol: 24,
+  /** O₂ que a tripulação respira por Sol: com o filtro entupido (ou sem energia) o estoque cai */
+  crewPerSol: 18,
 } as const;
 
 /** Energia gasta pela sonda numa perfuração. */

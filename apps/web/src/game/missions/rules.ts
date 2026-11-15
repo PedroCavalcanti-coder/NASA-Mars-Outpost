@@ -203,8 +203,10 @@ export function costText(cost: MissionCost): string {
 
 // ------------------------------------------------------------------------- horta e solo
 
-/** Cuidar de um canteiro gasta um pouco de mantimento (água do cultivo). */
-export const GARDEN_CARE_COST: MissionCost = { supplies: 1 };
+/** Cuidar de um canteiro gasta ao menos isto de mantimento (a água do cultivo). */
+export const GARDEN_CARE_COST: MissionCost = { supplies: 2 };
+/** Cada litro regado no minigame sai do estoque: 1 de mantimento a cada tantos litros. */
+export const GARDEN_LITRES_PER_SUPPLY = 4;
 /** Todos os canteiros plantados cuidados no mesmo Sol: a horta devolve oxigênio à base. */
 export const GARDEN_OXYGEN_BONUS = 10;
 

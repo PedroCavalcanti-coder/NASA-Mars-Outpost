@@ -87,7 +87,7 @@ export default function Center() {
           <Link to="/sobre" className="public-nav-link">
             Sobre
           </Link>
-          <Link to="/jogar" className="public-nav-cta">
+          <Link to="/" className="public-nav-cta">
             <Rocket size={16} /> Jogar
           </Link>
         </nav>
@@ -220,7 +220,14 @@ export default function Center() {
                       {meta.desc}
                     </p>
                     <Link
-                      to={`/jogar?base=${id}`}
+                      to="/"
+                      onClick={() => {
+                        try {
+                          sessionStorage.setItem('mo_base', id);
+                        } catch {
+                          /* sem armazenamento */
+                        }
+                      }}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -255,7 +262,7 @@ export default function Center() {
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>
-          <Link to="/jogar">Jogar</Link>
+          <Link to="/">Jogar</Link>
         </div>
       </footer>
     </div>

@@ -11,7 +11,7 @@ export default function GreenhousePreview({
   onComplete,
 }: {
   onClose?: () => void;
-  onComplete?: () => void;
+  onComplete?: (result: { waterUsed: number }) => void;
 }) {
   const { close, closeButton } = usePreviewClose(onClose);
   const game = useGreenhouse();
@@ -19,8 +19,8 @@ export default function GreenhousePreview({
   useEffect(() => {
     if (!game.complete || !onComplete || reported.current) return;
     reported.current = true;
-    onComplete();
-  }, [game.complete, onComplete]);
+    onComplete({ waterUsed: game.poured });
+  }, [game.complete, game.poured, onComplete]);
   return (
     <main
       className="greenhouse-preview"
@@ -30,6 +30,10 @@ export default function GreenhousePreview({
     >
       <div className="greenhouse-backdrop" aria-hidden="true" />
       <GreenhouseIllustration game={game} />
+      <div className="greenhouse-water-used" role="status">
+        💧 Água usada: {(game.poured * 10).toFixed(1)} L
+        {onComplete && <small>sai do estoque da base</small>}
+      </div>
       <div className="greenhouse-announcement" role="status" aria-live="polite">
         {game.complete ? 'Plantação recuperada. Todos os canteiros estão saudáveis.' : ''}
       </div>

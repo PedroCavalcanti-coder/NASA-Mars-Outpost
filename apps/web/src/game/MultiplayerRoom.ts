@@ -421,6 +421,24 @@ export class MultiplayerRoom {
     });
   }
 
+  /** Volta o mundo da sala ao último salvamento (só online e sozinho na sala). */
+  restore(): Promise<{ ok: true } | { ok: false; error: string }> {
+    const socket = this.socket;
+    if (this.mode !== 'online' || !socket) {
+      return Promise.resolve({ ok: false, error: 'Voltar ao save exige a sala online.' });
+    }
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(
+        () => resolve({ ok: false, error: 'O servidor demorou a responder.' }),
+        8000,
+      );
+      socket.emit('world:restore', (r) => {
+        window.clearTimeout(timer);
+        resolve(r.ok ? { ok: true } : { ok: false, error: r.error });
+      });
+    });
+  }
+
   sendEmote(emote: number) {
     if (this.disposed) return;
     if (this.mode === 'online') this.socket?.emit('player:emote', emote);

@@ -27,6 +27,15 @@ export function useGreenhouse() {
     null,
   );
   const complete = crops.every(healthy);
+  // água realmente despejada (não devolve ao reiniciar): vira o custo do cuidado na base
+  const lastSum = useRef(crops.reduce((n, c) => n + c.water, 0));
+  const [poured, setPoured] = useState(0);
+  useEffect(() => {
+    const sum = crops.reduce((n, c) => n + c.water, 0);
+    const diff = sum - lastSum.current;
+    lastSum.current = sum;
+    if (diff > 0) setPoured((p) => p + diff);
+  }, [crops]);
   const stop = useCallback(() => {
     const previous = active.current;
     active.current = null;
@@ -103,6 +112,8 @@ export function useGreenhouse() {
   }
   return {
     crops,
+    /** água despejada (unidades do minigame; ~10 L cada) */
+    poured,
     watering,
     camera,
     portrait,

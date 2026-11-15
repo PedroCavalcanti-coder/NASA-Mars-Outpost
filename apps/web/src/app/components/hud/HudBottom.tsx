@@ -7,6 +7,7 @@
 
 import { Car, MapPin } from 'lucide-react';
 import { useHudContext } from './HudContext';
+import { useIsTouch } from './TouchControls';
 
 interface HudBottomProps {
   driving: boolean;
@@ -17,6 +18,7 @@ interface HudBottomProps {
 
 export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBottomProps) {
   const { chat, coords } = useHudContext();
+  const touch = useIsTouch();
   const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
 
   return (
@@ -50,7 +52,14 @@ export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBo
         )}
       </div>
 
-      {showHints && (
+      {showHints && touch && (
+        <p className="hud-bottom__hints" role="note">
+          <span>Joystick para andar</span>
+          <span>Toque num objeto: o astronauta vai até ele e usa</span>
+          <span>Arraste para girar · pinça para zoom</span>
+        </p>
+      )}
+      {showHints && !touch && (
         <p className="hud-bottom__hints" role="note">
           <span>
             <kbd>WASD</kbd> ou clique para andar

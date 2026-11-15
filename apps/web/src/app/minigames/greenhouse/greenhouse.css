@@ -206,3 +206,26 @@
   outline: 3px solid #fff;
   outline-offset: 3px;
 }
+
+.greenhouse-water-used {
+  position: absolute;
+  z-index: 6;
+  top: 14px;
+  left: 14px;
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 2px solid rgba(120, 200, 255, 0.5);
+  border-radius: 14px;
+  background: rgba(8, 24, 48, 0.82);
+  color: #bfe6ff;
+  font-size: 14px;
+  font-weight: 800;
+  pointer-events: none;
+}
+
+.greenhouse-water-used small {
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 600;
+}

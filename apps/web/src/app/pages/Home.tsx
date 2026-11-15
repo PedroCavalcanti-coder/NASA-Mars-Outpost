@@ -1,6 +1,6 @@
 import { ArrowRight, LogIn, LogOut, Settings, Users } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { LaunchScene } from '../../game/LaunchScene';
 import {
   expeditionSnapshot,
@@ -8,6 +8,7 @@ import {
   retainExpedition,
   subscribeExpedition,
 } from '../../game/runtime/expedition';
+import { clearPlaySession } from '../../lib/gameSession';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
@@ -42,7 +43,10 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
   const [suitModalOpen, setSuitModalOpen] = useState(false);
   // Modal para entrar em um mundo compartilhado (o destino vale depois da viagem e da suit)
-  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  // convite aberto por link (/jogar?sala=CODIGO volta aqui): a janela abre com o código preenchido
+  const [searchParams] = useSearchParams();
+  const inviteCode = searchParams.get('sala')?.trim().toUpperCase() ?? '';
+  const [joinModalOpen, setJoinModalOpen] = useState(() => Boolean(inviteCode) && !arrivalOnly);
   const [destinationUrl, setDestinationUrl] = useState('/jogar');
 
   // Menu de Configurações com sub-painéis
@@ -245,6 +249,8 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
   const handleSuitLaunch = () => {
     if (!session?.ready) return;
+    // viagem nova: nunca reaproveita a sala/missão da partida anterior
+    clearPlaySession();
     session.enter();
     nav(destinationUrl);
   };
@@ -476,6 +482,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         open={joinModalOpen}
         onClose={() => setJoinModalOpen(false)}
         onJoin={handleJoinWorld}
+        initialCode={inviteCode}
       />
 
       {/* Menu de Configurações avançado com Sub-Painéis */}

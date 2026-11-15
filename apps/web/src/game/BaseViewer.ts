@@ -38,6 +38,8 @@ import { applyBoundaryFog, setEdgeFog } from './boundaryFog';
 import { CropSystem } from './Crops';
 import { DoorSystem } from './Doors';
 import { DustStorm, DustStormOverlay } from './DustStorm';
+import { type EventOutcome, eventsForSol, type WorldEffect } from './events/events';
+import { useGameEvents } from './events/store';
 import { InteriorFader } from './InteriorFader';
 import {
   MultiplayerRoom,
@@ -50,6 +52,7 @@ import {
   cropGraceDays,
   describeDirection,
   GARDEN_CARE_COST,
+  GARDEN_LITRES_PER_SUPPLY,
   GARDEN_OXYGEN_BONUS,
   gardenComplete,
   MISSIONS,
@@ -89,9 +92,11 @@ import {
   GRID,
   gridStep,
   hashString,
+  MAX_DUST,
   OXYGEN_PLANT,
   panelDustRate,
   SOL_SECONDS,
+  seeded,
   solarGeneration,
 } from './tasks/rules';
 import { publishOps, resetOps } from './tasks/store';
@@ -184,6 +189,7 @@ type PendingTask =
   | { kind: 'filter'; index: number; face: THREE.Vector3 }
   | { kind: 'drill'; face: THREE.Vector3 }
   | { kind: 'station'; site: StationSite; face: THREE.Vector3 }
+  | { kind: 'prop'; prop: SceneryProp; index: number; face: THREE.Vector3 }
   | { kind: 'soilstart'; face: THREE.Vector3 }
   | { kind: 'enter'; face: THREE.Vector3 }
   | { kind: 'goto'; face: THREE.Vector3 };
@@ -204,10 +210,16 @@ export type MinigameResult = {
   hit?: boolean;
   /** nota 0..1 dos minigames de missão (calibragem e coleta de solo) */
   quality?: number;
+  /** água usada no cuidado da horta (unidades do minigame; ~10 L cada) */
+  waterUsed?: number;
 };
+
+/** Objetos do cenário com os quais se interage: cama (dormir), bancada (peças) e rochas (amostras). */
+type SceneryProp = 'bed' | 'bench' | 'rock';
 
 /** Resultado de um clique no cenário. */
 type PickResult =
+  | { type: 'prop'; prop: SceneryProp; index: number }
   | { type: 'solar'; index: number }
   | { type: 'crop'; index: number }
   | { type: 'filter'; index: number }
@@ -218,6 +230,9 @@ type PickResult =
   | { type: 'surface'; point: THREE.Vector3; normal: THREE.Vector3 }
   | { type: 'roof'; point: THREE.Vector3 }
   | { type: 'none' };
+
+/** Tempo (s) até a Terra confirmar o pacote de dados da antena (a luz leva minutos até Marte). */
+const ANTENNA_DELAY_S = 25;
 
 /** Divisor de tarefas que roda mesmo com a aba escondida (timers comuns são freados a 1/s). */
 function createBackgroundTicker(onTick: () => void): () => void {
@@ -337,6 +352,10 @@ export class BaseViewer {
   // Rover
   private rover: Rover | null = null;
   private roverDriver: 'local' | string | null = null;
+  /** o jogador local é o passageiro do rover (o rover tem 2 lugares: motorista e passageiro) */
+  private roverRider = false;
+  /** direção do joystick virtual (toque): x para a direita, y para cima, -1..1 */
+  private virtualMove = { x: 0, y: 0 };
   private roverRemoteTarget: { x: number; z: number; h: number } | null = null;
   private readonly roverCollider: Collider;
   private roverPark = { x: 0, z: 0, h: 0 };
@@ -369,9 +388,31 @@ export class BaseViewer {
   private batteryFloat = -1;
   private batteryWritten = -1;
   private oxygenAcc = 0;
+  private lowOxygenWarned = false;
+  /** segundos de mundo até a tempestade de um evento acabar */
+  private eventStormLeft = 0;
   private generation = 0;
   private blackout = false;
   private filterSpots: THREE.Vector3[] = [];
+  /** onde ficam as camas e as bancadas (objetos do cenário) */
+  private propSpots: Record<'bed' | 'bench', THREE.Vector3[]> = { bed: [], bench: [] };
+  private benchUse = { sol: 0, n: 0 };
+  /** amostras de rocha do dia, do lado de fora da base */
+  private rocks: Array<{ mesh: THREE.Mesh; proxy: THREE.Mesh; taken: boolean }> = [];
+  private rocksGroup = new THREE.Group();
+  private rocksSol = 0;
+  private readonly rockGeo = new THREE.DodecahedronGeometry(0.42, 0);
+  private readonly rockMat = new THREE.MeshStandardMaterial({
+    color: 0xa9693f,
+    roughness: 1,
+    flatShading: true,
+    emissive: 0x1d6f58,
+    emissiveIntensity: 0.6,
+  });
+  private readonly rockProxyGeo = new THREE.SphereGeometry(1.25, 8, 6);
+  private readonly rockProxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  /** tipo do último ponteiro (toque ou mouse): o toque tem mais folga para acertar objetos */
+  private lastPointerType = 'mouse';
   private drillSpot: THREE.Vector3 | null = null;
 
   // Missões de pesquisa (sorteadas por Sol; o quadro das concluídas é compartilhado pela sala)
@@ -770,10 +811,12 @@ export class BaseViewer {
     }
 
     this.setupStations();
+    this.scene.add(this.rocksGroup);
     this.pickRoots = [
       model,
       ...(land ? [land.scene] : []),
       rover.root,
+      this.rocksGroup,
       ...this.crops.proxies,
       ...(this.stationMarkers ? [this.stationMarkers.group] : []),
     ];
@@ -844,6 +887,19 @@ export class BaseViewer {
         o.userData.pick = { kind: 'drill' };
         this.drillSpot = o.getWorldPosition(new THREE.Vector3());
       }
+    });
+    // mais cenário interativo: cama (dormir) e bancada de ferramentas (fabricar peças)
+    const tag = (o: THREE.Object3D, prop: 'bed' | 'bench') => {
+      const index = this.propSpots[prop].length;
+      o.userData.pick = { kind: 'prop', prop, index };
+      o.traverse((c) => {
+        c.userData.keepSeparate = true;
+      });
+      this.propSpots[prop].push(o.getWorldPosition(new THREE.Vector3()));
+    };
+    model.traverse((o) => {
+      if (/_Beliche_d+$/.test(o.name)) tag(o, 'bed');
+      else if (/_BancadaFerramentas_d+$/.test(o.name)) tag(o, 'bench');
     });
     filters.sort((a, b) => a.name.localeCompare(b.name));
     this.filterSpots = filters.slice(0, 2).map((f, index) => {
@@ -1038,11 +1094,11 @@ export class BaseViewer {
    * Avança o relógio em `hours` horas marcianas (ações de teste do painel Dev).
    * Na sala, o pedido passa pelo servidor (só o coordenador); sozinho/offline, é local.
    */
-  private skipHours(hours: number) {
-    if (!(hours > 0)) return;
+  private skipHours(hours: number): boolean {
+    if (!(hours > 0)) return false;
     if (!GameClock.canControl()) {
       this.options?.onMessage?.('Só o coordenador da sala pode adiantar o tempo.', 'error');
-      return;
+      return false;
     }
     if (this.room) {
       this.room.sendTime({
@@ -1050,11 +1106,19 @@ export class BaseViewer {
         scale: GameClock.getScale(),
         advanceMs: (hours / 24) * MARS_SOL_DURATION_SECONDS * 1000,
       });
-      return;
+      return true;
     }
     const total = this.currentHour + hours;
     this.currentSol += Math.floor(total / 24);
     this.currentHour = total % 24;
+    return true;
+  }
+
+  /** Dormir: avança o relógio até a hora dada (amanhecer). Devolve as horas puladas (0 = recusado). */
+  private sleepUntil(hour: number): number {
+    const hours = (((hour - this.currentHour) % 24) + 24) % 24;
+    if (hours < 0.25) return 0;
+    return this.skipHours(hours) ? hours : 0;
   }
 
   private reportPlayers() {
@@ -1107,6 +1171,9 @@ export class BaseViewer {
       this.roverDriver = actor.id;
       this.roverRemoteTarget = { x: s.x, z: s.z, h: s.h };
       rover.setDriver(actor.name, false);
+    } else if (s.m === 'ride') {
+      // passageiro: some dentro do carro e vai junto (quem dirige continua sendo o motorista)
+      if (!actor.inVehicle) actor.setDriving(true);
     } else if (actor.inVehicle) {
       const at = this.footPointNear(rover.position, rover.heading) ?? rover.position.clone();
       actor.setDriving(false, at, s.h);
@@ -1114,6 +1181,8 @@ export class BaseViewer {
         this.roverDriver = null;
         this.roverRemoteTarget = null;
         rover.setDriver(null, false);
+        // o motorista saiu: o passageiro daqui desce junto
+        if (this.roverRider) this.leaveRoverAsRider();
       }
     }
   }
@@ -1131,6 +1200,7 @@ export class BaseViewer {
       this.roverDriver = null;
       this.roverRemoteTarget = null;
       this.rover?.setDriver(null, false);
+      if (this.roverRider) this.leaveRoverAsRider();
     }
     this.outline.removeDynamicObject(actor.root);
     actor.dispose();
@@ -1265,7 +1335,10 @@ export class BaseViewer {
 
     if (local) {
       if (this.roverDriver === 'local' && this.rover) {
-        this.updateDriving(moveDt, local, dir);
+        this.updateDriving(moveDt, local, dir, this.roverManualInput());
+      } else if (this.roverRider && this.rover) {
+        // passageiro: vai dentro do rover, sem mexer nos controles
+        local.position.copy(this.rover.position);
       } else {
         // teclado: só atualiza quando muda (cancela o caminho do clique uma vez)
         local.setInput(local.isRevealed ? dir : null);
@@ -1277,7 +1350,7 @@ export class BaseViewer {
     if (local) {
       // rosto LED: dormindo no cochilo, cansado com a moral baixa
       const nap = useNap.getState();
-      local.setMood(nap.isSleeping ? 'sleeping' : nap.moraleLevel < 35 ? 'tired' : 'normal');
+      local.setMood(nap.isSleeping ? 'sleeping' : 'normal');
     }
     for (const a of this.remoteList) a.update(moveDt, ctx, animate);
 
@@ -1294,7 +1367,9 @@ export class BaseViewer {
 
     // portas e interior
     const positions: Array<{ x: number; z: number }> = [];
-    if (local?.isRevealed && this.roverDriver !== 'local') positions.push(local.position);
+    if (local?.isRevealed && this.roverDriver !== 'local' && !this.roverRider) {
+      positions.push(local.position);
+    }
     for (const a of this.remoteList) if (a.isCollidable) positions.push(a.position);
     const doorsMoved = this.doors?.update(dt, positions) ?? false;
     const faded = this.interior?.update(dt, local?.isRevealed ? local.position : null) ?? false;
@@ -1322,12 +1397,18 @@ export class BaseViewer {
   }
 
   /** Dirige o rover (jogador local). */
-  private updateDriving(dt: number, local: AstronautActor, dir: { x: number; z: number } | null) {
+  private updateDriving(
+    dt: number,
+    local: AstronautActor,
+    dir: { x: number; z: number } | null,
+    manual: { throttle: number; steer: number } | null,
+  ) {
     const rover = this.rover!;
     // missão do rover: ele anda sozinho, o teclado fica de fora
     const input = this.soil ? null : dir;
-    if (input) rover.stopPath();
-    rover.drive(dt, { dir: input }, this.grid);
+    const keys = this.soil ? null : manual;
+    if (input || keys) rover.stopPath();
+    rover.drive(dt, { dir: input, manual: keys }, this.grid);
     if (rover.needsRepath && rover.destination && this.grid) {
       rover.needsRepath = false;
       if (++this.repathCount > 4) {
@@ -1424,6 +1505,11 @@ export class BaseViewer {
     if (p.kind === 'station') {
       local.face(p.face);
       this.activateStation(p.site);
+      return;
+    }
+    if (p.kind === 'prop') {
+      local.face(p.face);
+      this.activateProp(p.prop, p.index);
       return;
     }
 
@@ -1534,14 +1620,26 @@ export class BaseViewer {
   enterRover() {
     const local = this.localAstronaut;
     const rover = this.rover;
-    if (!local?.isRevealed || !rover || local.isBusy || this.roverDriver === 'local') return;
-    if (this.roverDriver) {
-      this.notify('O rover está sendo usado por outro astronauta.', 'error');
-      return;
-    }
+    if (!local?.isRevealed || !rover || local.isBusy) return;
+    if (this.roverDriver === 'local' || this.roverRider) return;
     const d = Math.hypot(local.position.x - rover.position.x, local.position.z - rover.position.z);
     if (d > ENTER_REACH + 0.8) {
-      this.notify('Chegue mais perto do rover (clique nele para ir até lá).', 'info');
+      this.notify('Chegue mais perto do rover (toque nele para ir até lá).', 'info');
+      return;
+    }
+    if (this.roverDriver) {
+      // já tem motorista: entra como passageiro (2 lugares)
+      if (this.roverSeatsTaken() >= 2) {
+        this.notify('O rover está cheio (2 lugares).', 'error');
+        return;
+      }
+      this.pending = null;
+      this.roverRider = true;
+      local.setDriving(true);
+      this.repathCount = 0;
+      this.options?.onVehicleChange?.(true);
+      this.notify('🚙 Você embarcou como passageiro. Toque em Sair para descer.', 'ok');
+      this.lastSent = null;
       return;
     }
     this.pending = null;
@@ -1555,10 +1653,34 @@ export class BaseViewer {
     this.lastSent = null; // força o envio imediato
   }
 
+  /** Lugares ocupados no rover (motorista + passageiros), aqui e na sala. */
+  private roverSeatsTaken(): number {
+    let n = this.roverDriver ? 1 : 0;
+    if (this.roverRider) n++;
+    for (const a of this.remoteList) if (a.inVehicle && a.id !== this.roverDriver) n++;
+    return n;
+  }
+
+  /** O passageiro local desce do rover. */
+  private leaveRoverAsRider() {
+    const local = this.localAstronaut;
+    const rover = this.rover;
+    if (!this.roverRider || !local || !rover) return;
+    const at = this.footPointNear(rover.position, rover.heading) ?? rover.position.clone();
+    local.setDriving(false, at, rover.heading);
+    this.roverRider = false;
+    this.options?.onVehicleChange?.(false);
+    this.lastSent = null;
+  }
+
   /** Sai do rover para o chão ao lado dele. */
   exitRover() {
     const local = this.localAstronaut;
     const rover = this.rover;
+    if (this.roverRider) {
+      this.leaveRoverAsRider();
+      return;
+    }
     if (this.roverDriver !== 'local' || !local || !rover) return;
     if (this.soil) {
       this.notify('O rover está numa missão automática: aguarde a volta.', 'info');
@@ -1579,6 +1701,13 @@ export class BaseViewer {
   saveWorld(mission?: unknown) {
     return this.room
       ? this.room.save(mission)
+      : Promise.resolve({ ok: false as const, error: 'Sem sala online.' });
+  }
+
+  /** Volta o mundo ao último salvamento (a interface recarrega a base depois). */
+  restoreWorld() {
+    return this.room
+      ? this.room.restore()
       : Promise.resolve({ ok: false as const, error: 'Sem sala online.' });
   }
 
@@ -1715,7 +1844,7 @@ export class BaseViewer {
   }
 
   get isDriving() {
-    return this.roverDriver === 'local';
+    return this.roverDriver === 'local' || this.roverRider;
   }
 
   /** Publica o estado do jogador local para a sala (10 Hz em movimento, 1 Hz parado). */
@@ -1723,9 +1852,9 @@ export class BaseViewer {
     if (!this.room || !local?.isRevealed) return;
     this.netAcc += dt;
     const motion = local.motion;
-    const driving = this.roverDriver === 'local' && this.rover;
+    const driving = (this.roverDriver === 'local' || this.roverRider) && this.rover;
     const moving = driving ? this.rover!.isMoving : motion !== 'idle';
-    const changed = this.lastSent?.m !== motion;
+    const changed = this.lastSent?.m !== (this.roverRider ? 'ride' : motion);
     const interval = moving ? 0.1 : 1;
     if (!changed && this.netAcc < interval) return;
     this.netAcc = 0;
@@ -1736,7 +1865,7 @@ export class BaseViewer {
       x: +x.toFixed(3),
       z: +z.toFixed(3),
       h: +h.toFixed(3),
-      m: motion,
+      m: this.roverRider ? 'ride' : motion,
     };
     this.lastSent = s;
     this.room.sendState(s);
@@ -1942,12 +2071,35 @@ export class BaseViewer {
     // ---- oxigênio: filtro limpo + energia = a base produz O₂
     const clogged = filterClogged(this.care.filter, sol);
     const producing = !clogged && !this.blackout;
-    if (producing) {
-      this.oxygenAcc += (OXYGEN_PLANT.perSol / SOL_SECONDS) * dt;
-      if (this.oxygenAcc >= 1) {
-        const whole = Math.floor(this.oxygenAcc);
-        adjustBaseOxygen(whole);
-        this.oxygenAcc -= whole;
+    // a tripulação respira sempre; a planta de O₂ repõe só com filtro limpo e energia
+    const net = ((producing ? OXYGEN_PLANT.perSol : 0) - OXYGEN_PLANT.crewPerSol) / SOL_SECONDS;
+    this.oxygenAcc += net * dt;
+    if (Math.abs(this.oxygenAcc) >= 1) {
+      const whole = Math.trunc(this.oxygenAcc);
+      adjustBaseOxygen(whole);
+      this.oxygenAcc -= whole;
+    }
+    const fresh = useMission.getState();
+    const o2 = fresh.state.resources.oxygen.value;
+    if (fresh.state.status === 'playing' && o2 <= 0) {
+      // sem oxigênio na base a missão não pode ser concluída (a tela de fim oferece as saídas)
+      fresh.run({ type: 'check' });
+    }
+    const lowO2 = o2 <= 20 && fresh.state.status === 'playing';
+    if (lowO2 && !this.lowOxygenWarned) {
+      this.lowOxygenWarned = true;
+      this.notify(
+        '🫁 Oxigênio da base crítico! Troque o filtro de ar e mantenha a energia ligada.',
+        'error',
+      );
+    } else if (!lowO2 && o2 > 35) this.lowOxygenWarned = false;
+
+    // tempestade vinda de um evento passa depois de um tempo
+    if (this.eventStormLeft > 0) {
+      this.eventStormLeft -= dt;
+      if (this.eventStormLeft <= 0) {
+        this.setStormStrength(0);
+        this.notify('🌤️ A tempestade passou. Céu limpo.', 'ok');
       }
     }
 
@@ -1956,6 +2108,7 @@ export class BaseViewer {
       this.opsSol = sol;
       this.refreshMissions();
       this.announceMissions(sol);
+      this.layoutRocks(sol);
     }
     if (sol !== this.opsSol) this.onSolChanged(this.opsSol, sol);
 
@@ -1970,6 +2123,7 @@ export class BaseViewer {
   private onSolChanged(prev: number, sol: number) {
     this.opsSol = sol;
     this.panelsCleanedToday = [];
+    this.layoutRocks(sol);
     // a missão (campanha) avança um dia por Sol do mundo; energia e poeira já são tempo real
     const steps = Math.min(3, Math.max(0, sol - prev));
     const mission = useMission.getState();
@@ -1981,6 +2135,54 @@ export class BaseViewer {
       this.notify('🫁 O filtro de ar entupiu: a base parou de produzir oxigênio.', 'error');
     this.refreshMissions();
     this.announceMissions(sol);
+    // eventos do dia (tablet): só a partir do Sol 4, iguais para todos os jogadores da sala
+    const events = eventsForSol(this.opsSeed, sol);
+    if (events.length) {
+      useGameEvents.getState().push(events);
+      this.notify('📟 Há um aviso novo no tablet da base.', 'info');
+    }
+  }
+
+  /** Efeitos no mundo das escolhas dos eventos (tempestade, poeira, filtro, canteiros). */
+  applyEventEffects(outcome: EventOutcome) {
+    for (const fx of outcome.effects ?? []) this.applyWorldEffect(fx);
+  }
+
+  private applyWorldEffect(fx: WorldEffect) {
+    switch (fx.type) {
+      case 'storm':
+        this.setStormStrength(fx.strength);
+        this.eventStormLeft = 150;
+        break;
+      case 'storm_end':
+        this.setStormStrength(0);
+        this.eventStormLeft = 0;
+        break;
+      case 'dust':
+        this.solarPanels.forEach((_, i) => {
+          this.solarDust[i] = Math.min(MAX_DUST, (this.solarDust[i] ?? 0) + fx.amount * MAX_DUST);
+        });
+        break;
+      case 'clean_panels':
+        this.solarPanels.forEach((_, i) => {
+          this.solarDust[i] = 0;
+          this.setSolarStage(i, 0);
+        });
+        this.room?.sendSolar(this.solarStages());
+        break;
+      case 'clog_filter':
+        this.setCare({ ...this.care, filter: 0 });
+        break;
+      case 'wilt_crop': {
+        const planted = (this.crops?.slots ?? []).filter((c) => c.stage > 0);
+        const victim = planted[Math.floor(Math.random() * planted.length)];
+        if (victim && this.crops) {
+          this.crops.setStage(victim.index, 0);
+          this.room?.sendCrops(this.crops.stages());
+        }
+        break;
+      }
+    }
   }
 
   private killNeglectedCrops(sol: number) {
@@ -2306,13 +2508,34 @@ export class BaseViewer {
   /** Custo e recompensa de uma missão: iguais para todos os jogadores da sala. */
   private applyMissionEffects(ev: GameMissionEvent, mine: boolean) {
     const who = ev.by || 'Um astronauta';
+    // a antena fala com a Terra: o custo sai agora, mas os dados só contam quando a confirmação
+    // volta (o sinal leva tempo para atravessar o espaço)
+    const delayed = ev.id === 'antenna_calibration' ? (ev.deltas.research ?? 0) : 0;
     useMission.getState().run({
       type: 'reward',
       tone: 'good',
       title: ev.title,
       text: mine ? ev.text : `${who}: ${ev.text}`,
-      deltas: ev.deltas,
+      deltas: delayed ? { ...ev.deltas, research: 0 } : ev.deltas,
     });
+    if (delayed > 0) {
+      this.notify(
+        `📡 Pacote enviado à Terra! A confirmação (+${delayed} de pesquisa) chega em ${ANTENNA_DELAY_S} s: o sinal leva tempo para cruzar o espaço.`,
+        'info',
+      );
+      window.setTimeout(() => {
+        if (this.disposed) return;
+        useMission.getState().run({
+          type: 'reward',
+          tone: 'good',
+          title: 'Confirmação da Terra',
+          text: 'A Terra recebeu os dados da calibração.',
+          deltas: { research: delayed },
+        });
+        this.notify(`📡 A Terra confirmou o recebimento: +${delayed} de pesquisa.`, 'ok');
+      }, ANTENNA_DELAY_S * 1000);
+      return;
+    }
     const pts = ev.deltas.research ?? 0;
     if (ev.id === 'garden') {
       this.notify(
@@ -2374,11 +2597,159 @@ export class BaseViewer {
     if (!local?.isRevealed || local.isBusy) return;
     const st = this.stationInfo.get(site);
     if (!st) return;
-    if (this.roverDriver === 'local') {
-      this.notify('Saia do rover primeiro (tecla E).', 'info');
+    if (this.roverDriver === 'local' || this.roverRider) {
+      this.notify('Saia do rover primeiro (botão Sair ou tecla E).', 'info');
       return;
     }
     this.goInteract(st.pos, { kind: 'station', site, face: st.pos.clone() });
+  }
+
+  // ------------------------------------------------------------------ cenário interativo
+
+  /**
+   * Toque impreciso: acha o objeto interativo mais perto do dedo (em pixels de tela). No toque a
+   * folga é grande; no mouse, pequena (o clique exato continua valendo primeiro).
+   */
+  private assistPick(clientX: number, clientY: number): PickResult | null {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const radius = this.lastPointerType === 'mouse' ? 30 : 76;
+    let best: { d: number; pick: PickResult } | null = null;
+    const v = new THREE.Vector3();
+    const consider = (pos: THREE.Vector3 | undefined, lift: number, pick: PickResult) => {
+      if (!pos) return;
+      v.set(pos.x, pos.y + lift, pos.z).project(this.camera);
+      if (v.z > 1) return;
+      const sx = rect.left + ((v.x + 1) / 2) * rect.width;
+      const sy = rect.top + ((1 - v.y) / 2) * rect.height;
+      const d = Math.hypot(sx - clientX, sy - clientY);
+      if (d <= radius && (!best || d < best.d)) best = { d, pick };
+    };
+    this.solarPanels.forEach((p, i) => {
+      consider(p.parentPos, 0.6, { type: 'solar', index: i });
+    });
+    for (const slot of this.crops?.slots ?? []) {
+      consider(slot.world, 0.5, { type: 'crop', index: slot.index });
+    }
+    this.filterSpots.forEach((p, i) => {
+      consider(p, 0.8, { type: 'filter', index: i });
+    });
+    consider(this.drillSpot ?? undefined, 1, { type: 'drill' });
+    for (const [site, st] of this.stationInfo) {
+      consider(st.pos, 1.2, { type: 'station', site });
+    }
+    consider(this.rover?.position, 0.8, { type: 'vehicle' });
+    this.propSpots.bed.forEach((p, i) => {
+      consider(p, 0.6, { type: 'prop', prop: 'bed', index: i });
+    });
+    this.propSpots.bench.forEach((p, i) => {
+      consider(p, 0.6, { type: 'prop', prop: 'bench', index: i });
+    });
+    this.rocks.forEach((r, i) => {
+      if (!r.taken) consider(r.mesh.position, 0.2, { type: 'prop', prop: 'rock', index: i });
+    });
+    return best ? (best as { d: number; pick: PickResult }).pick : null;
+  }
+
+  private goToProp(prop: SceneryProp, index: number) {
+    const local = this.localAstronaut;
+    if (!local?.isRevealed || local.isBusy) return;
+    if (this.roverDriver === 'local' || this.roverRider) {
+      this.notify('Saia do rover primeiro (botão Sair ou tecla E).', 'info');
+      return;
+    }
+    const pos = prop === 'rock' ? this.rocks[index]?.mesh.position : this.propSpots[prop][index];
+    if (!pos) return;
+    this.goInteract(pos, { kind: 'prop', prop, index, face: pos.clone() });
+  }
+
+  private activateProp(prop: SceneryProp, index: number) {
+    const local = this.localAstronaut;
+    if (!local) return;
+    if (prop === 'bed') {
+      useNap.getState().startNap();
+      return;
+    }
+    if (prop === 'bench') {
+      const sol = this.currentSol;
+      if (this.benchUse.sol !== sol) this.benchUse = { sol, n: 0 };
+      const res = useMission.getState().state.resources;
+      if (this.benchUse.n >= 3) {
+        this.notify('🛠️ A bancada já fabricou peças demais hoje. Volte amanhã.', 'info');
+        return;
+      }
+      if (this.blackout || res.energy.value < 4) {
+        this.notify('⚡ Sem energia para a bancada de ferramentas.', 'error');
+        return;
+      }
+      this.benchUse.n++;
+      local.startTask('plant', local.position.clone(), () => {
+        useMission.getState().run({
+          type: 'reward',
+          tone: 'good',
+          title: 'Bancada de ferramentas',
+          text: 'Sucata e regolito viraram peças novas.',
+          deltas: { energy: -4, materials: 5 },
+        });
+        this.notify(`🛠️ Peças fabricadas: +5 🔩 (-4 ⚡). Restam ${3 - this.benchUse.n} hoje.`, 'ok');
+      });
+      return;
+    }
+    // amostra de rocha
+    const rock = this.rocks[index];
+    if (!rock || rock.taken) return;
+    local.startTask('harvest', rock.mesh.position.clone(), () => {
+      if (rock.taken) return;
+      rock.taken = true;
+      rock.mesh.visible = false;
+      const science = seeded(this.opsSeed, this.currentSol, 950 + index) < 0.4;
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'good',
+        title: 'Amostra de rocha',
+        text: science ? 'Rocha com minerais raros.' : 'Fragmentos úteis para a bancada.',
+        deltas: science ? { research: 3 } : { materials: 5 },
+      });
+      this.notify(
+        science
+          ? '🪨 Rocha rara coletada: +3 🔬 de pesquisa.'
+          : '🪨 Amostra coletada: +5 🔩 materiais.',
+        'ok',
+      );
+    });
+  }
+
+  /** Espalha as amostras de rocha do Sol do lado de fora da base (iguais para a sala toda). */
+  private layoutRocks(sol: number) {
+    const grid = this.grid;
+    if (!grid || this.rocksSol === sol) return;
+    this.rocksSol = sol;
+    for (const r of this.rocks) {
+      r.mesh.removeFromParent();
+      r.proxy.removeFromParent();
+    }
+    this.rocks = [];
+    for (let i = 0; i < 4; i++) {
+      const a = seeded(this.opsSeed, sol, 900 + i) * Math.PI * 2;
+      let spot: THREE.Vector3 | null = null;
+      for (let r = 26 + seeded(this.opsSeed, sol, 910 + i) * 12; r < 44 && !spot; r += 5) {
+        const p = grid.nearestWalkablePoint(Math.cos(a) * r, Math.sin(a) * r, 6);
+        if (p && !grid.isInsideBase(p.x, p.z)) spot = p;
+      }
+      if (!spot) continue;
+      const y = grid.groundY(spot.x, spot.z);
+      const mesh = new THREE.Mesh(this.rockGeo, this.rockMat);
+      mesh.position.set(spot.x, y + 0.3, spot.z);
+      mesh.rotation.set(a, a * 2, 0);
+      mesh.scale.set(1.2, 0.8, 1);
+      mesh.castShadow = true;
+      mesh.raycast = () => {};
+      const proxy = new THREE.Mesh(this.rockProxyGeo, this.rockProxyMat);
+      proxy.position.copy(mesh.position);
+      proxy.userData.pick = { kind: 'prop', prop: 'rock', index: this.rocks.length };
+      proxy.updateMatrixWorld(true);
+      this.rocksGroup.add(mesh, proxy);
+      this.rocks.push({ mesh, proxy, taken: false });
+    }
   }
 
   /** Chegou ao holograma: entrega amostras ou abre o console da missão do cômodo. */
@@ -2414,8 +2785,8 @@ export class BaseViewer {
   goToMission(id: MissionId) {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
-    if (this.roverDriver === 'local') {
-      this.notify('Saia do rover primeiro (tecla E).', 'info');
+    if (this.roverDriver === 'local' || this.roverRider) {
+      this.notify('Saia do rover primeiro (botão Sair ou tecla E).', 'info');
       return;
     }
     const def = MISSIONS[id];
@@ -2665,8 +3036,8 @@ export class BaseViewer {
   goToTask(kind: 'solar' | 'crop' | 'plant' | 'filter' | 'drill', index: number) {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
-    if (this.roverDriver === 'local') {
-      this.notify('Saia do rover primeiro (tecla E).', 'info');
+    if (this.roverDriver === 'local' || this.roverRider) {
+      this.notify('Saia do rover primeiro (botão Sair ou tecla E).', 'info');
       return;
     }
     if (kind === 'solar') {
@@ -2699,14 +3070,23 @@ export class BaseViewer {
       this.options?.onSolarCleaned?.();
     } else if (req.kind === 'greenhouse') {
       this.markCropCared(req.index);
+      // a água do cultivo sai do estoque da base: quanto mais se rega, mais se gasta
+      const litres = Math.max(1, Math.round((result.waterUsed ?? 0) * 10));
+      const cost = Math.max(
+        GARDEN_CARE_COST.supplies ?? 1,
+        Math.ceil(litres / GARDEN_LITRES_PER_SUPPLY),
+      );
       useMission.getState().run({
         type: 'reward',
         tone: 'info',
         title: 'Cuidado da horta',
-        text: `Água para o canteiro ${req.index + 1}.`,
-        deltas: { supplies: -(GARDEN_CARE_COST.supplies ?? 0) },
+        text: `${litres} L de água para o canteiro ${req.index + 1}.`,
+        deltas: { supplies: -cost },
       });
-      this.notify(`🌿 Canteiro ${req.index + 1} cuidado hoje (-1 🍞).`, 'ok');
+      this.notify(
+        `🌿 Canteiro ${req.index + 1} cuidado hoje: ${litres} L de água (-${cost} 🍞 do estoque).`,
+        'ok',
+      );
     } else if (req.kind === 'oxygen') {
       const wasClogged = filterClogged(this.care.filter, sol);
       this.setCare({ ...this.care, filter: sol });
@@ -2750,8 +3130,12 @@ export class BaseViewer {
 
   private bindEvents() {
     const el = this.renderer.domElement;
-    el.addEventListener('pointerdown', (e) => this.clickDownPos.set(e.clientX, e.clientY));
+    el.addEventListener('pointerdown', (e) => {
+      this.lastPointerType = e.pointerType;
+      this.clickDownPos.set(e.clientX, e.clientY);
+    });
     el.addEventListener('pointerup', (e) => {
+      this.lastPointerType = e.pointerType;
       const dist = Math.hypot(e.clientX - this.clickDownPos.x, e.clientY - this.clickDownPos.y);
       if (dist < 6) this.handleCanvasClick(e.clientX, e.clientY);
     });
@@ -2781,7 +3165,7 @@ export class BaseViewer {
       this.keys.add(BaseViewer.KEY_MAP[k]!);
       e.preventDefault();
     } else if (k === 'e' && !e.repeat) {
-      if (this.roverDriver === 'local') this.exitRover();
+      if (this.roverDriver === 'local' || this.roverRider) this.exitRover();
       else this.tryEnterNearestRover();
     } else if (k === 'escape') {
       this.pending = null;
@@ -2799,6 +3183,21 @@ export class BaseViewer {
     this.keys.clear();
   };
 
+  /** Joystick virtual da tela de toque: x para a direita, y para cima (-1..1). */
+  setVirtualMove(x: number, y: number) {
+    this.virtualMove.x = x;
+    this.virtualMove.y = y;
+  }
+
+  /** Controle de carro (só com as teclas): W/S acelera e dá ré, A/D esterça. */
+  private roverManualInput(): { throttle: number; steer: number } | null {
+    if (this.playerSleeping || this.keys.size === 0) return null;
+    const throttle = (this.keys.has('up') ? 1 : 0) - (this.keys.has('down') ? 1 : 0);
+    const steer = (this.keys.has('left') ? 1 : 0) - (this.keys.has('right') ? 1 : 0);
+    if (throttle === 0 && steer === 0) return null;
+    return { throttle, steer };
+  }
+
   /** Tecla E perto do rover: entra. */
   private tryEnterNearestRover() {
     const local = this.localAstronaut;
@@ -2812,10 +3211,16 @@ export class BaseViewer {
   /** Setas/WASD -> direção no mundo, relativa à câmera (cima = para o fundo da tela). */
   private keyboardDirection(): { x: number; z: number } | null {
     // [seam:survival] jogador dormindo não se move
-    if (this.playerSleeping || this.keys.size === 0) return null;
-    const up = (this.keys.has('up') ? 1 : 0) - (this.keys.has('down') ? 1 : 0);
-    const right = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
-    if (up === 0 && right === 0) return null;
+    if (this.playerSleeping) return null;
+    let up = (this.keys.has('up') ? 1 : 0) - (this.keys.has('down') ? 1 : 0);
+    let right = (this.keys.has('right') ? 1 : 0) - (this.keys.has('left') ? 1 : 0);
+    if (up === 0 && right === 0) {
+      // joystick virtual (toque): mesma lógica, só que analógica
+      const j = this.virtualMove;
+      if (Math.hypot(j.x, j.y) < 0.18) return null;
+      up = j.y;
+      right = j.x;
+    }
     const theta = this.controls.getAzimuthalAngle();
     const fx = -Math.sin(theta);
     const fz = -Math.cos(theta);
@@ -2868,10 +3273,12 @@ export class BaseViewer {
     let first: PickResult | null = null;
     for (const h of hits) {
       // marca de máquina em qualquer ancestral
-      let tag: { kind: string; index?: number; site?: string } | null = null;
+      let tag: { kind: string; index?: number; site?: string; prop?: SceneryProp } | null = null;
       let visible = true;
       for (let o: THREE.Object3D | null = h.object; o; o = o.parent) {
-        const t = o.userData?.pick as { kind: string; index?: number; site?: string } | undefined;
+        const t = o.userData?.pick as
+          | { kind: string; index?: number; site?: string; prop?: SceneryProp }
+          | undefined;
         if (t && !tag) tag = t;
         if (!o.visible) visible = false;
       }
@@ -2884,6 +3291,9 @@ export class BaseViewer {
         return { type: 'station', site: (tag.site as StationSite | undefined) ?? 'lab' };
       }
       if (tag?.kind === 'vehicle') return { type: 'vehicle' };
+      if (tag?.kind === 'prop' && tag.prop) {
+        return { type: 'prop', prop: tag.prop, index: tag.index ?? 0 };
+      }
       if (!visible) continue; // teto escondido, folhas originais das portas…
       if (
         h.object.type === 'Points' ||
@@ -2971,7 +3381,13 @@ export class BaseViewer {
     const local = this.localAstronaut;
     if (!local?.isRevealed || !this.grid) return;
     this.setRay(clientX, clientY);
-    const pick = this.pickScene();
+    let pick = this.pickScene();
+
+    // ---- passageiro: só desce (o motorista é quem manda o rover) ----
+    if (this.roverRider) {
+      this.notify('Você é passageiro. Toque em Sair para descer do rover.', 'info');
+      return;
+    }
 
     // ---- dirigindo: o clique manda o rover para o solo ----
     if (this.roverDriver === 'local' && this.rover) {
@@ -3009,7 +3425,22 @@ export class BaseViewer {
 
     if (local.isBusy) return;
 
+    // toque impreciso: se o dedo caiu perto de um objeto interativo, vai até ele e usa
+    if (
+      pick.type === 'floor' ||
+      pick.type === 'surface' ||
+      pick.type === 'roof' ||
+      pick.type === 'none'
+    ) {
+      const near = this.assistPick(clientX, clientY);
+      if (near) pick = near;
+    }
+
     switch (pick.type) {
+      case 'prop': {
+        this.goToProp(pick.prop, pick.index);
+        return;
+      }
       case 'solar': {
         const panel = this.solarPanels[pick.index];
         if (panel)
@@ -3044,8 +3475,8 @@ export class BaseViewer {
       }
       case 'vehicle': {
         if (!this.rover) return;
-        if (this.roverDriver) {
-          this.notify('O rover está sendo usado por outro astronauta.', 'error');
+        if (this.roverDriver && this.roverSeatsTaken() >= 2) {
+          this.notify('O rover está cheio (2 lugares).', 'error');
           return;
         }
         // vai até o lado do rover mais próximo de quem clicou
@@ -3337,7 +3768,7 @@ export class BaseViewer {
     if (this.cameraMode === 'follow') {
       const local = this.localAstronaut;
       const p =
-        this.roverDriver === 'local' && this.rover
+        (this.roverDriver === 'local' || this.roverRider) && this.rover
           ? this.rover.position
           : local?.isRevealed
             ? local.position
@@ -3370,6 +3801,10 @@ export class BaseViewer {
       this.fadeOverlay = null;
     }
     this.systems.dispose();
+    this.rockGeo.dispose();
+    this.rockMat.dispose();
+    this.rockProxyGeo.dispose();
+    this.rockProxyMat.dispose();
     // o Game ativa o viewer novo ANTES de descartar o antigo: só limpa o relógio se ainda é nosso
     if (BaseViewer.clockOwner === this) {
       BaseViewer.clockOwner = null;
@@ -3499,7 +3934,7 @@ export class BaseViewer {
           return Boolean(p && viewer.grid?.isInsideBase(p.x, p.z));
         },
         get driving() {
-          return viewer.roverDriver === 'local';
+          return viewer.roverDriver === 'local' || viewer.roverRider;
         },
         get sheltered() {
           return viewer.soil !== null;
@@ -3526,6 +3961,7 @@ export class BaseViewer {
         },
         fadeScreen: (opacity, ms) => viewer.fadeScreen(opacity, ms),
         getInfirmaryPoint: () => viewer.getInfirmaryPoint(),
+        sleepUntil: (hour) => viewer.sleepUntil(hour),
       };
     }
     return this.systemContext;
