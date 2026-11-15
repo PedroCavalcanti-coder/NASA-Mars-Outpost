@@ -1279,3 +1279,43 @@
     animation: none;
   }
 }
+
+/* ---------- Curiosidades (mesma janela dos eventos, em azul) ---------- */
+.event-tablet--lore {
+  border-color: #2f6fa0;
+}
+
+.event-tablet--lore .event-tablet__head {
+  border-bottom-color: rgba(95, 224, 230, 0.4);
+}
+
+.event-tablet--lore .event-tablet__alert {
+  border-color: #5fe0e6;
+  background: rgba(95, 224, 230, 0.14);
+  color: #7ff0f4;
+  box-shadow: 0 0 18px rgba(95, 224, 230, 0.45);
+  animation: none;
+}
+
+.event-tablet--lore .event-tablet__head h2,
+.event-tablet--lore .event-tablet__head h2 small {
+  color: #7ff0f4;
+}
+
+.event-tablet__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.event-tablet__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #5fe0e6;
+  font-weight: 700;
+}

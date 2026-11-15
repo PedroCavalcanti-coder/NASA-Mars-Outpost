@@ -42,6 +42,7 @@ import { DustStorm, DustStormOverlay } from './DustStorm';
 import { type EventOutcome, eventsForSol, type WorldEffect } from './events/events';
 import { SHIELD_REPAIR } from './events/shielding';
 import { useGameEvents } from './events/store';
+import { useLore } from './lore/store';
 import { InteriorFader } from './InteriorFader';
 import {
   MultiplayerRoom,
@@ -2580,6 +2581,25 @@ export class BaseViewer {
     if (this.missionTimer < 0.5) return;
     this.missionTimer = 0;
     this.publishMissions();
+    this.checkLoreProximity();
+  }
+
+  /** Perto de um objeto com história real? Pede a janela de curiosidade (uma vez por navegador). */
+  private checkLoreProximity() {
+    const local = this.localAstronaut;
+    if (!local?.isRevealed || this.playerSleeping || this.roverDriver === 'local' || this.roverRider) {
+      return;
+    }
+    const { x, z } = local.position;
+    const near = (p: THREE.Vector3 | undefined | null, r: number) =>
+      !!p && Math.hypot(p.x - x, p.z - z) < r;
+    const lore = useLore.getState();
+    if (near(this.rover?.position, 6)) lore.request('rover');
+    else if (this.crops?.slots.some((c) => near(c.world, 5))) lore.request('garden');
+    else if (this.solarPanels.some((p) => near(p.parentPos, 7))) lore.request('solar');
+    else if (this.filterSpots.some((p) => near(p, 5))) lore.request('oxygen');
+    else if (near(this.drillSpot, 6)) lore.request('drill');
+    else if (near(this.stationInfo.get('comms')?.pos, 5)) lore.request('antenna');
   }
 
   private publishMissions() {

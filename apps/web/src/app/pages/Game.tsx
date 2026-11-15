@@ -29,6 +29,8 @@ import {
   setEventFlowContext,
 } from '../../game/events/flow';
 import { useGameEvents } from '../../game/events/store';
+import { LORE } from '../../game/lore/lore';
+import { useLore } from '../../game/lore/store';
 import { MISSIONS, type MissionId } from '../../game/missions/rules';
 import {
   expeditionSnapshot,
@@ -62,6 +64,7 @@ import { MissionVeil } from '../components/hud/MissionVeil';
 import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
 import { EventFx } from '../components/mission/EventFx';
 import { EventTablet } from '../components/mission/EventTablet';
+import { LoreCard } from '../components/mission/LoreCard';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
 import '../../styles/game.css';
@@ -766,6 +769,14 @@ function ReadyGame() {
           run: () => useGameEvents.getState().push([ev]),
         }),
       ),
+      ...Object.values(LORE).map((l) =>
+        registerDevAction({
+          id: `dev:lore:${l.id}`,
+          label: `Curiosidade: ${l.title}`,
+          group: 'Eventos',
+          run: () => useLore.setState((st) => ({ queue: [...st.queue, l.id] })),
+        }),
+      ),
       registerDevAction({
         id: 'dev:roll-base',
         label: 'Sortear Outra Base Marciana',
@@ -826,6 +837,8 @@ function ReadyGame() {
         )}
         {/* Tablet de eventos: só com a base à vista (sem minigame, introdução nem fim de missão) */}
         {intro === 'gone' && !loading && !error && !minigame && eventsPending && <EventTablet />}
+        {/* Curiosidades: só quando nada mais está na tela (eventos e minigames têm prioridade) */}
+        {intro === 'gone' && !loading && !error && !minigame && !eventsPending && <LoreCard />}
         {duoInvite && (
           <div className="duo-invite" role="alert">
             <span>
