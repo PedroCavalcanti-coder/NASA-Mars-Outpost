@@ -20,7 +20,7 @@ export const KNOWN_PANEL_META: Record<string, PanelMeta> = {
   tarefas: { shortcut: 'T', order: 15 },
   sala: { shortcut: 'P', order: 30 },
   camera: { shortcut: 'C', order: 40 },
-  chat: { shortcut: 'Q', order: 50 },
+  chat: { shortcut: 'Y', order: 50 },
   sistema: { shortcut: 'O', order: 60 },
   dev: { shortcut: '0', order: 99 },
 };

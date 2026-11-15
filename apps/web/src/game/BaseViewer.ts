@@ -50,6 +50,7 @@ import { useGameEvents } from './events/store';
 import type { GuideEvent } from './guide/events';
 import { IntegrityVisuals } from './IntegrityVisuals';
 import { InteriorFader } from './InteriorFader';
+import { LifeSupportStations } from './LifeSupportStations';
 import { useLore } from './lore/store';
 import {
   MultiplayerRoom,
@@ -210,6 +211,8 @@ type PendingTask =
   | { kind: 'clean'; index: number; face: THREE.Vector3 }
   | { kind: 'crop'; index: number; face: THREE.Vector3 }
   | { kind: 'filter'; index: number; face: THREE.Vector3 }
+  | { kind: 'oxygen_station'; face: THREE.Vector3 }
+  | { kind: 'water_station'; face: THREE.Vector3 }
   | { kind: 'drill'; face: THREE.Vector3 }
   | { kind: 'station'; site: StationSite; face: THREE.Vector3 }
   | { kind: 'prop'; prop: SceneryProp; index: number; face: THREE.Vector3 }
@@ -250,6 +253,8 @@ type PickResult =
   | { type: 'solar'; index: number }
   | { type: 'crop'; index: number }
   | { type: 'filter'; index: number }
+  | { type: 'oxygen_station' }
+  | { type: 'water_station' }
   | { type: 'drill' }
   | { type: 'station'; site: StationSite }
   | { type: 'vehicle' }
@@ -478,6 +483,9 @@ export class BaseViewer {
   /** sem sala (ou sem servidor): quadro só deste jogador */
   private localBoard: GameMissionBoard | undefined;
   private stationMarkers: StationMarkers | null = null;
+  private lifeSupportStations: LifeSupportStations | null = null;
+  private oxygenStationUse = { sol: 0, n: 0 };
+  private waterStationUse = { sol: 0, n: 0 };
   private stationInfo = new Map<StationSite, { label: string; pos: THREE.Vector3 }>();
   private missionTimer = 0;
   private beaconsOn = true;
@@ -889,6 +897,11 @@ export class BaseViewer {
     }
 
     this.setupStations();
+    const lifeSupport = new LifeSupportStations();
+    lifeSupport.setup(model, this.grid);
+    this.lifeSupportStations = lifeSupport;
+    this.scene.add(lifeSupport.group);
+
     this.scene.add(this.rocksGroup);
     this.pickRoots = [
       model,
@@ -896,6 +909,7 @@ export class BaseViewer {
       rover.root,
       this.rocksGroup,
       ...this.crops.proxies,
+      ...lifeSupport.proxies,
       ...(this.stationMarkers ? [this.stationMarkers.group] : []),
     ];
 
@@ -1763,11 +1777,23 @@ export class BaseViewer {
 
     if (p.kind === 'filter') {
       if (caredToday(this.care.filter, this.currentSol)) {
-        this.notify('O filtro de ar já foi trocado hoje. ✨', 'info');
+        this.activateOxygenStation();
         return;
       }
       local.face(p.face);
       this.options?.onMinigame?.({ kind: 'oxygen', index: p.index });
+      return;
+    }
+
+    if (p.kind === 'oxygen_station') {
+      local.face(p.face);
+      this.activateOxygenStation();
+      return;
+    }
+
+    if (p.kind === 'water_station') {
+      local.face(p.face);
+      this.activateWaterStation();
       return;
     }
 
@@ -2790,6 +2816,8 @@ export class BaseViewer {
     if (near(this.rover?.position, 6)) lore.request('rover');
     else if (this.crops?.slots.some((c) => near(c.world, 5))) lore.request('garden');
     else if (this.solarPanels.some((p) => near(p.parentPos, 7))) lore.request('solar');
+    else if (near(this.lifeSupportStations?.oxygenPos, 5)) lore.request('oxygen');
+    else if (near(this.lifeSupportStations?.waterPos, 5)) lore.request('water');
     else if (this.filterSpots.some((p) => near(p, 5))) lore.request('oxygen');
     else if (near(this.drillSpot, 6)) lore.request('drill');
     else if (near(this.stationInfo.get('comms')?.pos, 5)) lore.request('antenna');
@@ -3035,6 +3063,12 @@ export class BaseViewer {
     this.filterSpots.forEach((p, i) => {
       consider(p, 0.8, { type: 'filter', index: i });
     });
+    if (this.lifeSupportStations?.oxygenPos) {
+      consider(this.lifeSupportStations.oxygenPos, 0.8, { type: 'oxygen_station' });
+    }
+    if (this.lifeSupportStations?.waterPos) {
+      consider(this.lifeSupportStations.waterPos, 0.8, { type: 'water_station' });
+    }
     consider(this.drillSpot ?? undefined, 1, { type: 'drill' });
     for (const [site, st] of this.stationInfo) {
       consider(st.pos, 1.2, { type: 'station', site });
@@ -3120,6 +3154,90 @@ export class BaseViewer {
           : '🪨 Amostra coletada: +3 🍞 mantimentos.',
         'ok',
       );
+    });
+  }
+
+  goToOxygenStation() {
+    const pos = this.lifeSupportStations?.oxygenPos ?? this.filterSpots[0];
+    if (!pos) return;
+    this.goInteract(pos, { kind: 'oxygen_station', face: pos.clone() });
+  }
+
+  goToWaterStation() {
+    const pos = this.lifeSupportStations?.waterPos;
+    if (!pos) return;
+    this.goInteract(pos, { kind: 'water_station', face: pos.clone() });
+  }
+
+  private activateOxygenStation() {
+    const local = this.localAstronaut;
+    if (!local) return;
+    const sol = this.currentSol;
+    if (this.oxygenStationUse.sol !== sol) this.oxygenStationUse = { sol, n: 0 };
+    const res = useMission.getState().state.resources;
+    if (this.blackout || res.energy.value < 2) {
+      this.notify('⚡ Sem energia para acionar a usina de oxigênio MOXIE.', 'error');
+      return;
+    }
+    if (this.oxygenStationUse.n >= 3) {
+      this.notify(
+        '🌬️ A usina MOXIE já atingiu a cota máxima de conversão por hoje. Volte amanhã.',
+        'info',
+      );
+      useLore.getState().request('oxygen', true);
+      return;
+    }
+    this.oxygenStationUse.n++;
+    local.startTask('plant', local.position.clone(), () => {
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'good',
+        title: 'Usina MOXIE (Oxigênio)',
+        text: 'Dióxido de carbono (CO₂) de Marte convertido em oxigênio puro.',
+        deltas: { energy: -2, oxygen: 6 },
+      });
+      useLore.getState().request('oxygen', true);
+      this.notify(
+        `🌬️ Usina MOXIE acionada: oxigênio puro gerado (+6 🫁 Oxigênio, -2 ⚡ Energia)! Restam ${3 - this.oxygenStationUse.n} conversões hoje.`,
+        'ok',
+      );
+      this.playTaskCompleteSound();
+    });
+  }
+
+  private activateWaterStation() {
+    const local = this.localAstronaut;
+    if (!local) return;
+    const sol = this.currentSol;
+    if (this.waterStationUse.sol !== sol) this.waterStationUse = { sol, n: 0 };
+    const res = useMission.getState().state.resources;
+    if (this.blackout || res.energy.value < 2) {
+      this.notify('⚡ Sem energia para acionar a extração de água.', 'error');
+      return;
+    }
+    if (this.waterStationUse.n >= 3) {
+      this.notify(
+        '💧 Os tanques de extração de água já atingiram a cota diária hoje. Volte amanhã.',
+        'info',
+      );
+      useLore.getState().request('water', true);
+      return;
+    }
+    this.waterStationUse.n++;
+    local.startTask('plant', local.position.clone(), () => {
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'good',
+        title: 'Extração de Água (ISRU)',
+        text: 'Degelo de geleira subterrânea e filtragem concluídos.',
+        deltas: { energy: -2, supplies: 6 },
+      });
+      useLore.getState().request('water', true);
+      this.notify(
+        `💧 Extrator de água acionado: gelo marciano processado (+6 🍞 Água/Mantimentos, -2 ⚡ Energia)! Restam ${3 - this.waterStationUse.n} extrações hoje.`,
+        'ok',
+      );
+      this.playTaskCompleteSound();
     });
   }
 
@@ -3803,6 +3921,8 @@ export class BaseViewer {
       if (tag?.kind === 'solar') return { type: 'solar', index: tag.index ?? 0 };
       if (tag?.kind === 'crop') return { type: 'crop', index: tag.index ?? 0 };
       if (tag?.kind === 'filter') return { type: 'filter', index: tag.index ?? 0 };
+      if (tag?.kind === 'oxygen_station') return { type: 'oxygen_station' };
+      if (tag?.kind === 'water_station') return { type: 'water_station' };
       if (tag?.kind === 'drill') return { type: 'drill' };
       if (tag?.kind === 'station') {
         return { type: 'station', site: (tag.site as StationSite | undefined) ?? 'lab' };
@@ -4006,6 +4126,14 @@ export class BaseViewer {
       }
       case 'filter': {
         this.goToTask('filter', pick.index);
+        return;
+      }
+      case 'oxygen_station': {
+        this.goToOxygenStation();
+        return;
+      }
+      case 'water_station': {
+        this.goToWaterStation();
         return;
       }
       case 'drill': {
@@ -4434,6 +4562,7 @@ export class BaseViewer {
     }
 
     this.interactionOutline.update();
+    this.lifeSupportStations?.update(dt);
     const player = this.localAstronaut;
     this.taskMarkers.update(
       dt,
@@ -4506,6 +4635,8 @@ export class BaseViewer {
     this.lights?.dispose();
     this.rover?.dispose();
     this.crops?.dispose();
+    this.lifeSupportStations?.dispose();
+    this.lifeSupportStations = null;
     this.stationMarkers?.dispose();
     this.stationMarkers = null;
     this.room?.dispose();

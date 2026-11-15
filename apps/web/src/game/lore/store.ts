@@ -16,17 +16,18 @@ interface LoreStore {
   /** curiosidades esperando para aparecer (a primeira é a que a janela mostra) */
   queue: LoreId[];
   seen: LoreId[];
-  /** pede para mostrar (ignora as que o jogador já viu) */
-  request: (id: LoreId) => void;
+  /** pede para mostrar (por padrão ignora as que o jogador já viu, a menos que force=true) */
+  request: (id: LoreId, force?: boolean) => void;
   close: () => void;
 }
 
 export const useLore = create<LoreStore>((set, get) => ({
   queue: [],
   seen: readSeen(),
-  request: (id) => {
+  request: (id, force = false) => {
     const s = get();
-    if (s.seen.includes(id) || s.queue.includes(id)) return;
+    if (!force && s.seen.includes(id)) return;
+    if (s.queue.includes(id)) return;
     set({ queue: [...s.queue, id] });
   },
   close: () => {

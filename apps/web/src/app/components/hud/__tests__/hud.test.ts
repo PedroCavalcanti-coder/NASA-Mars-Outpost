@@ -13,7 +13,7 @@ describe('HUD Panel Metadata & Shortcuts', () => {
     expect(getPanelMeta('missao').shortcut).toBe('M');
     expect(getPanelMeta('sala').shortcut).toBe('P');
     expect(getPanelMeta('camera').shortcut).toBe('C');
-    expect(getPanelMeta('chat').shortcut).toBe('Q');
+    expect(getPanelMeta('chat').shortcut).toBe('Y');
     expect(getPanelMeta('sistema').shortcut).toBe('O');
     expect(getPanelMeta('dev').shortcut).toBe('0');
   });

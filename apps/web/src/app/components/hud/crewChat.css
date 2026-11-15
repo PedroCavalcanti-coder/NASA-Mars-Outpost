@@ -243,6 +243,35 @@
   min-width: 0;
   white-space: pre-wrap;
 }
+.crew-chat__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 8px;
+  pointer-events: auto;
+}
+.crew-chat__bar .crew-chat__input-row {
+  margin-top: 0;
+  flex: 1;
+  min-width: 0;
+}
+.crew-chat__bar .game__emote {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  z-index: 36;
+}
+.crew-chat__bar .game__emote-wheel {
+  position: absolute;
+  left: 96px;
+  top: -140px;
+  width: 0;
+  height: 0;
+}
 .crew-chat__input-row {
   display: flex;
   align-items: center;

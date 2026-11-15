@@ -669,7 +669,7 @@
 /* ---------- Emojis: painel circular e chat ---------- */
 .game__emote {
   position: absolute;
-  z-index: 12;
+  z-index: 36;
   left: 28px;
   bottom: 84px;
   width: 56px;

@@ -31,7 +31,8 @@ export type LoreId =
   | 'antenna'
   | 'lab'
   | 'medical'
-  | 'power';
+  | 'power'
+  | 'water';
 
 export const LORE: Record<LoreId, LoreDef> = {
   rover: {
@@ -176,6 +177,25 @@ export const LORE: Record<LoreId, LoreDef> = {
     fact: 'Os rovers Spirit e Opportunity, ao contrário, dependiam de painéis solares, e o vento marciano já limpou a poeira deles.',
     links: [
       { label: 'Foto no acervo da NASA', url: 'https://images.nasa.gov/details/KSC-2011-6694' },
+    ],
+  },
+  water: {
+    id: 'water',
+    title: 'Criar água em Marte',
+    icon: '💧',
+    image: '/assets/lore/water.jpg',
+    credit: 'NASA/JPL-Caltech/UArizona/USGS · HiRISE · PIA22077',
+    body: 'Em Marte, a água não corre em rios pela superfície: ela está congelada em imensas geleiras no subsolo e presa na umidade do solo (regolito). Para extraí-la, a NASA projeta poços térmicos (como o Rodriguez Well) que derretem o gelo sob a terra e fornos que aquecem o solo marciano para evaporar, condensar e purificar água líquida para a tripulação.',
+    fact: 'Grandes lençóis de gelo puro com dezenas de metros de espessura foram detectados sob o solo em locais como Arcadia Planitia. Essa água é vital tanto para beber e regar estufas quanto para produzir oxigênio e combustível de foguetes para a volta à Terra.',
+    links: [
+      {
+        label: 'Geleiras subterrâneas em Marte (NASA HiRISE)',
+        url: 'https://photojournal.jpl.nasa.gov/catalog/PIA22077',
+      },
+      {
+        label: 'Mapeamento de gelo subterrâneo em Marte (NASA)',
+        url: 'https://photojournal.jpl.nasa.gov/catalog/PIA26046',
+      },
     ],
   },
 };

@@ -8,6 +8,7 @@
 import { Car, MessageCircle, Send } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import './crewChat.css';
+import { EmoteWheel } from './EmoteWheel';
 import { useHudContext } from './HudContext';
 
 interface HudBottomProps {
@@ -18,7 +19,7 @@ interface HudBottomProps {
 }
 
 export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
-  const { chat, onSendChat } = useHudContext();
+  const { chat, onSendChat, onSendEmote } = useHudContext();
   const [draft, setDraft] = useState('');
   const [showMessages, setShowMessages] = useState(false);
   const lastMessageId = chat.at(-1)?.id;
@@ -54,25 +55,28 @@ export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
             </li>
           ))}
         </ul>
-        <form
-          className="crew-chat__input-row"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (onSendChat(draft)) setDraft('');
-          }}
-        >
-          <MessageCircle size={19} aria-hidden="true" />
-          <input
-            aria-label="Mensagem para a tripulação"
-            placeholder="Escreva uma mensagem..."
-            maxLength={240}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <button type="submit" aria-label="Enviar mensagem" disabled={!draft.trim()}>
-            <Send size={19} />
-          </button>
-        </form>
+        <div className="crew-chat__bar">
+          <EmoteWheel onPick={onSendEmote} />
+          <form
+            className="crew-chat__input-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (onSendChat(draft)) setDraft('');
+            }}
+          >
+            <MessageCircle size={19} aria-hidden="true" />
+            <input
+              aria-label="Mensagem para a tripulação"
+              placeholder="Escreva uma mensagem..."
+              maxLength={240}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+            <button type="submit" aria-label="Enviar mensagem" disabled={!draft.trim()}>
+              <Send size={19} />
+            </button>
+          </form>
+        </div>
       </section>
 
       <div className="hud-bottom__row">
