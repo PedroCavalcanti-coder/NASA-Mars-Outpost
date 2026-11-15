@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
+import { RotateGate } from './app/components/RotateGate';
 import Game from './app/pages/Game';
 import Home from './app/pages/Home';
 import { GuestOnly, RequireAuth } from './auth/guards';
@@ -102,6 +103,7 @@ export function App() {
         </Routes>
       </Suspense>
       <Toaster />
+      <RotateGate />
     </BrowserRouter>
   );
 }

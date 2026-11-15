@@ -61,7 +61,7 @@ import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionVeil } from '../components/hud/MissionVeil';
-import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
+import { TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
 import { EventFx } from '../components/mission/EventFx';
 import { EventTablet } from '../components/mission/EventTablet';
 import { LoreCard } from '../components/mission/LoreCard';
@@ -796,7 +796,6 @@ function ReadyGame() {
 
   return (
     <main className={`game ${touch ? 'game--touch' : ''}`}>
-      <RotateGate />
       {minigame &&
         createPortal(
           <Suspense fallback={null}>
