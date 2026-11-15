@@ -598,8 +598,9 @@
   }
 }
 @media (max-width: 759px) {
+  /* a página cabe na altura real da tela (antes 780px fixos empurravam o rodapé para fora) */
   .launch-home {
-    min-height: 780px;
+    min-height: 560px;
   }
   .launch-header {
     padding: 18px 20px;
@@ -636,11 +637,15 @@
     font-size: 13px;
     gap: 7px;
   }
-  .launch-nav-button:first-child {
+  /* no celular os botões do menu viram ícones redondos (o nome fica no aria-label) */
+  .launch-nav {
+    flex-shrink: 0;
+  }
+  .launch-nav-button {
     width: 39px;
     padding: 0;
   }
-  .launch-nav-button:first-child > span {
+  .launch-nav-button > span {
     display: none;
   }
   .launch-moon {
@@ -737,14 +742,35 @@
     height: 44px;
   }
 }
-@media (max-width: 360px) {
-  .launch-nav-button:last-child {
-    width: 39px;
-    padding: 0;
+/* telas estreitas: compacta o topo para os 3 ícones do menu caberem inteiros */
+@media (max-width: 380px) {
+  .launch-header {
+    padding: 16px 14px;
+    gap: 10px;
   }
-  .launch-nav-button:last-child > span {
+  .launch-brand-divider {
     display: none;
   }
+  .launch-brand-mark {
+    width: 36px;
+    height: 36px;
+  }
+  .launch-brand-name {
+    width: 54px;
+  }
+  .launch-space-apps-logo {
+    width: 44px;
+    height: 36px;
+  }
+  .launch-nav {
+    gap: 6px;
+  }
+  .launch-nav-button {
+    width: 36px;
+    min-height: 36px;
+  }
+}
+@media (max-width: 360px) {
   .launch-copy {
     left: 20px;
     width: calc(100% - 40px);
@@ -907,4 +933,88 @@
   border: 0;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* ---------- Celular: rodapé afastado da borda de baixo (barra de gestos / home do iPhone) ---------- */
+@media (max-width: 759px) {
+  .launch-footer {
+    bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 56px;
+    padding-bottom: 6px;
+  }
+}
+
+/* ---------- Celular deitado: tudo compacto para o "Jogar Agora" caber na tela ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  .launch-home {
+    min-height: 0;
+  }
+  .launch-header {
+    padding: 10px 16px;
+  }
+  .launch-brand-mark {
+    width: 40px;
+    height: 40px;
+  }
+  .launch-brand-name {
+    width: 70px;
+  }
+  .launch-brand-divider {
+    height: 32px;
+  }
+  .launch-space-apps-logo {
+    width: 52px;
+    height: 40px;
+  }
+  .launch-nav-button {
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+  .launch-copy {
+    top: 64px;
+    bottom: auto;
+    left: 24px;
+    width: min(420px, 50%);
+  }
+  .launch-eyebrow {
+    display: none;
+  }
+  .launch-copy h1 {
+    margin: 0;
+  }
+  .launch-title-image {
+    width: min(100%, 260px);
+  }
+  .launch-copy > p {
+    margin-top: 8px;
+    font-size: 14px;
+  }
+  .launch-desktop-break {
+    display: none;
+  }
+  .launch-cta-row {
+    margin-top: 12px;
+  }
+  .launch-cta {
+    min-height: 50px;
+    min-width: 0;
+    padding: 8px 16px;
+    gap: 14px;
+  }
+  .launch-cta-label {
+    font-size: 20px;
+  }
+  .launch-footer {
+    left: 16px;
+    right: 16px;
+    bottom: env(safe-area-inset-bottom, 0px);
+    min-height: 40px;
+    padding: 0 0 8px;
+    font-size: 10px;
+  }
+  .launch-footer-nav > a,
+  .launch-footer-nav > button {
+    padding: 6px 0;
+  }
 }
