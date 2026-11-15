@@ -1,0 +1,87 @@
+.oxygen-orb {
+  --oxygen-fill: #83dedc;
+  position: relative;
+  width: clamp(230px, 22vw, 300px);
+}
+.oxygen-orb[data-level="warning"] {
+  --oxygen-fill: #edcc80;
+}
+.oxygen-orb[data-level="critical"] {
+  --oxygen-fill: #ef9b87;
+}
+.oxygen-orb svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.oxygen-orb__ring-outline {
+  fill: none;
+  stroke: #1d3546;
+  stroke-width: 24px;
+  stroke-linecap: round;
+}
+.oxygen-orb__ring {
+  fill: none;
+  stroke-width: 16px;
+}
+.oxygen-orb__fill {
+  transition:
+    y 0.3s ease-out,
+    height 0.3s ease-out;
+}
+.oxygen-orb__label,
+.oxygen-orb__value,
+.oxygen-orb__sol {
+  fill: #f1f8ed;
+  stroke: #20394b;
+  stroke-width: 3px;
+  paint-order: stroke;
+  text-anchor: middle;
+  font-family: "Barlow", system-ui, sans-serif;
+  font-weight: 800;
+}
+.oxygen-orb__label {
+  font-size: 31px;
+}
+.oxygen-orb__value {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+}
+.oxygen-orb__sol {
+  font-size: 15px;
+  letter-spacing: 2px;
+}
+.oxygen-orb__status {
+  position: absolute;
+  left: 48%;
+  bottom: 20%;
+  display: flex;
+  color: #effbf0;
+}
+.oxygen-orb[data-level="critical"] .oxygen-orb__status {
+  color: #ffdfb5;
+}
+.hud-oxygen-anchor {
+  position: absolute;
+  bottom: -8px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: auto;
+}
+@media (max-width: 767px) {
+  .hud-oxygen-anchor {
+    bottom: 42px;
+    left: 8px;
+  }
+  .oxygen-orb {
+    width: min(200px, 42vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .oxygen-orb__fill {
+    transition: none;
+  }
+}

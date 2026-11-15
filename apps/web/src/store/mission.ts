@@ -6,6 +6,7 @@ import {
   type LogEntry,
   type MissionState,
   runCommand,
+  triggerEvent,
 } from '@mars/sim';
 import { create } from 'zustand';
 
@@ -18,6 +19,7 @@ interface MissionStore {
   error: string | null;
   start: (seed?: number) => void;
   run: (cmd: Command) => void;
+  triggerEvent: (id: string) => void;
 }
 
 let feedbackKey = 0;
@@ -35,6 +37,18 @@ export const useMission = create<MissionStore>((set, get) => ({
       lastEntries: [],
       error: null,
     }),
+  triggerEvent: (id) => {
+    const prev = get().state;
+    if (prev.status !== 'playing') return set({ error: 'Missão encerrada' });
+    const result = triggerEvent(prev, id);
+    if (!result) return set({ error: 'Evento desconhecido' });
+    set({
+      state: result.state,
+      lastEntries: [result.entry],
+      error: null,
+      feedback: { key: ++feedbackKey, deltas: diffState(prev, result.state) },
+    });
+  },
   run: (cmd) => {
     const prev = get().state;
     const { state, entries, error } = runCommand(prev, cmd);

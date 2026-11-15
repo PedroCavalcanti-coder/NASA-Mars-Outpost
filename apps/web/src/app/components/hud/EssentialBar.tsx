@@ -7,32 +7,28 @@
  */
 
 import { Menu } from 'lucide-react';
+import './essentialLayout.css';
 import type { ComponentType } from 'react';
-import { Link } from 'react-router';
-import {
-  BatterySlot,
-  DefaultAlertSlot,
-  DefaultClockSlot,
-  DefaultOxygenSlot,
-} from './panels/EssentialSlots';
+import { BatterySlot, DefaultOxygenSlot, ResourceSlot, ResearchSlot } from './panels/EssentialSlots';
+import { EventOrb } from './panels/EventOrb';
+import { MarsCycleContext } from './panels/OxygenOrb';
 import { useGroupPanels } from './useHudPanels';
 
 interface EssentialBarProps {
   marsTime: {
     sol: number;
+    hour?: number;
     formatted: string;
     isDay: boolean;
   };
   stormActive: boolean;
   onOpenSystemMenu: () => void;
-  onRequestLeave: () => void;
 }
 
 export function EssentialBar({
   marsTime,
   stormActive,
   onOpenSystemMenu,
-  onRequestLeave,
 }: EssentialBarProps) {
   // Painéis registrados dinamicamente no grupo 'essencial' (Conversa 3: Relógio, Conversa 5: Oxigênio)
   const registeredEssential = useGroupPanels('essencial');
@@ -45,62 +41,37 @@ export function EssentialBar({
   );
   // o relógio registrado recebe a hora de Marte da HUD (o registro tipa painéis sem props)
   const CustomClock = customClock?.component as
-    | ComponentType<{ marsTime?: EssentialBarProps['marsTime'] }>
+    | ComponentType<{ marsTime?: EssentialBarProps['marsTime']; hideTimeDisplay?: boolean }>
     | undefined;
 
   return (
-    <header className="hud-essential-bar">
-      <div className="hud-essential-bar__left">
-        <Link
-          to="/"
-          className="hud-essential-bar__brand"
-          aria-label="Mars Outpost — Início"
-          onClick={(e) => {
-            e.preventDefault();
-            onRequestLeave();
-          }}
-        >
-          <img
-            className="hud-essential-bar__logo"
-            src="/assets/branding/mars-outpost-logo.svg"
-            alt=""
-            width={32}
-            height={32}
-          />
-          <span className="hud-essential-bar__wordmark">MARS OUTPOST</span>
-        </Link>
+    <>
+      <button
+        type="button"
+        className="hud-essential-bar__menu-btn"
+        onClick={onOpenSystemMenu}
+        title="Menu do Sistema e Configurações (O)"
+        aria-label="Abrir menu do sistema"
+      >
+        <Menu size={24} />
+      </button>
+      <div className="hud-energy-anchor">
+        <div className="hud-resource-row">
+          <BatterySlot />
+          <ResourceSlot kind="supplies" />
+          <ResourceSlot kind="materials" />
+        </div>
+        <ResearchSlot />
       </div>
-
-      <div className="hud-essential-bar__center">
-        {/* Slot de Oxigênio (Conversa 5 ou padrão) */}
-        {customOxygen ? <customOxygen.component /> : <DefaultOxygenSlot oxygenLevel={100} />}
-
-        {/* Bateria da base (painéis solares carregam, suporte à vida consome) */}
-        <BatterySlot />
-
-        {/* Slot de Relógio Marciano (Conversa 3 ou padrão) */}
-        {CustomClock ? (
-          <CustomClock marsTime={marsTime} />
-        ) : (
-          <DefaultClockSlot marsTime={marsTime} />
-        )}
-
-        {/* Alerta Ativo Compacto */}
-        <DefaultAlertSlot stormActive={stormActive} marsTime={marsTime} />
+      <div className="hud-oxygen-anchor">
+        <MarsCycleContext.Provider value={marsTime}>
+          {customOxygen ? <customOxygen.component /> : <DefaultOxygenSlot oxygenLevel={100} />}
+        </MarsCycleContext.Provider>
+        <div className="hud-event-controls">
+          <EventOrb stormActive={stormActive} isDay={marsTime.isDay} />
+          {CustomClock && <CustomClock marsTime={marsTime} hideTimeDisplay />}
+        </div>
       </div>
-
-      <div className="hud-essential-bar__right">
-        <button
-          type="button"
-          className="hud-essential-bar__menu-btn"
-          onClick={onOpenSystemMenu}
-          title="Menu do Sistema e Configurações (O)"
-          aria-label="Abrir menu do sistema"
-        >
-          <Menu size={18} />
-          <span className="hud-essential-bar__menu-text">Menu</span>
-        </button>
-      </div>
-    </header>
+    </>
   );
 }

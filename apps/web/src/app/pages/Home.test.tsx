@@ -195,7 +195,11 @@ describe('Home initialization and recovery', () => {
     await act(async () => fixture.landingAudio?.('decompression'));
     const air = FakeAudio.instances.find((a) => a.src.endsWith('/air.mp3'));
     expect(air?.play).toHaveBeenCalledTimes(1);
-    expect(air?.volume).toBeCloseTo(0.8);
+    expect(air?.volume).toBeCloseTo(0.4);
+    await act(async () =>
+      fixture.changeAudio?.({ masterVolume: 50, sfxVolume: 60, musicVolume: 70, muted: false }),
+    );
+    expect(air?.volume).toBeCloseTo(0.15);
     await act(async () => fixture.complete?.());
     expect(air?.pause).toHaveBeenCalledTimes(1);
     expect(parachute?.pause).toHaveBeenCalledTimes(1);

@@ -68,6 +68,7 @@ export class MultiplayerRoom {
   onSolar?: (stages: number[]) => void;
   onCrops?: (stages: number[]) => void;
   onEmote?: (id: string, emote: number) => void;
+  onChat?: (id: string, message: string) => void;
   onVehicle?: (v: GameVehicleState) => void;
   /** cuidados diários (horta/filtro) mudaram por outro jogador */
   onCare?: (c: GameCareState) => void;
@@ -181,6 +182,7 @@ export class MultiplayerRoom {
         this.onStorm?.(v);
       });
       socket.on('player:emote', (id, emote) => this.onEmote?.(id, emote));
+      socket.on('player:chat', (id, message) => this.onChat?.(id, message));
       socket.on('world:crops', (stages) => {
         this.world.crops = stages;
         this.onCrops?.(stages);
@@ -309,6 +311,9 @@ export class MultiplayerRoom {
           this.world.storm = m.v;
           this.onStorm?.(m.v);
           break;
+        case 'chat':
+          if (typeof m.message === 'string') this.onChat?.(m.from, m.message.slice(0, 240));
+          break;
         case 'emote':
           this.onEmote?.(m.from, m.i);
           break;
@@ -402,6 +407,12 @@ export class MultiplayerRoom {
     });
   }
 
+  sendChat(message: string) {
+    if (this.disposed) return;
+    if (this.mode === 'online') this.socket?.emit('player:chat', message);
+    else this.post({ t: 'chat', from: this.self.id, message });
+  }
+
   sendEmote(emote: number) {
     if (this.disposed) return;
     if (this.mode === 'online') this.socket?.emit('player:emote', emote);
@@ -490,6 +501,7 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
+  | { t: 'chat'; from: string; message: string }
   | { t: 'vehicle'; from: string; v: GameVehicleState }
   | { t: 'time'; from: string; time: GameTimeState }
   | { t: 'care'; from: string; care: GameCareState };

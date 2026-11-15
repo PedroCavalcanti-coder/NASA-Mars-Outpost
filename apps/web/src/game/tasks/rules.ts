@@ -5,8 +5,8 @@
  *   tempestades aceleram muito. Quanto mais sujo, menos energia: coberto (estágio 4) = 0%.
  * - Rede elétrica: painéis carregam a bateria de dia; o suporte à vida consome sempre.
  *   Sem geração, a bateria segura a base; zerada e sem sol = apagão.
- * - Horta: todo canteiro plantado precisa de cuidado (minigame) a cada Sol. Sem cuidado num Sol,
- *   morre na virada do dia e precisa ser replantado (plantar conta como o cuidado daquele Sol).
+ * - Horta: todo canteiro plantado precisa ser irrigado a cada Sol. Sem cuidado num Sol,
+ *   morre na virada do dia e precisa ser replantado.
  * - Filtro de ar: troca diária. Sem troca num Sol, entope: a base para de produzir O₂.
  * - Sondagem: em alguns Sóis a ciência pede uma amostra de uma camada do subsolo (pontos de pesquisa).
  */
@@ -164,6 +164,7 @@ export interface TaskInput {
   cropStages: readonly number[];
   cropNames: readonly string[];
   cropCare: readonly number[];
+  cropNeedsCare?: readonly boolean[];
   filterSol: number;
   drillDoneSol: number;
   drillTarget?: string;
@@ -190,18 +191,19 @@ export function buildTasks(t: TaskInput): DailyTask[] {
     const care = t.cropCare[i] ?? 0;
     const name = t.cropNames[i] ?? 'horta';
     const ripe = stage >= 3;
+    const needsCare = t.cropNeedsCare?.[i] === true;
     tasks.push({
       id: `crop-${i}-${t.sol}`,
       kind: 'crop',
-      // pronto para colher: clicar colhe (e o canteiro sai da lista); senão, minigame de cuidado
-      title: ripe
+      // Pronto para colher depois da primeira irrigação; caso contrário, precisa de água.
+      title: ripe && !needsCare
         ? `Colher o canteiro ${i + 1} (${name})`
-        : `Cuidar do canteiro ${i + 1} (${name})`,
-      detail: ripe
-        ? 'Pronto! Colha (ou cuide) hoje, senão estraga na virada do Sol.'
-        : 'Água e luz certas hoje, ou a planta morre na virada do Sol.',
+        : `Irrigar o canteiro ${i + 1} (${name})`,
+      detail: ripe && !needsCare
+        ? 'Pronto! Colha hoje, senão estraga na virada do Sol.'
+        : 'Regue hoje para manter a planta saudável.',
       index: i,
-      done: caredToday(care, t.sol),
+      done: !ripe && !needsCare && caredToday(care, t.sol),
       required: true,
     });
   });

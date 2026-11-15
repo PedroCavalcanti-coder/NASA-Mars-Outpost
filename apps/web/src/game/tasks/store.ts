@@ -16,6 +16,7 @@ export interface BaseOpsState {
   cropStages: number[];
   cropNames: string[];
   cropCare: number[];
+  cropNeedsCare: boolean[];
   filterSol: number;
   filterClogged: boolean;
   drillDoneSol: number;
@@ -39,6 +40,7 @@ export const initialOps: BaseOpsState = {
   cropStages: [],
   cropNames: [],
   cropCare: [],
+  cropNeedsCare: [],
   filterSol: 0,
   filterClogged: false,
   drillDoneSol: 0,
@@ -85,6 +87,7 @@ export function tasksFrom(s: BaseOpsState): DailyTask[] {
     cropStages: s.cropStages,
     cropNames: s.cropNames,
     cropCare: s.cropCare,
+    cropNeedsCare: s.cropNeedsCare,
     filterSol: s.filterSol,
     drillDoneSol: s.drillDoneSol,
     drillTarget: s.drillTarget,
@@ -105,6 +108,7 @@ export function useDailyTasks(): DailyTask[] {
       s.panelsCleanedToday,
       s.cropStages,
       s.cropCare,
+      s.cropNeedsCare,
       s.filterSol,
       s.drillDoneSol,
       s.drillTarget,

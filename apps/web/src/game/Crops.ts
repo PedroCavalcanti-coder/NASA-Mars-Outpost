@@ -42,6 +42,13 @@ export class CropSystem {
   readonly proxies: THREE.Mesh[] = [];
   private readonly proxyGeo = new THREE.BoxGeometry(0.9, 1.3, 0.9);
   private readonly proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  private readonly emptyOutlineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.45, 0, -0.45),
+    new THREE.Vector3(0.45, 0, -0.45),
+    new THREE.Vector3(0.45, 0, 0.45),
+    new THREE.Vector3(-0.45, 0, 0.45),
+  ]);
+  private readonly emptyOutlineMat = new THREE.LineBasicMaterial({ color: '#ffffff' });
 
   constructor(
     model: THREE.Object3D,
@@ -70,6 +77,7 @@ export class CropSystem {
           continue;
         }
         const plant = src.clone(true);
+        plant.userData.pick = { kind: 'crop', index: this.slots.length };
         plant.position.copy(marker.position);
         plant.quaternion.copy(marker.quaternion);
         plant.scale.copy(marker.scale);
@@ -91,6 +99,12 @@ export class CropSystem {
       const proxy = new THREE.Mesh(this.proxyGeo, this.proxyMat);
       proxy.position.set(world.x, world.y + 0.65, world.z);
       proxy.userData.pick = { kind: 'crop', index: this.slots.length };
+      // O canteiro vazio também precisa indicar onde é possível plantar.
+      const emptyOutline = new THREE.LineLoop(this.emptyOutlineGeo, this.emptyOutlineMat);
+      emptyOutline.position.y = -0.63;
+      emptyOutline.raycast = () => {};
+      proxy.add(emptyOutline);
+      visuals[0] = emptyOutline;
       proxy.updateMatrix();
       proxy.matrixWorld.copy(proxy.matrix);
       proxy.matrixAutoUpdate = false; // posição fixa: a matriz já está pronta para o clique
@@ -158,5 +172,7 @@ export class CropSystem {
   dispose() {
     this.proxyGeo.dispose();
     this.proxyMat.dispose();
+    this.emptyOutlineGeo.dispose();
+    this.emptyOutlineMat.dispose();
   }
 }

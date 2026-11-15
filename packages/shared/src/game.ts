@@ -145,6 +145,8 @@ export interface GameVehicleState {
 export interface GameCareState {
   crops: number[];
   filter: number;
+  /** Plantas que ainda precisam ser irrigadas nesta plantação. */
+  needsCare?: boolean[];
 }
 
 /** Valida cuidados vindos da rede/banco: inteiros 0..100000, no máximo `GAME_MAX_CROPS` canteiros. */
@@ -154,7 +156,13 @@ export function normalizeCare(raw: unknown): GameCareState | null {
   const sol = (v: unknown) =>
     typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100_000, Math.round(v))) : 0;
   if (!Array.isArray(r.crops)) return null;
-  return { crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol), filter: sol(r.filter) };
+  return {
+    crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol),
+    filter: sol(r.filter),
+    ...(Array.isArray(r.needsCare)
+      ? { needsCare: r.needsCare.slice(0, GAME_MAX_CROPS).map((v) => v === true) }
+      : {}),
+  };
 }
 
 /** Estado compartilhado do mundo: todos veem o mesmo relógio, tempestade, painéis, canteiros e rover. */
@@ -252,6 +260,7 @@ export interface GameServerToClient {
   'world:vehicle': (v: GameVehicleState) => void;
   'world:care': (c: GameCareState) => void;
   'player:emote': (id: string, emote: number) => void;
+  'player:chat': (id: string, message: string) => void;
   /** relógio mudou (pausa/velocidade/salto): vai para todos, inclusive quem pediu */
   'world:time': (t: GameTimeState) => void;
 }
@@ -265,6 +274,7 @@ export interface GameClientToServer {
   'world:vehicle': (v: GameVehicleState) => void;
   'world:care': (c: GameCareState) => void;
   'player:emote': (emote: number) => void;
+  'player:chat': (message: string) => void;
   /** pede mudança no relógio (restrita ao coordenador se houver mais de um jogador) */
   'world:time': (req: GameTimeRequest) => void;
   /** Grava o mundo no banco e vincula o jogador a ele. */

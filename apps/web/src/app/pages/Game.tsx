@@ -98,8 +98,9 @@ function ReadyGame() {
 
   const [roomCode] = useState(() => {
     if (queryRoom) return queryRoom.toUpperCase();
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `MARS-${baseId.toUpperCase()}-${rand}`;
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const bytes = crypto.getRandomValues(new Uint32Array(4));
+    return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
   });
 
   const mount = useRef<HTMLDivElement>(null);
@@ -232,11 +233,13 @@ function ReadyGame() {
       onPlayersChange: (p) => {
         if (alive) setPlayers(p);
       },
+      onChat: ({ name, message, local }) => {
+        if (alive) setChat((c) => [...c.slice(-49), { id: ++chatId.current, name, emoji: message, local }]);
+      },
       onEmote: ({ name: who, emoji, local }) => {
         if (!alive) return;
         const id = ++chatId.current;
-        setChat((c) => [...c.slice(-5), { id, name: who, emoji, local }]);
-        window.setTimeout(() => setChat((c) => c.filter((m) => m.id !== id)), 9000);
+        setChat((c) => [...c.slice(-49), { id, name: who, emoji, local }]);
       },
       onMessage: (msg, kind) => {
         toast(msg, kind);
@@ -522,7 +525,6 @@ function ReadyGame() {
       {/* `display: contents` mantém o layout; `inert` bloqueia a base enquanto o minigame está aberto */}
       <div className="game__interface" style={{ display: 'contents' }} inert={minigame !== null}>
         <div className="game__canvas" ref={mount} />
-        <div className="game__vignette" />
 
         {/* Nova HUD Modular Unificada (Barra Essencial, Doca e Painéis Recolhíveis) */}
         {!loading && !error && (
@@ -538,6 +540,7 @@ function ReadyGame() {
             onToggleRoofs={toggleRoofs}
             chat={chat}
             onSendEmote={pickEmote}
+            onSendChat={(message) => viewer.current?.sendChat(message) ?? false}
             info={info}
             astronautName={name ?? 'Explorador'}
             coords={coords}

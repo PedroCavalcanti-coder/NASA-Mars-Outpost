@@ -27,7 +27,6 @@ import { ChatPanel } from './panels/ChatPanel';
 import { DevPanel } from './panels/DevPanel';
 import { MissionPanel } from './panels/MissionPanel';
 import { ResourcesPanel } from './panels/ResourcesPanel';
-import { RoomPanel } from './panels/RoomPanel';
 import { SystemPanel } from './panels/SystemPanel';
 import { TasksPanel } from './panels/TasksPanel';
 // registra o relógio com pausa/velocidade no slot essencial (e as ações de tempo do painel Dev)
@@ -65,6 +64,7 @@ export function HudRoot(props: HudRootProps) {
     onToggleRoofs,
     chat,
     onSendEmote,
+    onSendChat,
     info,
     astronautName,
     coords,
@@ -75,8 +75,6 @@ export function HudRoot(props: HudRootProps) {
     onGoToTask,
     driving,
     onExitRover,
-    showHints,
-    showCoords,
   } = props;
 
   // Detecta se a URL possui ?dev ou se está em ambiente de desenvolvimento Vite
@@ -110,14 +108,6 @@ export function HudRoot(props: HudRootProps) {
         title: 'Tarefas do Sol',
         icon: ClipboardList,
         component: TasksPanel,
-      }),
-
-      registerPanel({
-        id: 'sala',
-        group: 'sistema',
-        title: 'Tripulação',
-        icon: Users,
-        component: RoomPanel,
       }),
 
       registerPanel({
@@ -178,11 +168,10 @@ export function HudRoot(props: HudRootProps) {
   const dockBadges = useMemo<Record<string, string | number | null>>(() => {
     return {
       tarefas: pendingRequired > 0 ? pendingRequired : null,
-      sala: players.count > 1 ? `${players.count}/4` : null,
       chat: chat.length > 0 ? chat.length : null,
       dev: 'DEV',
     };
-  }, [players.count, chat.length, pendingRequired]);
+  }, [chat.length, pendingRequired]);
 
   // Contexto compartilhado para alimentar os painéis
   const contextValue: HudContextValue = useMemo(
@@ -196,6 +185,7 @@ export function HudRoot(props: HudRootProps) {
       onToggleRoofs,
       chat,
       onSendEmote,
+    onSendChat,
       info,
       astronautName,
       coords,
@@ -215,6 +205,7 @@ export function HudRoot(props: HudRootProps) {
       onToggleRoofs,
       chat,
       onSendEmote,
+    onSendChat,
       info,
       astronautName,
       coords,
@@ -229,12 +220,16 @@ export function HudRoot(props: HudRootProps) {
   return (
     <HudContext.Provider value={contextValue}>
       <div className="hud-root">
+        <div className="hud-room-status" aria-label={`Sala ${roomCode}, ${players.count} de 4 jogadores`}>
+          <span>{roomCode}</span>
+          <Users size={20} aria-hidden="true" />
+          <span>{players.count}/4</span>
+        </div>
         {/* Barra Essencial Fixa no Topo */}
         <EssentialBar
           marsTime={marsTime}
           stormActive={stormActive}
           onOpenSystemMenu={() => openPanel('sistema')}
-          onRequestLeave={onRequestLeave}
         />
 
         {/* Doca de Botões de Ícones (lateral direita / bottom bar em mobile) */}
@@ -250,12 +245,7 @@ export function HudRoot(props: HudRootProps) {
         <HudPanelContainer panel={activePanel} onClose={closePanel} />
 
         {/* Faixa inferior: mensagens, coordenadas, sair do rover e dicas (sem invadir a doca) */}
-        <HudBottom
-          driving={driving}
-          onExitRover={onExitRover}
-          showHints={showHints}
-          showCoords={showCoords}
-        />
+        <HudBottom driving={driving} onExitRover={onExitRover} chatOpen={activePanelId === 'chat'} onToggleChat={() => togglePanel('chat')} />
       </div>
     </HudContext.Provider>
   );

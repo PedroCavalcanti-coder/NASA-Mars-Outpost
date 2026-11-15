@@ -1,5 +1,5 @@
 import { pickWeighted } from './rng';
-import { change } from './state';
+import { change, cloneState, pushLog } from './state';
 import type { Deltas, LogEntry, MissionState } from './types';
 
 type Outcome = Omit<LogEntry, 'id' | 'sol'>;
@@ -120,4 +120,13 @@ export const EVENTS: readonly MissionEvent[] = [
 
 export function rollEvent(s: MissionState): Outcome {
   return pickWeighted(s, EVENTS).apply(s);
+}
+
+/** Aplica um evento específico para ferramentas de desenvolvimento. */
+export function triggerEvent(previous: MissionState, id: string) {
+  const event = EVENTS.find((item) => item.id === id);
+  if (!event) return null;
+  const state = cloneState(previous);
+  const entry = pushLog(state, event.apply(state));
+  return { state, entry };
 }

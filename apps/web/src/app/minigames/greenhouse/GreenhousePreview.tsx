@@ -5,7 +5,7 @@ import { GreenhouseIllustration } from './GreenhouseIllustration';
 import { useGreenhouse } from './useGreenhouse';
 import './greenhouse.css';
 
-/** Cuidado de um canteiro (água e luz). Dentro da base, `onComplete` avisa o jogo uma única vez. */
+/** Irrigação da plantação. Dentro da base, `onComplete` avisa o jogo uma única vez. */
 export default function GreenhousePreview({
   onClose,
   onComplete,

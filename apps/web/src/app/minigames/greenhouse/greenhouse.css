@@ -96,6 +96,15 @@
 .greenhouse-water-control:active {
   cursor: grabbing;
 }
+.greenhouse-valve-wheel {
+  transform-origin: 72px 410px;
+}
+.greenhouse-main-valve[data-watering="true"] .greenhouse-valve-wheel {
+  animation: greenhouse-valve-turn 1.5s linear infinite;
+}
+@keyframes greenhouse-valve-turn {
+  to { transform: rotate(360deg); }
+}
 .greenhouse-water-mark {
   width: 100%;
   height: 100%;

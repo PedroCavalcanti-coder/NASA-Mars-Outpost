@@ -20,6 +20,7 @@ export interface HudContextValue {
   onToggleRoofs: () => void;
   chat: Array<{ id: number; name: string; emoji: string; local: boolean }>;
   onSendEmote: (index: number) => void;
+  onSendChat: (message: string) => boolean;
   info: BaseInfo | null;
   astronautName: string;
   coords: { gx: number; gy: number; inside: boolean } | null;

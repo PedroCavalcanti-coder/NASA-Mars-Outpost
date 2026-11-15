@@ -55,3 +55,110 @@
     right: max(16px, env(safe-area-inset-right));
   }
 }
+
+.rover-repair-part[data-active="true"] {
+  cursor: pointer;
+  filter: drop-shadow(0 0 5px #f5cd82);
+}
+.rover-repair-part[data-active="true"]:hover,
+.rover-repair-part:focus-visible {
+  filter: drop-shadow(0 0 9px #fff0b6);
+  outline: none;
+}
+.rover-repair-instruction {
+  position: absolute;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90%, 550px);
+  text-align: center;
+  color: #fff0d2;
+  font-family: inherit;
+  font-size: clamp(15px, 1.6vw, 20px);
+  pointer-events: none;
+}
+.rover-repair-instruction p {
+  margin: 0;
+  padding: 10px 16px;
+  background: #253b35ed;
+  border-radius: 8px;
+}
+.rover-repair-instruction button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 18px;
+  border: 1px solid #b8c1a7;
+  border-radius: 8px;
+  background: #35554e;
+  color: #fff0d2;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .rover-repair-part {
+    transition: filter 180ms ease;
+  }
+}
+
+.rover-repair-wheel {
+  transform: translate(600px, 495px) scale(0.65);
+}
+.rover-repair-wheel[data-mounting="true"] {
+  animation: rover-wheel-mount 1.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+.rover-repair-wrench {
+  animation: rover-wrench-turn 0.9s ease-in-out both;
+}
+.rover-repair-wrench[data-tightening="true"] {
+  animation-direction: reverse;
+}
+@keyframes rover-wrench-turn {
+  0% {
+    transform: rotate(-40deg);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  35% {
+    transform: rotate(25deg);
+  }
+  50% {
+    transform: rotate(-25deg);
+  }
+  80% {
+    transform: rotate(65deg);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(90deg);
+    opacity: 0;
+  }
+}
+@keyframes rover-wheel-mount {
+  0% {
+    transform: translate(600px, 495px) scale(0.65);
+  }
+  35% {
+    transform: translate(690px, 470px) scale(0.57) rotate(35deg);
+  }
+  80% {
+    transform: translate(750px, 345px) scale(0.34) rotate(60deg);
+  }
+  92% {
+    transform: translate(750px, 342px) scale(0.32) rotate(60deg);
+  }
+  100% {
+    transform: translate(750px, 345px) scale(0.32) rotate(60deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rover-repair-wrench,
+  .rover-repair-wheel[data-mounting="true"] {
+    animation-duration: 0.01ms;
+  }
+}

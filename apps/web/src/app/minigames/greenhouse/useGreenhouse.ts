@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { CROPS, type CropIndex, cropReducer, healthy, initialCrops } from './greenhouseState';
+import { useGameSettings } from '../../../lib/gameSettings';
 
 const portraitQuery = '(max-aspect-ratio: 4/5)';
 function subscribePortrait(listener: () => void) {
@@ -20,37 +21,50 @@ const isPortrait = () => window.matchMedia(portraitQuery).matches;
 
 export function useGreenhouse() {
   const [crops, dispatch] = useReducer(cropReducer, undefined, initialCrops);
-  const [watering, setWatering] = useState<CropIndex | null>(null);
+  const [watering, setWatering] = useState<boolean>(false);
   const [camera, setCamera] = useState<CropIndex>(0);
   const portrait = useSyncExternalStore(subscribePortrait, isPortrait, () => false);
-  const active = useRef<{ index: CropIndex; element: HTMLButtonElement; pointer?: number } | null>(
+  const active = useRef<{ element: HTMLButtonElement; pointer?: number } | null>(
     null,
   );
   const complete = crops.every(healthy);
+  useEffect(() => {
+    if (!watering || complete) return;
+    const { audio } = useGameSettings.getState();
+    if (audio.muted || audio.masterVolume <= 0 || audio.sfxVolume <= 0) return;
+    const sound = new Audio('/assets/audio/watering-plant.mp3');
+    sound.loop = true;
+    sound.volume = (audio.masterVolume * audio.sfxVolume) / 10000;
+    void sound.play().catch(() => {});
+    return () => {
+      sound.pause();
+      sound.currentTime = 0;
+    };
+  }, [watering, complete]);
   const stop = useCallback(() => {
     const previous = active.current;
     active.current = null;
     if (previous?.pointer !== undefined && previous.element.hasPointerCapture(previous.pointer))
       previous.element.releasePointerCapture(previous.pointer);
-    setWatering(null);
+    setWatering(false);
   }, []);
-  function down(event: PointerEvent<HTMLButtonElement>, index: CropIndex) {
+  function down(event: PointerEvent<HTMLButtonElement>) {
     if (!event.isPrimary || event.button !== 0 || active.current || complete) return;
     event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
-    active.current = { index, element: event.currentTarget, pointer: event.pointerId };
-    setWatering(index);
+    active.current = { element: event.currentTarget, pointer: event.pointerId };
+    setWatering(true);
   }
   function up(event: PointerEvent<HTMLButtonElement>) {
     if (active.current?.pointer === event.pointerId) stop();
   }
-  function keyDown(event: KeyboardEvent<HTMLButtonElement>, index: CropIndex) {
+  function keyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key !== ' ' && event.key !== 'Enter') return;
     event.preventDefault();
     if (event.repeat || active.current || complete) return;
-    active.current = { index, element: event.currentTarget };
-    setWatering(index);
+    active.current = { element: event.currentTarget };
+    setWatering(true);
   }
   function keyUp(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key === ' ' || event.key === 'Enter') {
@@ -59,16 +73,16 @@ export function useGreenhouse() {
     }
   }
   useEffect(() => {
-    if (watering !== null && crops[watering].water >= CROPS[watering].water) stop();
-  }, [crops, watering, stop]);
+    if (watering && complete) stop();
+  }, [complete, watering, stop]);
   useEffect(() => {
-    if (watering === null || complete) return;
+    if (!watering || complete) return;
     let previous = performance.now();
     const timer = window.setInterval(() => {
       const now = performance.now();
       const seconds = Math.min((now - previous) / 1000, 0.1);
       previous = now;
-      if (active.current?.index === watering) dispatch({ type: 'water', index: watering, seconds });
+      if (active.current) CROPS.forEach(({ index }) => dispatch({ type: 'water', index, seconds }));
     }, 50);
     return () => clearInterval(timer);
   }, [watering, complete]);
@@ -89,13 +103,6 @@ export function useGreenhouse() {
         previous.element.releasePointerCapture(previous.pointer);
     };
   }, [stop]);
-  useEffect(() => {
-    if (!portrait || watering !== null || !healthy(crops[camera], camera) || complete) return;
-    const next = CROPS.find(({ index }) => !healthy(crops[index], index));
-    if (!next) return;
-    const timer = setTimeout(() => setCamera(next.index), 900);
-    return () => clearTimeout(timer);
-  }, [crops, camera, portrait, watering, complete]);
   function reset() {
     stop();
     dispatch({ type: 'reset' });
@@ -113,8 +120,7 @@ export function useGreenhouse() {
     keyUp,
     stop,
     reset,
-    light: (index: CropIndex) => dispatch({ type: 'light', index }),
     // Assistive-technology activation also works without holding a physical key.
-    waterStep: (index: CropIndex) => dispatch({ type: 'water', index, seconds: 0.5 }),
+    waterStep: () => CROPS.forEach(({ index }) => dispatch({ type: 'water', index, seconds: 0.5 })),
   };
 }

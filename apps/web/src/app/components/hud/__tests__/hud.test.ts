@@ -15,7 +15,7 @@ describe('HUD Panel Metadata & Shortcuts', () => {
     expect(getPanelMeta('camera').shortcut).toBe('C');
     expect(getPanelMeta('chat').shortcut).toBe('Q');
     expect(getPanelMeta('sistema').shortcut).toBe('O');
-    expect(getPanelMeta('dev').shortcut).toBe('D');
+    expect(getPanelMeta('dev').shortcut).toBe('0');
   });
 
   it('ordena os painéis na doca corretamente', () => {
