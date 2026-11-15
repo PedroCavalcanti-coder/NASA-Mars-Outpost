@@ -1,0 +1,34 @@
+.resource-reward-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.resource-reward-fx--supplies { --reward-color: #8bcf78; }
+.resource-reward-fx--energy { --reward-color: #edce70; }
+.resource-reward-fx--materials { --reward-color: #79b9df; }
+
+.resource-reward-fx__icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--reward-color);
+  will-change: transform, opacity;
+  filter: drop-shadow(0 0 6px var(--reward-color)) drop-shadow(0 2px 2px #172a35);
+}
+
+.resource-reward-fx__icon svg {
+  display: block;
+  width: 26px;
+  height: 26px;
+  margin: -13px;
+}
+
+.resource-reward-fx__amount {
+  position: absolute;
+  color: var(--reward-color);
+  font: 800 22px 'Barlow', sans-serif;
+  text-shadow: 0 2px 3px #172a35;
+}

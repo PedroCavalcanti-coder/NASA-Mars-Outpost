@@ -23,6 +23,7 @@ import { HudBottom } from './HudBottom';
 import { HudContext, type HudContextValue } from './HudContext';
 import { HudDock } from './HudDock';
 import { HudPanelContainer } from './HudPanelContainer';
+import { ResourceRewardFx } from './ResourceRewardFx';
 import { ChatPanel } from './panels/ChatPanel';
 import { DevPanel } from './panels/DevPanel';
 import { MissionPanel } from './panels/MissionPanel';
@@ -219,6 +220,7 @@ export function HudRoot(props: HudRootProps) {
 
   return (
     <HudContext.Provider value={contextValue}>
+      <ResourceRewardFx viewer={viewer} />
       <div className="hud-root">
         <div className="hud-room-status" aria-label={`Sala ${roomCode}, ${players.count} de 4 jogadores`}>
           <span>{roomCode}</span>

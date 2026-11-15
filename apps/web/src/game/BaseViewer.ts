@@ -245,6 +245,9 @@ export class BaseViewer {
   private readonly groundSkirt: THREE.Mesh;
   private stormTarget = 0;
   private stormCurrent = 0;
+  private stormAudio: HTMLAudioElement | null = null;
+  private stormAudioStarting = false;
+  private stormAudioRetryAt = 0;
   private currentReducedMotion = false;
   private stormAlertShown = false;
 
@@ -1234,6 +1237,7 @@ export class BaseViewer {
     this.stormCurrent += (this.stormTarget - this.stormCurrent) * Math.min(1, dt * 0.9);
     if (Math.abs(this.stormTarget - this.stormCurrent) < 0.003)
       this.stormCurrent = this.stormTarget;
+    this.updateStormAudio();
 
     this.updateShip(dt);
 
@@ -1323,6 +1327,36 @@ export class BaseViewer {
 
     // [seam:survival] execução dos sistemas de jogo plugáveis com SystemContext
     this.systems.update(worldDt, this.getSystemContext());
+  }
+
+  private updateStormAudio() {
+    const { audio } = useGameSettings.getState();
+    const inside = this.interior?.insideFactor ?? 0;
+    const volume = audio.muted
+      ? 0
+      : (audio.masterVolume * audio.sfxVolume * 0.5 * this.stormCurrent * (1 - inside * 0.7)) / 10000;
+
+    if (volume <= 0) {
+      this.stormAudio?.pause();
+      return;
+    }
+
+    if (!this.stormAudio) {
+      this.stormAudio = new Audio('/assets/audio/desert-winds.mp3');
+      this.stormAudio.loop = true;
+    }
+    this.stormAudio.volume = Math.min(1, volume);
+    if (this.stormAudio.paused && !this.stormAudioStarting && performance.now() >= this.stormAudioRetryAt) {
+      this.stormAudioStarting = true;
+      void this.stormAudio.play().catch(() => {
+        this.stormAudioRetryAt = performance.now() + 2000;
+      }).finally(() => {
+        this.stormAudioStarting = false;
+        if (this.disposed || this.stormCurrent === 0 || useGameSettings.getState().audio.muted) {
+          this.stormAudio?.pause();
+        }
+      });
+    }
   }
 
   /** Dirige o rover (jogador local). */
@@ -1500,6 +1534,20 @@ export class BaseViewer {
       local.face(p.face);
       this.options?.onMinigame?.({ kind: 'greenhouse', index: p.index });
     }
+  }
+
+  /** Posição do astronauta na tela para os efeitos de recompensa da HUD. */
+  getRewardScreenPosition(): { x: number; y: number } | null {
+    if (!this.localAstronaut) return null;
+    const point = this.localAstronaut.position.clone();
+    point.y += 1.5;
+    point.project(this.camera);
+    if (Math.abs(point.x) > 1 || Math.abs(point.y) > 1 || Math.abs(point.z) > 1) return null;
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    return {
+      x: rect.left + ((point.x + 1) / 2) * rect.width,
+      y: rect.top + ((1 - point.y) / 2) * rect.height,
+    };
   }
 
   private notify(msg: string, kind: 'ok' | 'error' | 'info') {
@@ -2636,6 +2684,7 @@ export class BaseViewer {
   }
 
   dispose() {
+    this.stormAudio?.pause();
     for (const sound of this.doorSounds) sound.pause();
     this.doorSounds.clear();
     this.metalFootstepAudio?.forEach((step) => step.pause());

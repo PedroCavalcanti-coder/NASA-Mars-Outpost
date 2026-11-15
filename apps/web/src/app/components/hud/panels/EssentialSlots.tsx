@@ -28,7 +28,7 @@ function ResourceGauge({ kind }: { kind: 'energy' | 'supplies' | 'materials' }) 
   const Icon = kind === 'energy' ? Zap : kind === 'supplies' ? Wheat : Package;
   const pct = Math.max(0, Math.min(100, Math.round((resource.value / Math.max(1, resource.max)) * 100)));
   return (
-    <div className={`hud-resource-gauge hud-resource-gauge--${kind}`} role="status"
+    <div className={`hud-resource-gauge hud-resource-gauge--${kind}`} data-resource-gauge={kind} role="status"
       title={`${labels[kind]}: ${resource.value}/${resource.max}`}
       aria-label={`${labels[kind]}: ${resource.value} de ${resource.max}, ${pct}%`}>
       <div className="hud-resource-gauge__dial" aria-hidden="true">
