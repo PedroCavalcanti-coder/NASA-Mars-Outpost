@@ -125,5 +125,7 @@ export const RESEARCH_ACTION = { base: 5, perExtraLab: 3, lowMoralePenalty: 2 } 
 export const MINE_YIELD = [18, 24] as const;
 export const MAINTAIN_MORALE = 4;
 
-/** Chance de um evento ao fim de cada sol (a partir do sol 2). */
+/** Chance de um evento ao fim de cada sol. */
 export const EVENT_CHANCE = 0.55;
+/** Nenhum evento acontece nos 3 primeiros sóis: só a partir do sol 4. */
+export const EVENT_FIRST_SOL = 4;

@@ -90,7 +90,7 @@ export class GestureBroker {
 
   private checkReady(a?: GameMotion, b?: GameMotion): { ok: true } | { ok: false; reason: string } {
     if (!a || !b) return { ok: false, reason: 'Aguarde os astronautas se posicionarem.' };
-    if (a.m === 'drive' || b.m === 'drive') {
+    if (a.m === 'drive' || b.m === 'drive' || a.m === 'ride' || b.m === 'ride') {
       return { ok: false, reason: 'Gestos em dupla só valem fora do rover.' };
     }
     if (distance(a, b) > GESTURE_MAX_DISTANCE) {

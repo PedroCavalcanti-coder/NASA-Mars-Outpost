@@ -197,7 +197,12 @@ function parseMotion(raw: unknown): GameMotion | null {
   const m = raw as Record<string, unknown>;
   if (!finite(m.x, WORLD_LIMIT) || !finite(m.z, WORLD_LIMIT) || !finite(m.h, 20)) return null;
   const kind =
-    m.m === 'walk' || m.m === 'clean' || m.m === 'plant' || m.m === 'harvest' || m.m === 'drive'
+    m.m === 'walk' ||
+    m.m === 'clean' ||
+    m.m === 'plant' ||
+    m.m === 'harvest' ||
+    m.m === 'drive' ||
+    m.m === 'ride'
       ? m.m
       : 'idle';
   return { x: m.x, z: m.z, h: m.h, m: kind };
@@ -339,6 +344,33 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       } catch (err) {
         console.error('[game] falha ao salvar o mundo:', (err as Error).message);
         reply({ ok: false, error: 'Não foi possível salvar agora. Tente de novo.' });
+      }
+    });
+
+    /** "Voltar ao último save": recarrega do banco o mundo salvo (só quando se está sozinho na sala). */
+    socket.on('world:restore', async (ack) => {
+      const reply = typeof ack === 'function' ? ack : () => {};
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room) return reply({ ok: false, error: 'Você não está num mundo' });
+      if (!takeToken(socket.data, 5)) return reply({ ok: false, error: 'Calma!' });
+      if (!room.saved || !socket.data.linked) {
+        return reply({ ok: false, error: 'Este mundo não tem um salvamento seu.' });
+      }
+      if (room.players.size > 1) {
+        return reply({
+          ok: false,
+          error: 'Há outros astronautas na sala: só dá para voltar ao save estando sozinho.',
+        });
+      }
+      try {
+        const saved = await loadWorld(room.code);
+        if (!saved) return reply({ ok: false, error: 'Nenhum salvamento encontrado.' });
+        room.world = worldFromSave(saved.save);
+        room.mission = saved.save.mission;
+        reply({ ok: true, restored: true });
+      } catch (err) {
+        console.error('[game] falha ao restaurar o mundo:', (err as Error).message);
+        reply({ ok: false, error: 'Não foi possível carregar o save agora.' });
       }
     });
 

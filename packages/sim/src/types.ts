@@ -20,7 +20,7 @@ export type FacilityId = 'solar' | 'greenhouse' | 'lab';
 export type Crisis = 'blackout' | 'famine' | 'shortage';
 
 export type MissionStatus = 'playing' | 'won' | 'lost';
-export type LossReason = 'morale' | 'deadline';
+export type LossReason = 'morale' | 'deadline' | 'oxygen';
 
 export type ActionId =
   | 'research'
@@ -38,6 +38,8 @@ export type Command =
    * já são simuladas em tempo real, então o fim do sol não as recalcula.
    */
   | { type: 'end_sol'; realtime?: boolean }
+  /** reavalia vitória/derrota sem alterar nada (o oxigênio da base zera fora de um comando) */
+  | { type: 'check' }
   /** recompensa/custo vindo de uma tarefa do mundo (minigame, colheita, sondagem) */
   | { type: 'reward'; tone: LogEntry['tone']; title: string; text: string; deltas: Deltas };
 

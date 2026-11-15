@@ -146,3 +146,20 @@ describe('sim', () => {
     expect(r.state.actionsLeft).toBe(s0.actionsLeft); // não gasta ação do sol
   });
 });
+
+describe('oxigênio da base', () => {
+  it('oxigênio zerado encerra a missão ("não pode ser concluída")', () => {
+    const s = createMission(1);
+    s.resources.oxygen.value = 0;
+    const r = runCommand(s, { type: 'check' });
+    expect(r.state.status).toBe('lost');
+    expect(r.state.lossReason).toBe('oxygen');
+  });
+
+  it('com oxigênio sobrando, a checagem não muda nada', () => {
+    const s = createMission(1);
+    const r = runCommand(s, { type: 'check' });
+    expect(r.state.status).toBe('playing');
+    expect(r.entries).toHaveLength(0);
+  });
+});

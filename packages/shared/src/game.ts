@@ -103,7 +103,10 @@ export function applyTimeState(world: GameWorldState, t: GameTimeState): void {
   world.virtualElapsedMs = t.virtualElapsedMs;
 }
 
-/** `drive`: o jogador está dentro do rover (x, z, h passam a ser os do veículo). */
+/**
+ * `drive`: o jogador dirige o rover; `ride`: é o passageiro do rover (o rover tem 2 lugares).
+ * Nos dois casos x, z, h são os do veículo.
+ */
 /** Emojis do painel circular. O servidor só aceita estes (pelo índice), nunca texto livre. */
 export const GAME_EMOTES = [
   '😀',
@@ -121,7 +124,7 @@ export const GAME_EMOTES = [
   '💃',
 ] as const;
 
-export type GameMotionKind = 'idle' | 'walk' | 'clean' | 'plant' | 'harvest' | 'drive';
+export type GameMotionKind = 'idle' | 'walk' | 'clean' | 'plant' | 'harvest' | 'drive' | 'ride';
 
 /** Estado que cada jogador envia sobre si mesmo (~10 vezes por segundo quando se mexe). */
 export interface GameMotion {
@@ -405,4 +408,6 @@ export interface GameClientToServer {
     payload: { mission?: unknown },
     ack: (r: GameAck<{ savedAt: number }>) => void,
   ) => void;
+  /** Volta o mundo da sala ao último salvamento (só sozinho na sala). */
+  'world:restore': (ack: (r: GameAck<{ restored: true }>) => void) => void;
 }

@@ -5,6 +5,7 @@ import {
   CRISIS_PENALTY,
   ECONOMY,
   EVENT_CHANCE,
+  EVENT_FIRST_SOL,
   EXPEDITION,
   FACILITY_MAX,
   MAINTAIN_MORALE,
@@ -174,7 +175,10 @@ function endSol(s: MissionState, realtime = false) {
     );
 
   // 3) evento do sol
-  if (s.sol >= 2 && random(s) < EVENT_CHANCE) pushLog(s, rollEvent(s));
+  // no jogo 3D os eventos vêm pelo tablet (com escolhas); este sorteio automático é só do modo simples
+  if (!realtime && s.sol >= EVENT_FIRST_SOL && random(s) < EVENT_CHANCE) {
+    pushLog(s, rollEvent(s));
+  }
 
   // 4) crises de recursos
   const active = crises(s);
@@ -201,6 +205,15 @@ function checkOutcome(s: MissionState) {
       tone: 'good',
       title: 'Missão cumprida!',
       text: 'A base coletou todos os dados científicos da campanha.',
+      deltas: {},
+    });
+  } else if (s.resources.oxygen.value <= 0) {
+    s.status = 'lost';
+    s.lossReason = 'oxygen';
+    pushLog(s, {
+      tone: 'bad',
+      title: 'Suporte à vida falhou',
+      text: 'O oxigênio da base chegou a zero. A missão não pode ser concluída.',
       deltas: {},
     });
   } else if (s.morale <= 0) {
@@ -261,7 +274,8 @@ export function runCommand(prev: MissionState, cmd: Command): CommandResult {
   const s = cloneState(prev);
   if (cmd.type === 'action') performAction(s, cmd.action);
   else if (cmd.type === 'reward') applyReward(s, cmd);
-  else endSol(s, cmd.realtime === true);
+  else if (cmd.type === 'end_sol') endSol(s, cmd.realtime === true);
+  // `check`: só reavalia o desfecho abaixo
   checkOutcome(s);
 
   const entries = s.log.slice(0, s.nextLogId - prev.nextLogId).reverse();
