@@ -60,7 +60,6 @@ function MissionRow({ id }: { id: MissionId }) {
     : missionBlock(def, {
         energy: res.energy.value,
         supplies: res.supplies.value,
-        materials: res.materials.value,
         oxygen: res.oxygen.value,
         night: board.night,
         blackout: board.blackout,

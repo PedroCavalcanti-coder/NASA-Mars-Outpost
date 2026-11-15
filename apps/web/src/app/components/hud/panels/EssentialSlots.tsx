@@ -10,10 +10,11 @@ import { RESEARCH_GOAL } from '@mars/sim';
 import {
   AlertTriangle,
   CloudSun,
+  Droplet,
   Fan,
   FlaskConical,
   Moon,
-  Package,
+  Shield,
   Sun,
   Wheat,
   Wind,
@@ -34,20 +35,34 @@ export function DefaultOxygenSlot({ oxygenLevel }: OxygenSlotProps) {
 }
 
 /** Indicador semicircular compartilhado pelos recursos da base. */
-function ResourceGauge({ kind }: { kind: 'energy' | 'supplies' | 'materials' }) {
+function ResourceGauge({ kind }: { kind: 'energy' | 'supplies' | 'armor' }) {
   const resource = useMission((m) => m.state.resources[kind]);
-  const labels = { energy: 'Energia', supplies: 'Mantimentos', materials: 'Materiais' };
-  const Icon = kind === 'energy' ? Zap : kind === 'supplies' ? Wheat : Package;
+  const labels = { energy: 'Energia', supplies: 'Mantimentos', armor: 'Blindagem' };
+  const Icon = kind === 'energy' ? Zap : kind === 'supplies' ? Wheat : Shield;
   const pct = Math.max(
     0,
     Math.min(100, Math.round((resource.value / Math.max(1, resource.max)) * 100)),
   );
+  const fractures = useBaseOps((s) => s.integrity?.fractures.length ?? 0);
   return (
     <div
+      data-level={
+        kind === 'armor'
+          ? pct === 0
+            ? 'emergency'
+            : pct <= 25
+              ? 'critical'
+              : pct <= 50
+                ? 'warning'
+                : 'normal'
+          : undefined
+      }
       className={`hud-resource-gauge hud-resource-gauge--${kind}`}
+      data-resource-gauge={kind}
+      data-bit-target={kind}
       role="status"
       title={`${labels[kind]}: ${resource.value}/${resource.max}`}
-      aria-label={`${labels[kind]}: ${resource.value} de ${resource.max}, ${pct}%`}
+      aria-label={`${labels[kind]}: ${resource.value} de ${resource.max}, ${pct}%${kind === 'armor' ? `, ${fractures} fraturas abertas` : ''}`}
     >
       <div className="hud-resource-gauge__dial" aria-hidden="true">
         <svg viewBox="0 0 100 90">
@@ -63,7 +78,14 @@ function ResourceGauge({ kind }: { kind: 'energy' | 'supplies' | 'materials' }) 
             strokeDasharray={`${pct} 100`}
           />
         </svg>
-        <Icon className="hud-resource-gauge__icon" size={24} strokeWidth={2.5} />
+        {kind === 'supplies' ? (
+          <span className="hud-resource-gauge__icon hud-resource-gauge__supplies-icon">
+            <Wheat size={23} strokeWidth={2.5} />
+            <Droplet size={15} strokeWidth={2.5} />
+          </span>
+        ) : (
+          <Icon className="hud-resource-gauge__icon" size={24} strokeWidth={2.5} />
+        )}
       </div>
       <span className="hud-resource-gauge__value">{pct}%</span>
     </div>
@@ -74,7 +96,7 @@ export function BatterySlot() {
   return <ResourceGauge kind="energy" />;
 }
 
-export function ResourceSlot({ kind }: { kind: 'supplies' | 'materials' }) {
+export function ResourceSlot({ kind }: { kind: 'supplies' | 'armor' }) {
   return <ResourceGauge kind={kind} />;
 }
 
@@ -85,7 +107,7 @@ export function ResearchSlot() {
   const securedPct = Math.max(0, Math.min(100, (secured / RESEARCH_GOAL) * 100));
   const pending = Math.max(0, research - secured);
   return (
-    <div className="hud-research" aria-label="Progresso da pesquisa">
+    <div className="hud-research" data-bit-target="research" aria-label="Progresso da pesquisa">
       <div className="hud-research__heading">
         <span>
           <FlaskConical size={15} aria-hidden="true" /> Pesquisa

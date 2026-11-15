@@ -12,3 +12,4 @@ export const SIM_VERSION = 1;
 export function describeSim() {
   return `${GAME_NAME}: simulação v${SIM_VERSION}`;
 }
+export { migrateMission } from './state';

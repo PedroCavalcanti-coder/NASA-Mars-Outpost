@@ -50,6 +50,7 @@ export function OxygenOrb({
   return (
     <section
       className="oxygen-orb"
+      data-bit-target="day-cycle"
       data-level={state}
       title={title}
       aria-label="Oxigênio e ciclo do Sol"
@@ -112,25 +113,27 @@ export function OxygenOrb({
             strokeLinejoin="round"
           />
         </g>
-        <circle cx="130" cy="132" r="68" fill="#789aab" stroke="#193547" strokeWidth="3" />
-        <circle cx="130" cy="132" r="65" fill="#253f50" />
-        <g clipPath={`url(#${id}-glass)`}>
-          <rect
-            className="oxygen-orb__fill"
-            x="64"
-            y={fillY}
-            width="132"
-            height={197 - fillY}
-            fill="var(--oxygen-fill)"
-          />
+        <g data-bit-target="personal-oxygen">
+          <circle cx="130" cy="132" r="68" fill="#789aab" stroke="#193547" strokeWidth="3" />
+          <circle cx="130" cy="132" r="65" fill="#253f50" />
+          <g clipPath={`url(#${id}-glass)`}>
+            <rect
+              className="oxygen-orb__fill"
+              x="64"
+              y={fillY}
+              width="132"
+              height={197 - fillY}
+              fill="var(--oxygen-fill)"
+            />
+          </g>
+          <circle cx="130" cy="132" r="65" fill="none" stroke="#224557" strokeWidth="2" />
+          <text x="130" y="130" className="oxygen-orb__label">
+            O₂
+          </text>
+          <text x="130" y="155" className="oxygen-orb__value">
+            {Math.round(amount)}%
+          </text>
         </g>
-        <circle cx="130" cy="132" r="65" fill="none" stroke="#224557" strokeWidth="2" />
-        <text x="130" y="130" className="oxygen-orb__label">
-          O₂
-        </text>
-        <text x="130" y="155" className="oxygen-orb__value">
-          {Math.round(amount)}%
-        </text>
         <text x="130" y="231" className="oxygen-orb__sol">
           SOL {time.sol}
         </text>

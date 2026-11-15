@@ -1,3 +1,4 @@
+import type { IntegrityState } from '@mars/shared';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { buildTasks, type DailyTask } from './rules';
@@ -7,6 +8,7 @@ import { buildTasks, type DailyTask } from './rules';
  * Quem escreve é o `BaseViewer` (algumas vezes por segundo, só quando algo muda).
  */
 export interface BaseOpsState {
+  integrity?: IntegrityState;
   active: boolean;
   sol: number;
   seed: number;
@@ -79,19 +81,33 @@ export const resetOps = () => useBaseOps.setState({ ...initialOps });
 
 export function tasksFrom(s: BaseOpsState): DailyTask[] {
   if (!s.active) return [];
-  return buildTasks({
-    sol: s.sol,
-    seed: s.seed,
-    panelStages: s.panelStages,
-    panelsCleanedToday: s.panelsCleanedToday,
-    cropStages: s.cropStages,
-    cropNames: s.cropNames,
-    cropCare: s.cropCare,
-    cropNeedsCare: s.cropNeedsCare,
-    filterSol: s.filterSol,
-    drillDoneSol: s.drillDoneSol,
-    drillTarget: s.drillTarget,
-  });
+  const repairs: DailyTask[] = (s.integrity?.fractures ?? []).map((f) => ({
+    id: `repair-${f.id}`,
+    kind: 'repair',
+    title: `Reparar fratura (${f.damage}%)`,
+    detail: f.tutorial
+      ? 'Clique em Ir para aprender a selar a base.'
+      : 'Vazamento de oxigênio. Repare antes que piore.',
+    index: f.id,
+    done: false,
+    required: true,
+  }));
+  return [
+    ...repairs,
+    ...buildTasks({
+      sol: s.sol,
+      seed: s.seed,
+      panelStages: s.panelStages,
+      panelsCleanedToday: s.panelsCleanedToday,
+      cropStages: s.cropStages,
+      cropNames: s.cropNames,
+      cropCare: s.cropCare,
+      cropNeedsCare: s.cropNeedsCare,
+      filterSol: s.filterSol,
+      drillDoneSol: s.drillDoneSol,
+      drillTarget: s.drillTarget,
+    }),
+  ];
 }
 
 /** Tarefas do Sol atual (recalculadas só quando os dados delas mudam). */
@@ -101,6 +117,7 @@ export function useDailyTasks(): DailyTask[] {
   return useMemo(
     () => tasksFrom(s),
     [
+      s.integrity,
       s.active,
       s.sol,
       s.seed,

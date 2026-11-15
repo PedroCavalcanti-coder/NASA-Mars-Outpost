@@ -1,17 +1,10 @@
 import type { EventDeltas } from './events';
 
 /**
- * Blindagem da base (0–100): eventos a desgastam. Com a blindagem zerada, todo evento seguinte
- * cobra o DOBRO de energia, mantimentos e oxigênio. Reparar na bancada de ferramentas gasta materiais.
+ * Blindagem da base (armor, 0–100): vem das fraturas do casco (a branch da blindagem). Eventos a
+ * desgastam; com ela zerada, todo evento seguinte cobra o DOBRO de energia, mantimentos e oxigênio.
+ * O reparo é feito nas fraturas, no minigame de reparo.
  */
-export const SHIELD_REPAIR = {
-  /** materiais gastos por reparo */
-  materials: 8,
-  /** pontos de blindagem devolvidos por reparo */
-  gain: 20,
-  /** reparos por Sol */
-  perSol: 3,
-} as const;
 
 const DOUBLED = ['energy', 'supplies', 'oxygen'] as const;
 

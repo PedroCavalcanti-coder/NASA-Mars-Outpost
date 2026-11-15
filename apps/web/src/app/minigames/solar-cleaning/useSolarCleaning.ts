@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { guideProgress } from '../../../game/guide/events';
 import { BrushAudio } from './BrushAudio';
 import { type BrushPoint, CleaningSurface } from './cleaningSurface';
 
@@ -144,6 +145,7 @@ export function useSolarCleaning(onComplete: () => void) {
         context.stroke();
       }
       const removed = surface.sweep(a, b, RADIUS);
+      if (removed) guideProgress();
       if (removed && (activePointer !== null || keyboardDown)) sound.contact();
       if (removed && !reducedMotion.matches) {
         for (let i = 0; i < 3; i++) {

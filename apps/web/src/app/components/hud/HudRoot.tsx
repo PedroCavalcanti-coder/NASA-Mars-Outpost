@@ -29,6 +29,7 @@ import { MissionPanel } from './panels/MissionPanel';
 import { ResourcesPanel } from './panels/ResourcesPanel';
 import { SystemPanel } from './panels/SystemPanel';
 import { TasksPanel } from './panels/TasksPanel';
+import { ResourceRewardFx } from './ResourceRewardFx';
 // registra o relógio com pausa/velocidade no slot essencial (e as ações de tempo do painel Dev)
 import './panels/TimeControls';
 import { ViewPanel } from './panels/ViewPanel';
@@ -219,9 +220,11 @@ export function HudRoot(props: HudRootProps) {
 
   return (
     <HudContext.Provider value={contextValue}>
+      <ResourceRewardFx viewer={viewer} />
       <div className="hud-root">
         <div
           className="hud-room-status"
+          data-bit-target="crew"
           aria-label={`Sala ${roomCode}, ${players.count} de 4 jogadores`}
         >
           <span>{roomCode}</span>

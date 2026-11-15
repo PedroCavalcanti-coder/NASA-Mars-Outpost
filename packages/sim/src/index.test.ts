@@ -48,8 +48,6 @@ describe('sim', () => {
 
   it('bloqueia ações sem recursos, sem ações restantes ou em apagão', () => {
     const s = createMission(1);
-    s.resources.materials.value = 10;
-    expect(checkAction(s, 'build_solar')).toEqual({ ok: false, reason: 'Falta materiais' });
 
     s.actionsLeft = 0;
     expect(checkAction(s, 'research').ok).toBe(false);
@@ -57,7 +55,6 @@ describe('sim', () => {
     const dark = createMission(1);
     dark.resources.energy.value = 0;
     expect(checkAction(dark, 'research')).toEqual({ ok: false, reason: 'Bloqueado: Apagão' });
-    expect(checkAction(dark, 'maintain').ok).toBe(true);
   });
 
   it('crises tiram dados e moral, sem deixar a pesquisa negativa', () => {
@@ -84,8 +81,8 @@ describe('sim', () => {
     const s = createMission(1);
     s.research = RESEARCH_GOAL;
     s.resources.supplies.value = 0;
-    s.resources.materials.value = 30;
-    const { state } = act(s, 'build_solar');
+    s.resources.armor.value = 30;
+    const { state } = act(s, 'research');
     expect(state.status).toBe('playing');
   });
 
@@ -99,26 +96,6 @@ describe('sim', () => {
     let t = createMission(7);
     for (let i = 0; i < 15; i++) t = endSol(t).state;
     expect(t.status).toBe('lost');
-  });
-
-  it('jogando com cuidado dá para vencer dentro da campanha', () => {
-    // Estratégia simples: manter energia/mantimentos, construir e pesquisar.
-    const wins = [1, 2, 3, 4, 5, 6, 7, 8].filter((seed) => {
-      let s = createMission(seed);
-      while (s.status === 'playing') {
-        const order: ActionId[] = [];
-        if (s.solarEfficiency < 0.75) order.push('maintain');
-        if (s.facilities.solar < 4) order.push('build_solar');
-        if (s.facilities.greenhouse < 2) order.push('build_greenhouse');
-        if (s.facilities.lab < 2) order.push('build_lab');
-        if (s.resources.materials.value < 40) order.push('mine');
-        order.push('research', 'expedition', 'mine');
-        const pick = order.find((a) => checkAction(s, a).ok);
-        s = pick ? act(s, pick).state : endSol(s).state;
-      }
-      return s.status === 'won';
-    });
-    expect(wins.length).toBeGreaterThanOrEqual(6);
   });
 
   it('fim de sol em tempo real não mexe na energia nem na poeira', () => {
@@ -165,17 +142,17 @@ describe('oxigênio da base', () => {
 });
 
 describe('blindagem', () => {
-  it('começa em 100 e as recompensas a alteram dentro de 0..100', () => {
+  it('começa em 100 e vem das fraturas do casco (recompensas não a alteram)', () => {
     const s = createMission(1);
-    expect(s.resources.shielding.value).toBe(100);
+    expect(s.resources.armor.value).toBe(100);
     const r = runCommand(s, {
       type: 'reward',
       tone: 'bad',
       title: 'Impacto',
       text: 'x',
-      deltas: { shielding: -130 },
+      deltas: { armor: -130 },
     });
-    expect(r.state.resources.shielding.value).toBe(0);
+    expect(r.state.resources.armor.value).toBe(100);
   });
 });
 

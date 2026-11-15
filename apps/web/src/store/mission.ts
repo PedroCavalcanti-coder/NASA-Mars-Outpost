@@ -13,7 +13,7 @@ import { create } from 'zustand';
 interface MissionStore {
   state: MissionState;
   /** variação total do último comando; `key` muda a cada comando para reanimar a HUD */
-  feedback: { key: number; deltas: Deltas } | null;
+  feedback: { key: number; deltas: Deltas; reward?: boolean } | null;
   /** registros do último comando (para destacar eventos do fim do sol) */
   lastEntries: LogEntry[];
   error: string | null;
@@ -57,7 +57,11 @@ export const useMission = create<MissionStore>((set, get) => ({
       state,
       lastEntries: entries,
       error: null,
-      feedback: { key: ++feedbackKey, deltas: diffState(prev, state) },
+      feedback: {
+        key: ++feedbackKey,
+        deltas: diffState(prev, state),
+        reward: cmd.type === 'reward',
+      },
     });
   },
 }));

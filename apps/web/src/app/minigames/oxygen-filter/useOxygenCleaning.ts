@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { guideProgress } from '../../../game/guide/events';
 import { useGameSettings } from '../../../lib/gameSettings';
 
 export function useOxygenCleaning() {
@@ -38,6 +39,7 @@ export function useOxygenCleaning() {
     if (target.current) delete target.current.dataset.over;
   }, []);
   function discard(id: number) {
+    guideProgress();
     const { audio } = useGameSettings.getState();
     const context = audioContext.current;
     const index = nextDebrisSound.current;

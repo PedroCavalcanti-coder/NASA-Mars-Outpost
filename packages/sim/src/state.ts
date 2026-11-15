@@ -1,13 +1,7 @@
 import { ACTIONS_PER_SOL, INITIAL, LOG_LIMIT, RESEARCH_GOAL } from './balance';
 import type { Crisis, DeltaKey, Deltas, LogEntry, MissionState, ResourceId } from './types';
 
-export const RESOURCE_IDS: readonly ResourceId[] = [
-  'energy',
-  'supplies',
-  'materials',
-  'oxygen',
-  'shielding',
-];
+export const RESOURCE_IDS: readonly ResourceId[] = ['energy', 'supplies', 'armor', 'oxygen'];
 
 export function createMission(seed: number = Date.now()): MissionState {
   const s = seed >>> 0;
@@ -20,8 +14,7 @@ export function createMission(seed: number = Date.now()): MissionState {
       oxygen: { ...INITIAL.resources.oxygen },
       energy: { ...INITIAL.resources.energy },
       supplies: { ...INITIAL.resources.supplies },
-      materials: { ...INITIAL.resources.materials },
-      shielding: { ...INITIAL.resources.shielding },
+      armor: { ...INITIAL.resources.armor },
     },
     facilities: { ...INITIAL.facilities },
     solarEfficiency: 1,
@@ -35,13 +28,16 @@ export function createMission(seed: number = Date.now()): MissionState {
   };
 }
 
-/** Salvamentos antigos não têm blindagem: completa com o valor inicial. */
+/** Salvamentos antigos: completa o que falta (dados enviados) e converte a blindagem antiga em armor. */
 export function ensureShielding(s: MissionState): MissionState {
-  const withSecured = typeof s.secured === 'number' ? s : { ...s, secured: 0 };
-  if (withSecured.resources.shielding) return withSecured;
+  const legacy = (
+    s.resources as unknown as Record<string, { value: number; max: number } | undefined>
+  ).shielding;
+  const next: MissionState = typeof s.secured === 'number' ? s : { ...s, secured: 0 };
+  if (next.resources.armor) return next;
   return {
-    ...withSecured,
-    resources: { ...withSecured.resources, shielding: { ...INITIAL.resources.shielding } },
+    ...next,
+    resources: { ...next.resources, armor: { ...(legacy ?? INITIAL.resources.armor) } },
   };
 }
 
@@ -53,8 +49,7 @@ export function cloneState(s: MissionState): MissionState {
       oxygen: { ...s.resources.oxygen },
       energy: { ...s.resources.energy },
       supplies: { ...s.resources.supplies },
-      materials: { ...s.resources.materials },
-      shielding: { ...s.resources.shielding },
+      armor: { ...s.resources.armor },
     },
     facilities: { ...s.facilities },
     log: [...s.log],
@@ -96,17 +91,42 @@ export function crises(s: MissionState): Crisis[] {
   const list: Crisis[] = [];
   if (s.resources.energy.value <= 0) list.push('blackout');
   if (s.resources.supplies.value <= 0) list.push('famine');
-  if (s.resources.materials.value <= 0) list.push('shortage');
+  if (s.resources.armor.value <= 0) list.push('structural');
   return list;
 }
 
 /** Base operacional: com energia e mantimentos. Só assim a vitória é confirmada. */
 export function isOperational(s: MissionState): boolean {
-  return s.resources.energy.value > 0 && s.resources.supplies.value > 0;
+  return (
+    s.resources.energy.value > 0 && s.resources.supplies.value > 0 && s.resources.armor.value > 0
+  );
 }
 
 export function pushLog(s: MissionState, entry: Omit<LogEntry, 'id' | 'sol'>): LogEntry {
   const full: LogEntry = { id: s.nextLogId++, sol: s.sol, ...entry };
   s.log = [full, ...s.log].slice(0, LOG_LIMIT);
   return full;
+}
+
+/** Migration of legacy JSON missions: materials are deliberately discarded. */
+export function migrateMission(raw: unknown): MissionState {
+  const initial = createMission();
+  if (!raw || typeof raw !== 'object') return initial;
+  const old = raw as MissionState;
+  const state = { ...initial, ...old, resources: { ...initial.resources } };
+  for (const id of RESOURCE_IDS) {
+    const r = old.resources?.[id];
+    if (r && Number.isFinite(r.value) && Number.isFinite(r.max) && r.max > 0)
+      state.resources[id] = { value: clamp(r.value, 0, r.max), max: r.max };
+  }
+  state.resources.armor = { value: old.resources?.armor?.value ?? 100, max: 100 };
+  state.log = Array.isArray(old.log)
+    ? old.log.map((entry) => ({
+        ...entry,
+        deltas: Object.fromEntries(
+          Object.entries(entry.deltas ?? {}).filter(([k]) => k !== 'materials'),
+        ),
+      }))
+    : [];
+  return state;
 }

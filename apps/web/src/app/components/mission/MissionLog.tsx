@@ -4,9 +4,8 @@ import { useMission } from '../../../store/mission';
 const LABEL: Record<DeltaKey, string> = {
   energy: 'energia',
   supplies: 'mantimentos',
-  materials: 'materiais',
+  armor: 'blindagem',
   oxygen: 'oxigênio',
-  shielding: 'blindagem',
   research: 'dados',
   morale: 'moral',
 };

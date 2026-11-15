@@ -1,5 +1,5 @@
 import { DUO_GESTURES, type DuoGestureId, WORLD_AUTOSAVE_MS } from '@mars/shared';
-import { ensureShielding } from '@mars/sim';
+import { ensureShielding, migrateMission } from '@mars/sim';
 import { TriangleAlert } from 'lucide-react';
 import {
   lazy,
@@ -29,6 +29,7 @@ import {
   setEventFlowContext,
 } from '../../game/events/flow';
 import { useGameEvents } from '../../game/events/store';
+import { emitGuideEvent } from '../../game/guide/events';
 import { LORE } from '../../game/lore/lore';
 import { useLore } from '../../game/lore/store';
 import { MISSIONS, type MissionId } from '../../game/missions/rules';
@@ -59,6 +60,7 @@ import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
+import { BitGuide } from '../components/bit/BitGuide';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionVeil } from '../components/hud/MissionVeil';
 import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
@@ -67,6 +69,7 @@ import { EventTablet } from '../components/mission/EventTablet';
 import { LoreCard } from '../components/mission/LoreCard';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
+import RepairMinigame from '../minigames/RepairMinigame';
 import '../../styles/game.css';
 import '../components/mission/mission.css';
 import { Spinner } from '../../ui/Empty';
@@ -250,6 +253,7 @@ function ReadyGame() {
   // Com um minigame aberto por cima, a base fica carregada mas para de desenhar
   // (a simulação segue pelo relógio de apoio: numa sala, o mundo não para para os outros).
   useEffect(() => {
+    viewer.current?.setRepairOpen(minigame?.kind === 'repair');
     if (!minigame) return;
     const runtime = peekExpedition()?.runtime;
     if (!runtime) return;
@@ -378,6 +382,7 @@ function ReadyGame() {
 
     // callbacks da interface e configurações (o viewer só começa a usá-los ao `activate`)
     const options: BaseViewerOptions = {
+      onGuideEvent: emitGuideEvent,
       roomCode,
       videoSettings: video,
       outlineSettings: outline,
@@ -441,7 +446,7 @@ function ReadyGame() {
           Array.isArray(m.log)
         ) {
           useMission.setState({
-            state: ensureShielding(info.mission as ReturnType<typeof useMission.getState>['state']),
+            state: migrateMission(info.mission),
           });
           toast('💾 Mundo retomado de onde você parou.', 'ok');
         }
@@ -591,7 +596,7 @@ function ReadyGame() {
    * mundo. Com a blindagem zerada, as perdas de energia, mantimentos e oxigênio saem em dobro.
    */
   function resolveEvent(event: GameEventDef, outcome: EventOutcome): EventOutcome {
-    const shielding = useMission.getState().state.resources.shielding?.value ?? 100;
+    const shielding = useMission.getState().state.resources.armor?.value ?? 100;
     const deltas = scaleDamage(outcome.deltas, shielding);
     const final: EventOutcome = deltas ? { ...outcome, deltas } : outcome;
     // o evento sempre entra no diário, mesmo quando não custa nem rende nada
@@ -600,8 +605,10 @@ function ReadyGame() {
       tone: final.tone,
       title: event.title,
       text: final.text,
-      deltas: deltas ?? {},
+      deltas: { ...deltas, armor: undefined },
     });
+    // a blindagem vem das fraturas do casco: perder blindagem abre fraturas (a decisão é só de quem escolheu)
+    if (deltas?.armor) viewer.current?.damageArmor(-deltas.armor);
     viewer.current?.applyEventEffects(final);
     return final;
   }
@@ -803,10 +810,22 @@ function ReadyGame() {
   return (
     <main className={`game ${touch ? 'game--touch' : ''}`}>
       <RotateGate />
+      {!loading && !error && (
+        <BitGuide
+          key={`${user?.id ?? name}:${baseId}`}
+          identity={String(user?.id ?? name)}
+          viewer={viewer.current}
+          minigame={minigame}
+          suspended={settingsOpen || leaveOpen}
+          driving={driving}
+        />
+      )}
       {minigame &&
         createPortal(
           <Suspense fallback={null}>
-            {minigame.kind === 'solar' ? (
+            {minigame.kind === 'repair' ? (
+              <RepairMinigame id={minigame.id} viewer={viewer.current} onClose={closeMinigame} />
+            ) : minigame.kind === 'solar' ? (
               <SolarCleaningPreview onClose={closeMinigame} onComplete={finishMinigame} />
             ) : minigame.kind === 'oxygen' ? (
               <OxygenFilterPreview onClose={closeMinigame} onComplete={finishMinigame} />

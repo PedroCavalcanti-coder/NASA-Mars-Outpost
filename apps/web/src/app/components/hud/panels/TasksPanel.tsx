@@ -15,6 +15,7 @@ import {
   Footprints,
   Sprout,
   Sun,
+  Wrench,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { DailyTask, TaskKind } from '../../../../game/tasks/rules';
@@ -23,6 +24,7 @@ import { useHudContext } from '../HudContext';
 import { MissionsSection } from './MissionsSection';
 
 const ICONS: Record<TaskKind, ReactNode> = {
+  repair: <Wrench size={16} />,
   filter: <Fan size={16} />,
   crop: <Sprout size={16} />,
   plant: <Sprout size={16} />,
@@ -65,7 +67,8 @@ function TaskRow({ task }: { task: DailyTask }) {
 export function TasksPanel() {
   const tasks = useDailyTasks();
   const sol = useBaseOps((s) => s.sol);
-  const required = tasks.filter((t) => t.required);
+  const repairs = tasks.filter((t) => t.kind === 'repair');
+  const required = tasks.filter((t) => t.required && t.kind !== 'repair');
   const optional = tasks.filter((t) => !t.required);
   const doneRequired = required.filter((t) => t.done).length;
 
@@ -85,6 +88,16 @@ export function TasksPanel() {
         <p className="hud-tasks__empty">Carregando a base…</p>
       ) : (
         <>
+          {repairs.length > 0 && (
+            <>
+              <h4 className="hud-tasks__heading">Reparos pendentes</h4>
+              <ul className="hud-tasks">
+                {repairs.map((task) => (
+                  <TaskRow key={task.id} task={task} />
+                ))}
+              </ul>
+            </>
+          )}
           <h4 className="hud-tasks__heading">
             Todo dia{' '}
             <span className={doneRequired === required.length ? 'is-ok' : ''}>

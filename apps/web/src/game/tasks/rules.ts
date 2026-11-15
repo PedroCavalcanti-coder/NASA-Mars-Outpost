@@ -152,7 +152,7 @@ export const drillDay = (seed: number, sol: number) => sol === 1 || seeded(seed,
 
 // -------------------------------------------------------------------------------------- tarefas
 
-export type TaskKind = 'solar' | 'crop' | 'plant' | 'filter' | 'drill';
+export type TaskKind = 'solar' | 'crop' | 'plant' | 'filter' | 'drill' | 'repair';
 
 export interface DailyTask {
   id: string;

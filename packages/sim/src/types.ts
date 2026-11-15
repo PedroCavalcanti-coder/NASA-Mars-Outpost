@@ -1,6 +1,6 @@
 /** Tipos do estado da missão. Tudo é serializável (JSON) para poder ir ao servidor depois. */
 
-export type ResourceId = 'energy' | 'supplies' | 'materials' | 'oxygen' | 'shielding';
+export type ResourceId = 'energy' | 'supplies' | 'armor' | 'oxygen';
 
 export interface Resource {
   value: number;
@@ -15,21 +15,14 @@ export type FacilityId = 'solar' | 'greenhouse' | 'lab';
  * Crises derivadas dos recursos zerados:
  * - `blackout` (energia 0): sistemas parados, sem pesquisa nem expedições, dados se perdem.
  * - `famine` (mantimentos 0): moral despenca, expedições suspensas, dados se perdem.
- * - `shortage` (materiais 0): nada se constrói nem se repara; avarias custam caro.
+ * - `structural` (blindagem 0): ciência suspensa até o reparo do casco.
  */
-export type Crisis = 'blackout' | 'famine' | 'shortage';
+export type Crisis = 'blackout' | 'famine' | 'structural';
 
 export type MissionStatus = 'playing' | 'won' | 'lost';
 export type LossReason = 'morale' | 'deadline' | 'oxygen';
 
-export type ActionId =
-  | 'research'
-  | 'expedition'
-  | 'mine'
-  | 'maintain'
-  | 'build_solar'
-  | 'build_greenhouse'
-  | 'build_lab';
+export type ActionId = 'research' | 'expedition';
 
 export type Command =
   | { type: 'action'; action: ActionId }
@@ -59,6 +52,7 @@ export interface LogEntry {
 }
 
 export interface MissionState {
+  eventCredits?: { research: number; supplies: number };
   seed: number;
   /** estado interno do gerador aleatório (avança a cada sorteio) */
   rng: number;

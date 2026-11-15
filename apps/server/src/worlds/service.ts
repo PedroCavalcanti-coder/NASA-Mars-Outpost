@@ -1,3 +1,4 @@
+import { restoreIntegrity } from '@mars/shared';
 import { createHmac, randomBytes } from 'node:crypto';
 import {
   GAME_MAX_CROPS,
@@ -55,6 +56,7 @@ export async function ownerFromCookies(header: string | undefined): Promise<stri
 
 /** Valida o JSON recebido do cliente: só números pequenos e listas limitadas. */
 export function sanitizeSave(raw: {
+  integrity?: unknown;
   elapsedMs: number;
   solar: number[];
   crops: number[];
@@ -68,7 +70,8 @@ export function sanitizeSave(raw: {
   const clampList = (l: number[], max: number, top: number) =>
     l.slice(0, max).map((n) => Math.max(0, Math.min(top, Math.round(Number(n) || 0))));
   const save: WorldSave = {
-    v: 1,
+    v: 2,
+    integrity: restoreIntegrity(raw.integrity),
     elapsedMs: Math.max(0, Math.min(1e12, Math.round(raw.elapsedMs))),
     solar: clampList(raw.solar, GAME_MAX_SOLAR, 4),
     crops: clampList(raw.crops, GAME_MAX_CROPS, 3),

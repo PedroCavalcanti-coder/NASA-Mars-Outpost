@@ -15,6 +15,7 @@ import {
   subscribeDevActions,
 } from '../../../../game/dev/devActions';
 import { useMission } from '../../../../store/mission';
+import { useHudContext } from '../HudContext';
 
 function useDevActions(): readonly ResolvedDevAction[] {
   return useSyncExternalStore(
@@ -26,9 +27,8 @@ function useDevActions(): readonly ResolvedDevAction[] {
 
 const EVENT_LABELS: Record<string, string> = {
   dust_storm: 'Tempestade de poeira',
-  recycler_failure: 'Falha no reciclador de água',
   micrometeorite: 'Micrometeorito no laboratório',
-  solar_flare: 'Erupção solar',
+  thermal_crack: 'Fratura térmica',
   discovery: 'Achado geológico',
   supply_drop: 'Cápsula de carga',
   cleaning_wind: 'Rajada de vento',
@@ -36,6 +36,7 @@ const EVENT_LABELS: Record<string, string> = {
 
 export function DevPanel() {
   const actions = useDevActions();
+  const { viewer } = useHudContext();
 
   // Agrupa as ações por categoria/grupo
   const grouped = useMemo(() => {
@@ -74,6 +75,9 @@ export function DevPanel() {
       <div className="hud-dev-group">
         <h4 className="hud-dev-group-title">Eventos aleatórios</h4>
         <div className="hud-dev-actions-grid">
+          <button className="hud-dev-action-btn" onClick={() => void viewer?.repairEmergency()}>
+            Simular emergência estrutural
+          </button>
           {EVENTS.map((event) => (
             <button
               key={event.id}

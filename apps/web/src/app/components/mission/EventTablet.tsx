@@ -7,18 +7,16 @@ import { useGameEvents } from '../../../game/events/store';
 const ICON: Record<keyof EventDeltas, string> = {
   energy: '⚡',
   supplies: '🍞',
-  materials: '🔩',
   oxygen: '🫁',
-  shielding: '🛡️',
+  armor: '🛡️',
   research: '🔬',
 };
 
 const NAMES: Record<keyof EventDeltas, string> = {
   energy: 'Energia',
   supplies: 'Mantimentos',
-  materials: 'Materiais',
   oxygen: 'Oxigênio',
-  shielding: 'Blindagem',
+  armor: 'Blindagem',
   research: 'Pesquisa',
 };
 

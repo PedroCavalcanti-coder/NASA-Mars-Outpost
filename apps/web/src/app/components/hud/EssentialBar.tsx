@@ -50,6 +50,7 @@ export function EssentialBar({ marsTime, stormActive, onOpenSystemMenu }: Essent
       <button
         type="button"
         className="hud-essential-bar__menu-btn"
+        data-bit-target="settings"
         onClick={onOpenSystemMenu}
         title="Menu do Sistema e Configurações (O)"
         aria-label="Abrir menu do sistema"
@@ -60,7 +61,7 @@ export function EssentialBar({ marsTime, stormActive, onOpenSystemMenu }: Essent
         <div className="hud-resource-row">
           <BatterySlot />
           <ResourceSlot kind="supplies" />
-          <ResourceSlot kind="materials" />
+          <ResourceSlot kind="armor" />
         </div>
         <ResearchSlot />
       </div>

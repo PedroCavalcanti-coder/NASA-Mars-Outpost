@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { guideProgress } from '../../../game/guide/events';
 import { useGameSettings } from '../../../lib/gameSettings';
 import { CROPS, type CropIndex, cropReducer, healthy, initialCrops } from './greenhouseState';
 
@@ -35,6 +36,9 @@ export function useGreenhouse() {
     lastSum.current = sum;
     if (diff > 0) setPoured((p) => p + diff);
   }, [crops]);
+  useEffect(() => {
+    if (watering) guideProgress();
+  }, [crops, watering]);
   useEffect(() => {
     if (!watering || complete) return;
     const { audio } = useGameSettings.getState();

@@ -15,9 +15,7 @@ export const INITIAL = {
     oxygen: { value: 100, max: 100 },
     energy: { value: 70, max: 120 },
     supplies: { value: 60, max: 100 },
-    materials: { value: 60, max: 150 },
-    /** blindagem contra radiação, meteoritos e gelo: eventos a desgastam; reparo na bancada */
-    shielding: { value: 100, max: 100 },
+    armor: { value: 100, max: 100 },
   },
   facilities: { solar: 2, greenhouse: 1, lab: 1 },
   morale: 80,
@@ -41,7 +39,7 @@ export const ECONOMY = {
 export const CRISIS_PENALTY: Record<Crisis, { research: number; morale: number }> = {
   blackout: { research: 6, morale: 8 },
   famine: { research: 4, morale: 12 },
-  shortage: { research: 0, morale: 3 },
+  structural: { research: 0, morale: 0 },
 };
 
 export const CRISIS_INFO: Record<Crisis, { name: string; effect: string }> = {
@@ -53,9 +51,9 @@ export const CRISIS_INFO: Record<Crisis, { name: string; effect: string }> = {
     name: 'Fome',
     effect: 'Sem mantimentos: a moral despenca, expedições suspensas e dados se perdem.',
   },
-  shortage: {
-    name: 'Sem materiais',
-    effect: 'Nada pode ser construído ou reparado; avarias causam perdas maiores.',
+  structural: {
+    name: 'Emergência estrutural',
+    effect: 'Repare a blindagem para retomar a pesquisa.',
   },
 };
 
@@ -74,46 +72,13 @@ export const ACTIONS: Record<ActionId, ActionDef> = {
     name: 'Pesquisar',
     description: 'Analisa amostras no laboratório. +5 dados (+3 por laboratório extra).',
     cost: { energy: 12 },
-    blockedBy: ['blackout'],
+    blockedBy: ['blackout', 'structural'],
   },
   expedition: {
     name: 'Expedição',
-    description: 'Envia o rover a uma região nova. Sucesso: +12–16 dados e materiais. Pode falhar.',
+    description: 'Envia o rover a uma região nova. Sucesso: +12–16 dados. Pode falhar.',
     cost: { energy: 15, supplies: 10 },
-    blockedBy: ['blackout', 'famine'],
-  },
-  mine: {
-    name: 'Escavar',
-    description: 'Extrai regolito e metais. +18–24 materiais.',
-    cost: { energy: 8 },
-    blockedBy: ['blackout'],
-  },
-  maintain: {
-    name: 'Manutenção',
-    description: 'Limpa a poeira dos painéis (100% de eficiência) e anima a equipe (+4 moral).',
-    cost: { materials: 15 },
-    blockedBy: [],
-  },
-  build_solar: {
-    name: 'Painel solar',
-    description: `+${ECONOMY.solarOutput} de energia por sol (menos com poeira).`,
-    cost: { materials: 30 },
-    blockedBy: [],
-    builds: 'solar',
-  },
-  build_greenhouse: {
-    name: 'Estufa',
-    description: `+${ECONOMY.greenhouseOutput} mantimentos por sol.`,
-    cost: { materials: 35, energy: 10 },
-    blockedBy: [],
-    builds: 'greenhouse',
-  },
-  build_lab: {
-    name: 'Laboratório',
-    description: 'Cada pesquisa rende +3 dados a mais. Consome 2 de energia por sol.',
-    cost: { materials: 50, energy: 15 },
-    blockedBy: ['blackout'],
-    builds: 'lab',
+    blockedBy: ['blackout', 'famine', 'structural'],
   },
 };
 
@@ -121,16 +86,9 @@ export const EXPEDITION = {
   successChance: 0.75,
   lowMoralePenalty: 0.15, // chance a menos com moral < 40
   criticalChance: 0.08, // parte da falha que vira falha crítica
-  success: { research: [12, 16], materials: [10, 20] },
+  success: { research: [12, 16] },
   failure: { research: 6, morale: 6 },
   critical: { research: 12, morale: 10, energy: 10 },
 } as const;
 
 export const RESEARCH_ACTION = { base: 5, perExtraLab: 3, lowMoralePenalty: 2 } as const;
-export const MINE_YIELD = [18, 24] as const;
-export const MAINTAIN_MORALE = 4;
-
-/** Chance de um evento ao fim de cada sol. */
-export const EVENT_CHANCE = 0.55;
-/** Nenhum evento acontece nos 3 primeiros sóis: só a partir do sol 4. */
-export const EVENT_FIRST_SOL = 4;

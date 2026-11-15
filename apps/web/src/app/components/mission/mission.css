@@ -2,7 +2,7 @@
 .game {
   --res-energy: #ffd63c;
   --res-supplies: #6ee7b7;
-  --res-materials: #c9a27a;
+  --res-armor: #c9a27a;
   --res-research: #78c6ff;
   --res-danger: #ff7b7b;
 }
@@ -154,8 +154,8 @@
 .mission-res--supplies {
   --res: var(--res-supplies);
 }
-.mission-res--materials {
-  --res: var(--res-materials);
+.mission-res--armor {
+  --res: var(--res-armor);
 }
 
 .mission-res__icon,
@@ -463,8 +463,8 @@
 .cost--supplies {
   color: var(--res-supplies);
 }
-.cost--materials {
-  color: var(--res-materials);
+.cost--armor {
+  color: var(--res-armor);
 }
 
 .mission-action__reason {

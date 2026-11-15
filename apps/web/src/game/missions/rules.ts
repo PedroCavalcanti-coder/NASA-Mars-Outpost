@@ -9,7 +9,7 @@
 
 import { seeded } from '../tasks/rules';
 
-export type CostKey = 'energy' | 'supplies' | 'materials' | 'oxygen';
+export type CostKey = 'energy' | 'supplies' | 'oxygen';
 export type MissionCost = Partial<Record<CostKey, number>>;
 
 export type MissionId =
@@ -104,7 +104,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     title: 'Auditoria da rede elétrica',
     summary: 'Confira o painel elétrico, troque fusíveis e registre o consumo da base.',
     site: 'power',
-    cost: { energy: 3, materials: 4 },
+    cost: { energy: 5 },
     research: 1,
     daytimeOnly: false,
     weight: 2,
@@ -165,7 +165,6 @@ export function missionsForSol(seed: number, sol: number, players: number): Miss
 export interface ResourceSnapshot {
   energy: number;
   supplies: number;
-  materials: number;
   oxygen: number;
 }
 
@@ -178,13 +177,11 @@ export interface MissionContext extends ResourceSnapshot {
 const NAMES: Record<CostKey, string> = {
   energy: 'energia',
   supplies: 'mantimentos',
-  materials: 'materiais',
   oxygen: 'oxigênio',
 };
 const ICONS: Record<CostKey, string> = {
   energy: '⚡',
   supplies: '🍞',
-  materials: '🔩',
   oxygen: '🫁',
 };
 

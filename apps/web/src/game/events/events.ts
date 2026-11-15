@@ -29,7 +29,7 @@ export type WorldEffect =
   | { type: 'wilt_crop' };
 
 export type EventDeltas = Partial<
-  Record<'energy' | 'supplies' | 'materials' | 'oxygen' | 'shielding' | 'research', number>
+  Record<'energy' | 'supplies' | 'oxygen' | 'armor' | 'research', number>
 >;
 
 export interface EventOutcome {
@@ -43,7 +43,7 @@ export interface EventOutcome {
 export interface EventChoice {
   id: string;
   label: string;
-  /** dica curta do que a escolha envolve ("gasta materiais", "arriscado") */
+  /** dica curta do que a escolha envolve ("gasta energia", "arriscado") */
   hint: string;
   outcome: EventOutcome;
   /** com esta chance (0..1) o resultado é `risk.outcome` em vez do normal */
@@ -113,7 +113,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           outcome: {
             tone: 'bad',
             text: 'O frio rachou parte da blindagem durante a coleta.',
-            deltas: { shielding: -15, materials: -8 },
+            deltas: { armor: -15, energy: -4 },
           },
         },
       },
@@ -124,14 +124,14 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'info',
           text: 'A nevasca passou. O gelo desgastou um pouco a blindagem.',
-          deltas: { shielding: -5 },
+          deltas: { armor: -5 },
         },
         risk: {
           chance: 0.3,
           outcome: {
             tone: 'bad',
             text: 'O gelo travou os sistemas e rachou o casco.',
-            deltas: { energy: -12, shielding: -20, supplies: -6 },
+            deltas: { energy: -12, armor: -20, supplies: -6 },
           },
         },
       },
@@ -160,7 +160,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'info',
           text: 'Todos se abrigaram. A blindagem absorveu os impactos menores.',
-          deltas: { shielding: -10, energy: -8 },
+          deltas: { armor: -10, energy: -8 },
         },
       },
       {
@@ -177,18 +177,18 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           outcome: {
             tone: 'bad',
             text: 'Um fragmento atingiu o casco enquanto gravávamos.',
-            deltas: { shielding: -20, materials: -10 },
+            deltas: { armor: -20, energy: -5 },
           },
         },
       },
       {
         id: 'reinforce',
         label: 'Reforçar casco',
-        hint: 'gasta materiais',
+        hint: 'gasta energia',
         outcome: {
           tone: 'good',
           text: 'Placas extras reforçaram o casco antes do impacto.',
-          deltas: { materials: -14, shielding: 5 },
+          deltas: { armor: 5, energy: -7 },
         },
       },
     ],
@@ -216,7 +216,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'info',
           text: 'A equipe esperou no módulo blindado. A blindagem foi desgastada.',
-          deltas: { shielding: -10, energy: -10 },
+          deltas: { armor: -10, energy: -10 },
         },
       },
       {
@@ -233,7 +233,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           outcome: {
             tone: 'bad',
             text: 'A radiação queimou sensores e corrompeu dados.',
-            deltas: { shielding: -15, research: -3, oxygen: -8 },
+            deltas: { armor: -15, research: -3, oxygen: -8 },
           },
         },
       },
@@ -268,11 +268,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'protect',
         label: 'Proteger a base',
-        hint: 'seguro · gasta materiais',
+        hint: 'seguro · gasta energia',
         outcome: {
           tone: 'info',
           text: 'A equipe fechou as entradas. O redemoinho passou sem danos.',
-          deltas: { materials: -6 },
+          deltas: { energy: -3 },
         },
       },
       {
@@ -307,7 +307,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           outcome: {
             tone: 'bad',
             text: 'A rajada arrancou placas do casco e trouxe mais poeira.',
-            deltas: { shielding: -10, materials: -8 },
+            deltas: { armor: -10, energy: -4 },
             effects: [{ type: 'dust', amount: 0.2 }],
           },
         },
@@ -364,7 +364,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           outcome: {
             tone: 'bad',
             text: 'O rover atolou e a equipe gastou reservas no resgate.',
-            deltas: { supplies: -4, oxygen: -6, shielding: -5 },
+            deltas: { supplies: -4, oxygen: -6, armor: -5 },
           },
         },
       },
@@ -409,8 +409,8 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
           chance: 0.35,
           outcome: {
             tone: 'bad',
-            text: 'A poeira entrou nos equipamentos expostos: perdemos materiais.',
-            deltas: { materials: -14 },
+            text: 'A poeira entrou nos equipamentos expostos: perdemos peças.',
+            deltas: { energy: -7 },
             effects: [
               { type: 'storm', strength: 0.9 },
               { type: 'dust', amount: 0.5 },
@@ -449,7 +449,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'O rover trouxe a carga inteira: mantimentos e peças.',
-          deltas: { supplies: 22, materials: 16, energy: -6 },
+          deltas: { supplies: 30, energy: -6 },
         },
       },
       {
@@ -459,7 +459,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A equipe carregou os caixotes mais leves.',
-          deltas: { supplies: 14, materials: 8, oxygen: -6 },
+          deltas: { supplies: 18, oxygen: -6 },
         },
       },
       {
@@ -485,11 +485,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'swap',
         label: 'Trocar peças do reciclador',
-        hint: 'gasta materiais',
+        hint: 'gasta energia',
         outcome: {
           tone: 'info',
           text: 'Peças trocadas. O reciclador voltou ao normal.',
-          deltas: { materials: -10 },
+          deltas: { energy: -5 },
         },
       },
       {
@@ -593,11 +593,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'mine',
         label: 'Extrair minerais da área',
-        hint: 'materiais',
+        hint: 'peças',
         outcome: {
           tone: 'good',
           text: 'A equipe extraiu bons minerais, mas deixou a área revirada.',
-          deltas: { materials: 14, research: 1, energy: -5 },
+          deltas: { research: 1, energy: -5, supplies: 7 },
         },
       },
     ],
@@ -689,11 +689,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'parts',
         label: 'Separar as peças',
-        hint: 'materiais',
+        hint: 'peças',
         outcome: {
           tone: 'good',
           text: 'Peças úteis para consertos futuros.',
-          deltas: { materials: 8 },
+          deltas: { supplies: 4 },
         },
       },
     ],
@@ -745,11 +745,11 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
       {
         id: 'replace',
         label: 'Trocar um fusível',
-        hint: 'materiais',
+        hint: 'peças',
         outcome: {
           tone: 'good',
           text: 'Fusível novo. A rede ficou mais eficiente.',
-          deltas: { materials: -2, energy: 6 },
+          deltas: { energy: 5 },
         },
       },
     ],

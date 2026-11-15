@@ -92,7 +92,7 @@
 .hud-resource-gauge--supplies {
   --gauge-color: #8bcf78;
 }
-.hud-resource-gauge--materials {
+.hud-resource-gauge--armor {
   --gauge-color: #79b9df;
 }
 .hud-resource-gauge__dial {
@@ -123,6 +123,15 @@
   left: 50%;
   transform: translate(-50%, -50%);
   color: #fff;
+}
+.hud-resource-gauge__supplies-icon {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.hud-resource-gauge__dial .hud-resource-gauge__supplies-icon svg {
+  width: auto;
+  flex: none;
 }
 .hud-resource-gauge__value {
   margin-top: -4px;
@@ -176,4 +185,16 @@
   color: #cdbcf7;
   font-size: 10.5px;
   font-weight: 700;
+}
+
+.hud-resource-gauge--armor[data-level="warning"] {
+  --gauge-color: #f4cc70;
+}
+.hud-resource-gauge--armor[data-level="critical"],
+.hud-resource-gauge--armor[data-level="emergency"] {
+  --gauge-color: #f28670;
+}
+.hud-resource-gauge--armor[data-level="emergency"] .hud-resource-gauge__value::after {
+  content: " !";
+  color: #ff9d85;
 }
