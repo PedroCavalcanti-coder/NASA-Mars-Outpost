@@ -369,7 +369,7 @@ export function SettingsModal({
                         <input
                           type="range"
                           min="0.2"
-                          max="2.5"
+                          max="1"
                           step="0.1"
                           value={outline.strength}
                           onChange={(e) =>

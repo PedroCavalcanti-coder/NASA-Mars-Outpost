@@ -15,17 +15,17 @@ GameClock.subscribe(refreshDevActions);
 
 registerDevAction({
   id: 'dev:time-skip-dawn',
-  label: 'Pular para Amanhecer (06:00)',
+  label: 'Pular para o amanhecer',
   group: 'Tempo / Clima',
-  description: 'Avança o ciclo marciano para 06:00 LMST (início do dia)',
+  description: 'Avança o Sol marciano para o início do dia',
   run: () => GameClock.skipToHour(6),
 });
 
 registerDevAction({
   id: 'dev:time-skip-dusk',
-  label: 'Pular para Anoitecer (18:00)',
+  label: 'Pular para o anoitecer',
   group: 'Tempo / Clima',
-  description: 'Avança o ciclo marciano para 18:00 LMST (início da noite)',
+  description: 'Avança o Sol marciano para o início da noite',
   run: () => GameClock.skipToHour(18),
 });
 

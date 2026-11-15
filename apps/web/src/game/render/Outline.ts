@@ -135,6 +135,8 @@ export class InvertedHullManager {
 
   updateOptions(next: Partial<OutlineOptions>) {
     this.options = { ...this.options, ...next };
+    // a espessura nunca passa de 1× (acima disso o traço fica borrado e cheio de artefatos)
+    this.options.strength = Math.min(1, Math.max(0.2, this.options.strength));
     const effectiveColor = new THREE.Color(this.options.color);
     const visible = this.options.enabled && this.options.quality !== 'low';
 
@@ -417,6 +419,15 @@ function createBaseEdgeMaterial(uniforms: EdgeUniforms): THREE.ShaderMaterial {
  */
 export const BASE_OUTLINE_LAYER = 7;
 
+/** Efeito visual (marcado com `userData.noOutline` em si ou num ancestral, ou de mistura aditiva). */
+function isOutlineEffect(mesh: THREE.Mesh): boolean {
+  for (let o: THREE.Object3D | null = mesh; o; o = o.parent) {
+    if (o.userData.noOutline) return true;
+  }
+  const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  return mats.some((m) => m.blending === THREE.AdditiveBlending);
+}
+
 export class BaseOutlineRenderer {
   private normalTarget: THREE.WebGLRenderTarget | null = null;
   private readonly ndUniforms: NormalDepthUniforms = {
@@ -469,6 +480,8 @@ export class BaseOutlineRenderer {
 
       // Pula equipamentos que já recebem o casco invertido (painéis, nave, antenas)
       if (/_Solar_\d+$|_Nave$|Antena|_Folha(Inf|Sup)$/.test(mesh.name)) return;
+      // Efeitos (chama do motor, poeira): não têm superfície sólida e viravam uma "redoma" preta
+      if (isOutlineEffect(mesh)) return;
 
       mesh.userData.isBaseOutlineMesh = true;
       mesh.layers.enable(BASE_OUTLINE_LAYER);
@@ -531,7 +544,7 @@ export class BaseOutlineRenderer {
 
   updateOptions(options: OutlineOptions) {
     this.edgeUniforms.uOutlineColor.value.set(options.color);
-    this.edgeUniforms.uOutlineStrength.value = options.strength;
+    this.edgeUniforms.uOutlineStrength.value = Math.min(1, options.strength);
   }
 
   /** Executa o passe de extração e desenha as arestas da base diretamente no canvas */

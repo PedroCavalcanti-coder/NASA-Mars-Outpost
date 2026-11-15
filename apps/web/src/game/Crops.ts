@@ -15,9 +15,13 @@ const STAGE_MODELS: Record<CropKind, [string, string, string]> = {
 const KINDS: CropKind[] = ['Batata', 'Alface', 'Tomate'];
 const INITIAL_BY_NAME: Record<string, CropStage> = { Vazio: 0, Broto: 1, Crescida: 2, Colheita: 3 };
 
-/** Tempo (s) para cada fase de crescimento, com variação por canteiro. */
-const GROW_MIN = 16;
-const GROW_SPREAD = 14;
+/**
+ * Tempo (s de mundo) para cada fase de crescimento, com pequena variação por canteiro.
+ * Da muda à colheita são 2 fases: 2 × 2,5 Sols = 5 dias marcianos (1 Sol = 600 s).
+ */
+const SOL_SECONDS = 600;
+const GROW_MIN = 2.4 * SOL_SECONDS;
+const GROW_SPREAD = 0.2 * SOL_SECONDS;
 
 export interface CropSlot {
   index: number;
@@ -42,6 +46,8 @@ export class CropSystem {
   readonly proxies: THREE.Mesh[] = [];
   private readonly proxyGeo = new THREE.BoxGeometry(0.9, 1.3, 0.9);
   private readonly proxyMat = new THREE.MeshBasicMaterial({ visible: false });
+  private readonly moundGeo = new THREE.CylinderGeometry(0.26, 0.34, 0.1, 10);
+  private readonly moundMat = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 1 });
 
   constructor(
     model: THREE.Object3D,
@@ -62,7 +68,16 @@ export class CropSystem {
       const world = new THREE.Vector3();
       marker.getWorldPosition(world);
 
-      const visuals: Array<THREE.Object3D | null> = [null];
+      // canteiro vazio: um montinho de terra, para o bloco nunca "sumir" depois da colheita
+      const mound = new THREE.Mesh(this.moundGeo, this.moundMat);
+      mound.position.copy(marker.position);
+      mound.quaternion.copy(marker.quaternion);
+      mound.scale.copy(marker.scale);
+      mound.receiveShadow = true;
+      mound.userData.keepSeparate = true;
+      mound.visible = false;
+      marker.parent.add(mound);
+      const visuals: Array<THREE.Object3D | null> = [mound];
       for (let s = 1; s <= 3; s++) {
         const src = plants?.getObjectByName(STAGE_MODELS[kind][s - 1]!);
         if (!src) {
@@ -158,5 +173,7 @@ export class CropSystem {
   dispose() {
     this.proxyGeo.dispose();
     this.proxyMat.dispose();
+    this.moundGeo.dispose();
+    this.moundMat.dispose();
   }
 }

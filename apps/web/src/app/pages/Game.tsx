@@ -1,4 +1,4 @@
-import { WORLD_AUTOSAVE_MS } from '@mars/shared';
+import { DUO_GESTURES, type DuoGestureId, WORLD_AUTOSAVE_MS } from '@mars/shared';
 import { TriangleAlert } from 'lucide-react';
 import {
   lazy,
@@ -20,6 +20,7 @@ import type {
   BaseViewer as Viewer,
 } from '../../game/BaseViewer';
 import { registerDevAction } from '../../game/dev/devActions';
+import { MISSIONS, type MissionId } from '../../game/missions/rules';
 import {
   expeditionSnapshot,
   peekExpedition,
@@ -27,12 +28,14 @@ import {
   subscribeExpedition,
 } from '../../game/runtime/expedition';
 import { type BaseId, type BaseInfo, loadBaseInfo, pickRandomBase } from '../../lib/bases';
+import { copyText } from '../../lib/clipboard';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
 import { useAuth } from '../../store/auth';
 import { useMission } from '../../store/mission';
 import { toast } from '../../ui/toast';
 import { HudRoot } from '../components/hud/HudRoot';
+import { MissionVeil } from '../components/hud/MissionVeil';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
 import '../../styles/game.css';
@@ -44,6 +47,8 @@ const SolarCleaningPreview = lazy(() => import('../minigames/solar-cleaning/Sola
 const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/OxygenFilterPreview'));
 const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
 const DrillingMinigame = lazy(() => import('../minigames/drilling/DrillingMinigame'));
+const StationConsoleGame = lazy(() => import('../minigames/missions/StationConsoleGame'));
+const SoilSamplingGame = lazy(() => import('../minigames/missions/SoilSamplingGame'));
 
 /**
  * Jogo (base marciana):
@@ -106,9 +111,15 @@ function ReadyGame() {
   const viewer = useRef<BaseViewer | null>(null);
   const [info, setInfo] = useState<BaseInfo | null>(() => peekExpedition()?.info ?? null);
   const [loading, setLoading] = useState(true);
+  // tela de introdução: fica até o jogador clicar em "Começar" (e a base terminar de carregar)
+  const [intro, setIntro] = useState<'show' | 'leaving' | 'gone'>('show');
   const [error, setError] = useState<string | null>(null);
   const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
-  const closeMinigame = useCallback(() => setMinigame(null), []);
+  const closeMinigame = useCallback(() => {
+    // fechar a coleta de solo sem terminar faz o rover voltar sem amostras
+    if (minigame?.kind === 'soil') viewer.current?.abortSoilRun();
+    setMinigame(null);
+  }, [minigame]);
   /** o minigame foi concluído: o viewer aplica o efeito no mundo (painel limpo, canteiro cuidado…) */
   const finishMinigame = useCallback(
     (result?: MinigameResult) => {
@@ -149,6 +160,14 @@ function ReadyGame() {
   }, [baseId, startMission]);
 
   const [emoteCooling, setEmoteCooling] = useState(false);
+  // força o DevPanel a atualizar rótulos de ações que mudam de estado
+  const [devTick, setDevTick] = useState(0);
+  // convite de outro jogador para um gesto em dupla (some em ~5 s)
+  const [duoInvite, setDuoInvite] = useState<{
+    fromId: string;
+    name: string;
+    gesture: DuoGestureId;
+  } | null>(null);
   const [chat, setChat] = useState<
     Array<{ id: number; name: string; emoji: string; local: boolean }>
   >([]);
@@ -232,6 +251,9 @@ function ReadyGame() {
       onPlayersChange: (p) => {
         if (alive) setPlayers(p);
       },
+      onGestureInvite: (invite) => {
+        if (alive) setDuoInvite(invite);
+      },
       onEmote: ({ name: who, emoji, local }) => {
         if (!alive) return;
         const id = ++chatId.current;
@@ -239,7 +261,8 @@ function ReadyGame() {
         window.setTimeout(() => setChat((c) => c.filter((m) => m.id !== id)), 9000);
       },
       onMessage: (msg, kind) => {
-        toast(msg, kind);
+        // o aviso das missões do dia fica mais tempo na tela: diz onde cada uma acontece
+        toast(msg, kind, msg.startsWith('☀️ Sol') ? 15000 : undefined);
       },
       onVehicleChange: (d) => {
         if (alive) setDriving(d);
@@ -438,12 +461,17 @@ function ReadyGame() {
     });
   }
 
-  const handleCopyInvite = () => {
-    navigator.clipboard.writeText(roomCode);
-    toast(
-      `Código exclusivo ${roomCode} copiado! Compartilhe com seu amigo (máx 4 jogadores).`,
-      'ok',
-    );
+  const handleCopyInvite = async () => {
+    const ok = await copyText(roomCode);
+    if (ok) {
+      toast(
+        `Código exclusivo ${roomCode} copiado! Compartilhe com seu amigo (máx 4 jogadores).`,
+        'ok',
+      );
+    } else {
+      toast(`Não foi possível copiar. Selecione o código manualmente: ${roomCode}`, 'error');
+    }
+    return ok;
   };
 
   // Registra as ferramentas e comandos de teste como devActions para o DevPanel
@@ -481,6 +509,41 @@ function ReadyGame() {
         run: () => toggleRoofs(),
       }),
       registerDevAction({
+        id: 'dev:mission-test',
+        label: viewer.current?.isMissionTestMode
+          ? 'Teste de Missões: DESLIGAR'
+          : 'Teste de Missões: LIGAR (todas, sem custo/horário)',
+        group: 'Missões & Minigames',
+        run: () => {
+          const v = viewer.current;
+          v?.setMissionTestMode(!v.isMissionTestMode);
+          setDevTick((n) => n + 1);
+        },
+      }),
+      ...(Object.keys(MISSIONS) as MissionId[]).map((id) =>
+        registerDevAction({
+          id: `dev:mission-done:${id}`,
+          label: `Concluir: ${MISSIONS[id].title}`,
+          group: 'Missões & Minigames',
+          run: () => viewer.current?.devCompleteMission(id),
+        }),
+      ),
+      ...(
+        [
+          ['Painel solar', { kind: 'solar', index: 0 }],
+          ['Filtro de ar', { kind: 'oxygen', index: 0 }],
+          ['Horta (estufa)', { kind: 'greenhouse', index: 0 }],
+          ['Coleta de solo (rover)', { kind: 'soil' }],
+        ] as Array<[string, MinigameRequest]>
+      ).map(([label, req]) =>
+        registerDevAction({
+          id: `dev:minigame:${req.kind}`,
+          label: `Abrir minigame: ${label}`,
+          group: 'Missões & Minigames',
+          run: () => setMinigame(req),
+        }),
+      ),
+      registerDevAction({
         id: 'dev:roll-base',
         label: 'Sortear Outra Base Marciana',
         group: 'Mundo & Missão',
@@ -493,7 +556,7 @@ function ReadyGame() {
         unreg();
       }
     };
-  }, [stormActive, gridVisible, navDebug, showCoords, roofsHidden]);
+  }, [stormActive, gridVisible, navDebug, showCoords, roofsHidden, devTick]);
 
   if (!name) return <Navigate to="/" replace />;
 
@@ -508,6 +571,15 @@ function ReadyGame() {
               <OxygenFilterPreview onClose={closeMinigame} onComplete={finishMinigame} />
             ) : minigame.kind === 'greenhouse' ? (
               <GreenhousePreview onClose={closeMinigame} onComplete={finishMinigame} />
+            ) : minigame.kind === 'station' ? (
+              <StationConsoleGame
+                title={minigame.title}
+                hint={minigame.hint}
+                onClose={closeMinigame}
+                onComplete={finishMinigame}
+              />
+            ) : minigame.kind === 'soil' ? (
+              <SoilSamplingGame onClose={closeMinigame} onComplete={finishMinigame} />
             ) : (
               <DrillingMinigame
                 baseId={minigame.baseId}
@@ -524,6 +596,18 @@ function ReadyGame() {
         <div className="game__canvas" ref={mount} />
         <div className="game__vignette" />
 
+        <MissionVeil />
+        {duoInvite && (
+          <div className="duo-invite" role="alert">
+            <span>
+              {duoInvite.name} quer fazer: {DUO_GESTURES[duoInvite.gesture].emoji}{' '}
+              {DUO_GESTURES[duoInvite.gesture].label}
+            </span>
+            <button type="button" onClick={() => viewer.current?.acceptGesture()}>
+              Aceitar
+            </button>
+          </div>
+        )}
         {/* Nova HUD Modular Unificada (Barra Essencial, Doca e Painéis Recolhíveis) */}
         {!loading && !error && (
           <HudRoot
@@ -600,22 +684,46 @@ function ReadyGame() {
           </div>
         )}
 
-        {/* Tela de Carregamento 3D */}
-        {loading && (
-          <div className="game__loading" role="status" aria-live="polite">
-            <div className="game__spinner">
-              <div className="game__spinner-ring" />
-              <img
-                src="/assets/branding/mars-outpost-logo.svg"
-                alt=""
-                className="game__spinner-logo"
-              />
+        {/* Introdução + carregamento: o texto é lido enquanto a base prepara */}
+        {intro !== 'gone' && !error && (
+          <div
+            className={`game__loading game__intro ${intro === 'leaving' ? 'is-leaving' : ''}`}
+            role="dialog"
+            aria-label="Introdução da missão"
+          >
+            <img src="/assets/branding/mars-outpost-logo.svg" alt="" className="game__intro-logo" />
+            <span className="game__loading-kicker">SOL 1 · ZONA DE POUSO · JEZERO</span>
+            <h2 className="game__loading-title">Bem-vindo a Marte, {name ?? 'Explorador'}</h2>
+            <div className="game__intro-text">
+              <p>
+                Sua cápsula pousou em Marte. Aqui o dia dura 24 h 39 min e a noite traz um frio que
+                a base precisa vencer com energia, oxigênio e mantimentos.
+              </p>
+              <p>
+                Sua missão: manter a base viva e produzir pesquisa. Limpe os painéis solares, troque
+                o filtro de ar, cuide da horta (5 dias da muda à colheita) e cumpra as missões do
+                dia. Quem faz tudo sozinho escolhe bem: cada missão gasta recursos.
+              </p>
+              <ul>
+                <li>
+                  <b>WASD</b> ou clique para andar · <b>T</b> abre as tarefas do Sol
+                </li>
+                <li>
+                  <b>E</b> entra e sai do rover · arraste para girar a câmera · role para dar zoom
+                </li>
+              </ul>
             </div>
-            <span className="game__loading-kicker">APROXIMAÇÃO ORBITAL</span>
-            <h2 className="game__loading-title">Pousando em Marte…</h2>
-            <p className="game__loading-sub">
-              Preparando astronauta personalizado, grade tática e propulsão de pouso
-            </p>
+            <button
+              type="button"
+              className="game__intro-btn"
+              disabled={loading}
+              onClick={() => {
+                setIntro('leaving');
+                window.setTimeout(() => setIntro('gone'), 600);
+              }}
+            >
+              {loading ? 'Preparando a base…' : 'Começar missão'}
+            </button>
           </div>
         )}
 

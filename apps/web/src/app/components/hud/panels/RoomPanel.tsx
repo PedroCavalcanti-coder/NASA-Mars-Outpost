@@ -11,12 +11,12 @@ import { useHudContext } from '../HudContext';
 
 export function RoomPanel() {
   const { roomCode, players, onCopyInvite } = useHudContext();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'ok' | 'fail' | null>(null);
 
-  const handleCopy = () => {
-    onCopyInvite();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = async () => {
+    const ok = (await onCopyInvite()) !== false;
+    setCopied(ok ? 'ok' : 'fail');
+    setTimeout(() => setCopied(null), 2500);
   };
 
   return (
@@ -29,7 +29,9 @@ export function RoomPanel() {
       <div className="hud-room-card">
         <span className="hud-room-kicker">CÓDIGO DA SALA</span>
         <div className="hud-room-code-row">
-          <code className="hud-room-code">{roomCode}</code>
+          <code className="hud-room-code" style={{ userSelect: 'all' }}>
+            {roomCode}
+          </code>
           <button
             type="button"
             className="hud-btn hud-btn--primary"
@@ -37,8 +39,8 @@ export function RoomPanel() {
             title="Copiar código de convite da sala"
             aria-label="Copiar código de convite"
           >
-            {copied ? <Check size={16} /> : <Copy size={16} />}
-            <span>{copied ? 'Copiado!' : 'Copiar'}</span>
+            {copied === 'ok' ? <Check size={16} /> : <Copy size={16} />}
+            <span>{copied === 'ok' ? 'Copiado!' : copied === 'fail' ? 'Falhou' : 'Copiar'}</span>
           </button>
         </div>
       </div>

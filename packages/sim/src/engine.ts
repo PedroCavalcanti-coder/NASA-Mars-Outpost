@@ -151,6 +151,9 @@ function performAction(s: MissionState, id: ActionId) {
 }
 
 function endSol(s: MissionState, realtime = false) {
+  // O sorteio do dia depende só da semente e do Sol: todos os jogadores da sala veem os mesmos
+  // eventos, mesmo que cada um tenha executado ações em ordem diferente.
+  s.rng = (s.seed ^ Math.imul(s.sol + 1, 0x9e3779b1)) >>> 0;
   // 1) produção e consumo (em tempo real, a energia já entrou/saiu da bateria ao longo do sol)
   const forecast = solForecast(s);
   const economy = change(s, realtime ? { supplies: forecast.supplies } : forecast);

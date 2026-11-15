@@ -1,4 +1,14 @@
 import {
+  ACCESSORIES,
+  ACCESSORY_IDS,
+  type AccessoryId,
+  cloneSuit,
+  MARK_SLOT_NAMES,
+  MARK_SLOTS,
+  MARKS,
+  MAX_ACCESSORIES,
+  type MarkId,
+  type MarkSlot,
   NAME_MAX,
   NAME_MIN,
   randomSuit,
@@ -10,8 +20,18 @@ import {
   type SuitConfig,
   type SuitPart,
 } from '@mars/shared';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Dices, Rocket, User } from 'lucide-react';
+import {
+  ArrowLeft,
+  Ban,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Dices,
+  Rocket,
+  User,
+} from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { ASTRONAUT_MARKS_ATLAS } from '../../../game/astronautModel';
 import { getGuestName, saveGuestName } from '../../../lib/guest';
 import { readSuitPreference, saveSuitPreference } from '../../../lib/suitPreference';
 import { useAuth } from '../../../store/auth';
@@ -58,8 +78,31 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
   const cyclePreset = (direction: number) => {
     const index = presetIndex < 0 ? (direction > 0 ? -1 : 0) : presetIndex;
     const preset = SUIT_PRESETS[(index + direction + SUIT_PRESETS.length) % SUIT_PRESETS.length];
-    if (preset) setSuit({ ...preset.suit });
+    // o estilo muda só as cores: acessórios e marcas escolhidos continuam
+    if (preset) {
+      setSuit((prev) => ({
+        ...cloneSuit(preset.suit),
+        accessories: prev.accessories,
+        marks: prev.marks,
+      }));
+    }
   };
+  const toggleAccessory = (id: AccessoryId) =>
+    setSuit((prev) => {
+      const has = prev.accessories.includes(id);
+      if (!has && prev.accessories.length >= MAX_ACCESSORIES) return prev;
+      return {
+        ...prev,
+        accessories: has ? prev.accessories.filter((a) => a !== id) : [...prev.accessories, id],
+      };
+    });
+  const setMark = (slot: MarkSlot, mark: MarkId | null) =>
+    setSuit((prev) => {
+      const marks = { ...prev.marks };
+      if (mark === null) delete marks[slot];
+      else marks[slot] = mark;
+      return { ...prev, marks };
+    });
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const finalName = name.trim();
@@ -198,6 +241,75 @@ export function SuitModal({ open, onClose, onLaunch }: Props) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="suit-extras-field">
+              <span className="suit-field-label">
+                Acessórios{' '}
+                <small>
+                  {suit.accessories.length}/{MAX_ACCESSORIES}
+                </small>
+              </span>
+              <div className="suit-accessory-grid">
+                {ACCESSORY_IDS.map((id) => {
+                  const on = suit.accessories.includes(id);
+                  return (
+                    <button
+                      type="button"
+                      key={id}
+                      className={`suit-accessory-btn ${on ? 'is-active' : ''}`}
+                      onClick={() => toggleAccessory(id)}
+                      aria-pressed={on}
+                      disabled={!on && suit.accessories.length >= MAX_ACCESSORIES}
+                    >
+                      <span className="suit-accessory-check" aria-hidden="true">
+                        {on && <Check size={13} strokeWidth={3} />}
+                      </span>
+                      {ACCESSORIES[id].name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="suit-extras-field">
+              <span className="suit-field-label">Marcas</span>
+              {MARK_SLOTS.map((slot) => (
+                <div key={slot} className="suit-mark-row">
+                  <span className="suit-mark-slot">{MARK_SLOT_NAMES[slot]}</span>
+                  <div className="suit-mark-options">
+                    <button
+                      type="button"
+                      className={`suit-mark-btn ${suit.marks[slot] == null ? 'is-active' : ''}`}
+                      onClick={() => setMark(slot, null)}
+                      aria-pressed={suit.marks[slot] == null}
+                      title="Sem marca"
+                      aria-label={`Sem marca no ${MARK_SLOT_NAMES[slot]}`}
+                    >
+                      <Ban size={15} />
+                    </button>
+                    {MARKS.map((name, i) => (
+                      <button
+                        type="button"
+                        key={name}
+                        className={`suit-mark-btn ${suit.marks[slot] === i ? 'is-active' : ''}`}
+                        onClick={() => setMark(slot, i as MarkId)}
+                        aria-pressed={suit.marks[slot] === i}
+                        title={name}
+                        aria-label={`${name} no ${MARK_SLOT_NAMES[slot]}`}
+                      >
+                        <i
+                          style={{
+                            backgroundImage: `url(${ASTRONAUT_MARKS_ATLAS})`,
+                            backgroundSize: '400% 200%',
+                            backgroundPosition: `${((i % 4) * 100) / 3}% ${i < 4 ? 0 : 100}%`,
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
             <button type="button" className="suit-random-btn" onClick={() => setSuit(randomSuit())}>

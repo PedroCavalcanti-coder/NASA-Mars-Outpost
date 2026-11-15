@@ -95,6 +95,8 @@ export class DoorSystem {
       inst.receiveShadow = true;
       inst.frustumCulled = false; // a caixa é calculada só uma vez; a base inteira cabe na tela
       inst.name = 'DOOR_LEAVES';
+      // o agrupador de malhas fixas não pode fundir as folhas (ele ignora as matrizes de instância)
+      inst.userData.keepSeparate = true;
       list.forEach((e, i) => {
         inst.setMatrixAt(i, e.closed);
         e.door.parts.push({

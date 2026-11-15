@@ -1,4 +1,5 @@
 import {
+  applyMissionEvent,
   applyTimeChange,
   GAME_EMOTES,
   GAME_MAX_CROPS,
@@ -14,7 +15,9 @@ import {
   type GameWorldState,
   NICKNAME_MAX,
   NICKNAME_MIN,
+  normalizeBoard,
   normalizeCare,
+  normalizeMissionEvent,
   normalizeNickname,
   normalizeSuit,
   normalizeTimeScale,
@@ -30,6 +33,7 @@ import {
   saveWorld,
   touchLink,
 } from '../worlds/service';
+import { GestureBroker } from './gestures';
 
 /**
  * Salas de jogo (até 4 astronautas por sala): relé em memória.
@@ -59,6 +63,8 @@ interface Room {
   /** missão do último jogador que salvou (volta junto no próximo salvamento) */
   mission?: unknown;
   cleanup?: NodeJS.Timeout;
+  /** convites de gestos em dupla */
+  gestures: GestureBroker;
 }
 
 type GameNs = Namespace<GameClientToServer, GameServerToClient, Record<string, never>, SocketData>;
@@ -102,6 +108,7 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
     crops: save.crops,
     vehicle: save.vehicle,
     care: normalizeCare(save.care) ?? undefined,
+    board: normalizeBoard(save.board) ?? undefined,
     timeScale: normalizeTimeScale(save.timeScale),
     paused: save.paused === true,
     timeUpdatedAt: now,
@@ -142,6 +149,7 @@ async function getRoom(code: string, baseId: string): Promise<Room> {
       const room: Room = {
         code,
         players: new Map(),
+        gestures: new GestureBroker(),
         world: worldFromSave(saved?.save ?? null),
         baseId: saved?.baseId ?? baseId,
         saved: Boolean(saved),
@@ -163,6 +171,7 @@ function snapshot(room: Room, mission: unknown): WorldSave | null {
     crops: room.world.crops,
     vehicle: room.world.vehicle,
     care: room.world.care,
+    board: room.world.board,
     timeScale: room.world.timeScale,
     paused: room.world.paused,
     mission,
@@ -417,6 +426,18 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('world:care', care);
     });
 
+    socket.on('mission:event', (raw) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 3)) return;
+      const ev = normalizeMissionEvent(raw);
+      if (!ev) return;
+      // missão repetida no mesmo Sol (duas pessoas ao mesmo tempo) ou de um Sol antigo: ignora
+      const board = applyMissionEvent(room.world.board, ev);
+      if (!board) return;
+      room.world.board = board;
+      socket.to(room.code).emit('mission:event', ev);
+    });
+
     socket.on('player:emote', (raw) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room) return;
@@ -435,6 +456,24 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('player:emote', socket.id, raw);
     });
 
+    // Gestos em dupla: convite -> aceite -> início para a sala (tudo validado no broker)
+    socket.on('gesture:invite', (gesture, targetId) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 3)) return;
+      const lookup = (id: string) => room.players.get(id);
+      const res = room.gestures.invite(socket.id, targetId, gesture, lookup, Date.now());
+      if (!res.ok) return void socket.emit('gesture:denied', res.reason);
+      ns.to(res.targetId).emit('gesture:invite', socket.id, res.gesture);
+    });
+
+    socket.on('gesture:accept', (fromId) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 3)) return;
+      const res = room.gestures.accept(socket.id, fromId, (id) => room.players.get(id), Date.now());
+      if (!res.ok) return void socket.emit('gesture:denied', res.reason);
+      ns.to(room.code).emit('gesture:start', res.start);
+    });
+
     socket.on('disconnect', () => {
       const code = socket.data.room;
       const room = code ? rooms.get(code) : undefined;
@@ -446,6 +485,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         socket.to(room.code).emit('world:vehicle', room.world.vehicle);
       }
       room.players.delete(socket.id);
+      room.gestures.remove(socket.id);
       socket.to(room.code).emit('player:left', socket.id);
       if (room.saved && socket.data.linked && socket.data.owner) {
         void touchLink(socket.data.owner, room.code, socket.data.info?.name ?? '').catch(() => {});

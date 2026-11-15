@@ -5,12 +5,30 @@
  * para os astronautas conectados na mesma sala.
  */
 
-import { GAME_EMOTES } from '@mars/shared';
+import { DUO_GESTURE_IDS, DUO_GESTURES, EMOTE_ANIMATIONS, GAME_EMOTES } from '@mars/shared';
 import { MessageSquare, Smile } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useHudContext } from '../HudContext';
 
 export function ChatPanel() {
-  const { chat, onSendEmote } = useHudContext();
+  const { chat, onSendEmote, viewer } = useHudContext();
+  // astronautas a pé ao alcance de um gesto em dupla (só na sala online)
+  const [nearby, setNearby] = useState<Array<{ id: string; name: string }>>([]);
+  const [target, setTarget] = useState<string | null>(null);
+  const duoAvailable = viewer?.canDuoGesture === true;
+  useEffect(() => {
+    if (!viewer || !duoAvailable) return;
+    const tick = () =>
+      setNearby((prev) => {
+        const next = viewer.nearbyPlayers().map((p) => ({ id: p.id, name: p.name }));
+        const same = prev.length === next.length && prev.every((p, i) => p.id === next[i]?.id);
+        return same ? prev : next;
+      });
+    tick();
+    const timer = window.setInterval(tick, 500);
+    return () => window.clearInterval(timer);
+  }, [viewer, duoAvailable]);
+  const chosen = nearby.find((p) => p.id === target) ?? nearby[0];
 
   return (
     <div className="hud-panel-content hud-panel-chat">
@@ -28,14 +46,56 @@ export function ChatPanel() {
               type="button"
               className="hud-emote-item"
               onClick={() => onSendEmote(index)}
-              title={`Enviar ${emoji}`}
-              aria-label={`Enviar emoji ${emoji}`}
+              title={EMOTE_ANIMATIONS[index]?.label ?? `Enviar ${emoji}`}
+              aria-label={`Enviar ${EMOTE_ANIMATIONS[index]?.label ?? 'emoji'} ${emoji}`}
             >
               {emoji}
             </button>
           ))}
         </div>
       </div>
+
+      {duoAvailable && (
+        <div className="hud-chat-section">
+          <h4 className="hud-chat-heading">Gestos em Dupla</h4>
+          {chosen ? (
+            <>
+              {nearby.length > 1 && (
+                <select
+                  className="hud-duo-target"
+                  value={chosen.id}
+                  onChange={(e) => setTarget(e.target.value)}
+                  aria-label="Astronauta convidado"
+                >
+                  {nearby.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="hud-duo-grid">
+                {DUO_GESTURE_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    className="hud-duo-item"
+                    onClick={() => viewer?.inviteGesture(id, chosen.id)}
+                    title={`${DUO_GESTURES[id].label} com ${chosen.name}`}
+                  >
+                    <span aria-hidden="true">{DUO_GESTURES[id].emoji}</span>
+                    {DUO_GESTURES[id].label}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="hud-chat-empty">
+              Chegue perto de outro astronauta (a pé) para convidar para um gesto.
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="hud-chat-section">
         <div className="hud-chat-header">

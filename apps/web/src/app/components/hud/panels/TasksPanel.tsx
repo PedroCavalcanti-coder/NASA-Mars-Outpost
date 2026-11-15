@@ -2,7 +2,8 @@
  * Tarefas do Sol: o que a base precisa hoje (minigames), com atalho para ir até cada uma.
  *
  * Obrigatórias (filtro de ar, canteiros plantados) trazem consequência na virada do Sol;
- * as demais aparecem conforme o clima (painéis sujos) ou a ciência (sondagem).
+ * as demais aparecem conforme o clima (painéis sujos). As missões de pesquisa (sondagem, coleta
+ * de solo, estações) vêm de `MissionsSection`.
  */
 
 import {
@@ -19,6 +20,7 @@ import type { ReactNode } from 'react';
 import type { DailyTask, TaskKind } from '../../../../game/tasks/rules';
 import { useBaseOps, useDailyTasks } from '../../../../game/tasks/store';
 import { useHudContext } from '../HudContext';
+import { MissionsSection } from './MissionsSection';
 
 const ICONS: Record<TaskKind, ReactNode> = {
   filter: <Fan size={16} />,
@@ -77,6 +79,8 @@ export function TasksPanel() {
         </p>
       </div>
 
+      <MissionsSection />
+
       {tasks.length === 0 ? (
         <p className="hud-tasks__empty">Carregando a base…</p>
       ) : (
@@ -95,7 +99,7 @@ export function TasksPanel() {
 
           {optional.length > 0 && (
             <>
-              <h4 className="hud-tasks__heading">Hoje (clima e ciência)</h4>
+              <h4 className="hud-tasks__heading">Hoje (clima)</h4>
               <ul className="hud-tasks">
                 {optional.map((t) => (
                   <TaskRow key={t.id} task={t} />

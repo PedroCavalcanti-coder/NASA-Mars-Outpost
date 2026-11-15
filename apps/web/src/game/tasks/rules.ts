@@ -85,8 +85,16 @@ export const dustStage = (dust: number) => clamp(Math.floor(dust), 0, MAX_DUST);
 
 // ------------------------------------------------------------------------------- rede elétrica
 
-/** Consumo da base em unidades por segundo de jogo. */
-export const gridLoad = () => GRID.loadPerSol / SOL_SECONDS;
+/** Consumo extra à noite (fração do consumo base): iluminação de todas as salas e aquecedores. */
+export const NIGHT_LOAD_EXTRA = { lighting: 0.3, heating: 0.5 } as const;
+
+/**
+ * Consumo da base em unidades por segundo de jogo. `night` (0..1) soma a iluminação e os
+ * aquecedores: de noite a base gasta bem mais energia.
+ */
+export const gridLoad = (night = 0) =>
+  (GRID.loadPerSol / SOL_SECONDS) *
+  (1 + clamp(night, 0, 1) * (NIGHT_LOAD_EXTRA.lighting + NIGHT_LOAD_EXTRA.heating));
 
 /**
  * Geração instantânea (unidades por segundo de jogo).
@@ -112,8 +120,9 @@ export function gridStep(
   capacity: number,
   generation: number,
   dt: number,
+  night = 0,
 ): GridResult {
-  const load = gridLoad();
+  const load = gridLoad(night);
   const next = clamp(battery + (generation - load) * Math.max(0, dt), 0, capacity);
   return { battery: next, blackout: next <= 0 && generation < load };
 }
@@ -199,7 +208,7 @@ export function buildTasks(t: TaskInput): DailyTask[] {
         : `Cuidar do canteiro ${i + 1} (${name})`,
       detail: ripe
         ? 'Pronto! Colha (ou cuide) hoje, senão estraga na virada do Sol.'
-        : 'Água e luz certas hoje, ou a planta morre na virada do Sol.',
+        : 'Água (1 🍞) e luz certas hoje: sem cuidado por muito tempo, a planta morre.',
       index: i,
       done: caredToday(care, t.sol),
       required: true,
@@ -236,18 +245,6 @@ export function buildTasks(t: TaskInput): DailyTask[] {
     });
   });
 
-  if (drillDay(t.seed, t.sol)) {
-    tasks.push({
-      id: `drill-${t.sol}`,
-      kind: 'drill',
-      title: 'Sondagem científica do subsolo',
-      detail: t.drillTarget
-        ? `Coletar uma amostra de ${t.drillTarget} com a sonda. Rende pontos de pesquisa.`
-        : 'Coletar uma amostra com a sonda. Rende pontos de pesquisa.',
-      index: 0,
-      done: t.drillDoneSol >= t.sol,
-      required: false,
-    });
-  }
+  // a sondagem do subsolo agora é uma missão de pesquisa (ver `game/missions`)
   return tasks;
 }

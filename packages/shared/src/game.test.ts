@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyMissionEvent,
   applyTimeChange,
   GAME_SOL_SECONDS,
   GAME_START_HOUR,
   GAME_TIME_MAX_ADVANCE_MS,
   type GameWorldState,
   gameClock,
+  normalizeBoard,
+  normalizeMissionEvent,
   worldClock,
 } from './game';
 
@@ -92,5 +95,60 @@ describe('gameClock', () => {
       gameClock(START, START, { scale: 2, timeUpdatedAt: START + HOUR_MS, virtualElapsedMs: 0 })
         .elapsedMs,
     ).toBe(0);
+  });
+});
+
+describe('quadro de missões da sala', () => {
+  const ev = (id: string, sol: number, extra: Record<string, unknown> = {}) => ({
+    eid: `e-${id}-${sol}`,
+    id,
+    sol,
+    by: 'Ana',
+    title: 'Missão',
+    text: 'ok',
+    deltas: { research: 10, energy: -8 },
+    ...extra,
+  });
+
+  it('valida o evento: id, Sol e deltas conhecidos e limitados', () => {
+    const ok = normalizeMissionEvent(ev('lab_analysis', 3, { deltas: { research: 999, hack: 5 } }));
+    expect(ok?.deltas).toEqual({ research: 60 });
+    expect(normalizeMissionEvent(ev('Lab!', 3))).toBeNull();
+    expect(normalizeMissionEvent(ev('drill', 0))).toBeNull();
+    expect(normalizeMissionEvent(null)).toBeNull();
+    expect(normalizeMissionEvent({ ...ev('drill', 2), eid: 'x' })).toBeNull();
+  });
+
+  it('a mesma missão não conta duas vezes no mesmo Sol, mas volta no Sol seguinte', () => {
+    const a = normalizeMissionEvent(ev('drill', 2))!;
+    const b1 = applyMissionEvent(undefined, a);
+    expect(b1?.done).toEqual(['drill']);
+    expect(applyMissionEvent(b1!, a)).toBeNull();
+    const next = normalizeMissionEvent(ev('drill', 3))!;
+    expect(applyMissionEvent(b1!, next)?.done).toEqual(['drill']);
+    expect(applyMissionEvent(b1!, next)?.sol).toBe(3);
+  });
+
+  it('recusa evento de um Sol que já passou', () => {
+    const board = { sol: 5, done: [], garden: 0 };
+    expect(applyMissionEvent(board, normalizeMissionEvent(ev('drill', 4))!)).toBeNull();
+  });
+
+  it('a horta rende uma vez por Sol e não atrapalha as missões', () => {
+    const g = normalizeMissionEvent(ev('garden', 2))!;
+    const b1 = applyMissionEvent({ sol: 2, done: ['drill'], garden: 0 }, g)!;
+    expect(b1.garden).toBe(2);
+    expect(b1.done).toEqual(['drill']);
+    expect(applyMissionEvent(b1, g)).toBeNull();
+    expect(applyMissionEvent(b1, normalizeMissionEvent(ev('garden', 3))!)?.garden).toBe(3);
+  });
+
+  it('normalizeBoard limpa ids inválidos e duplicados', () => {
+    expect(normalizeBoard({ sol: 4.2, done: ['drill', 'drill', 'X!', 7], garden: -3 })).toEqual({
+      sol: 4,
+      done: ['drill'],
+      garden: 0,
+    });
+    expect(normalizeBoard('nada')).toBeNull();
   });
 });

@@ -1,12 +1,15 @@
 import {
+  applyMissionEvent,
   applyTimeChange,
   applyTimeState,
+  type DuoGestureId,
   GAME_MAX_PLAYERS,
   GAME_MAX_SOLAR,
   GAME_NAMESPACE,
   GAME_START_HOUR,
   type GameCareState,
   type GameClientToServer,
+  type GameMissionEvent,
   type GameMotion,
   type GamePlayerInfo,
   type GamePlayerState,
@@ -15,6 +18,7 @@ import {
   type GameTimeState,
   type GameVehicleState,
   type GameWorldState,
+  type GestureStart,
   type SuitConfig,
   worldClock,
 } from '@mars/shared';
@@ -68,9 +72,17 @@ export class MultiplayerRoom {
   onSolar?: (stages: number[]) => void;
   onCrops?: (stages: number[]) => void;
   onEmote?: (id: string, emote: number) => void;
+  /** outro jogador convidou para um gesto em dupla */
+  onGestureInvite?: (fromId: string, gesture: DuoGestureId) => void;
+  /** o servidor confirmou o gesto: os dois jogadores executam agora */
+  onGestureStart?: (start: GestureStart) => void;
+  /** o servidor recusou o convite/aceite (longe demais, no rover...) */
+  onGestureDenied?: (reason: string) => void;
   onVehicle?: (v: GameVehicleState) => void;
   /** cuidados diários (horta/filtro) mudaram por outro jogador */
   onCare?: (c: GameCareState) => void;
+  /** outro jogador concluiu uma missão (ou a horta rendeu oxigênio): aplicar custo e recompensa */
+  onMissionEvent?: (ev: GameMissionEvent) => void;
   /** pausa/velocidade/salto do relógio da sala mudou */
   onTime?: (t: GameTimeState) => void;
   onStatus?: (status: 'connected' | 'reconnecting') => void;
@@ -181,6 +193,9 @@ export class MultiplayerRoom {
         this.onStorm?.(v);
       });
       socket.on('player:emote', (id, emote) => this.onEmote?.(id, emote));
+      socket.on('gesture:invite', (fromId, gesture) => this.onGestureInvite?.(fromId, gesture));
+      socket.on('gesture:start', (start) => this.onGestureStart?.(start));
+      socket.on('gesture:denied', (reason) => this.onGestureDenied?.(reason));
       socket.on('world:crops', (stages) => {
         this.world.crops = stages;
         this.onCrops?.(stages);
@@ -197,6 +212,7 @@ export class MultiplayerRoom {
         this.world.care = c;
         this.onCare?.(c);
       });
+      socket.on('mission:event', (ev) => this.receiveMission(ev));
       socket.on('world:time', (t) => {
         applyTimeState(this.world, t);
         this.onTime?.(t);
@@ -332,6 +348,9 @@ export class MultiplayerRoom {
           applyTimeState(this.world, m.time);
           this.onTime?.(m.time);
           break;
+        case 'mission':
+          this.receiveMission(m.ev);
+          break;
       }
     };
 
@@ -408,6 +427,21 @@ export class MultiplayerRoom {
     else this.post({ t: 'emote', from: this.self.id, i: emote });
   }
 
+  /** Gestos em dupla dependem do servidor (validação de distância): só na sala online. */
+  get supportsDuoGestures() {
+    return this.mode === 'online';
+  }
+
+  sendGestureInvite(gesture: DuoGestureId, targetId: string) {
+    if (this.disposed || this.mode !== 'online') return;
+    this.socket?.emit('gesture:invite', gesture, targetId);
+  }
+
+  acceptGesture(fromId: string) {
+    if (this.disposed || this.mode !== 'online') return;
+    this.socket?.emit('gesture:accept', fromId);
+  }
+
   sendCrops(stages: number[]) {
     this.world.crops = stages;
     if (this.mode === 'online') this.socket?.emit('world:crops', stages);
@@ -439,6 +473,31 @@ export class MultiplayerRoom {
     this.world.care = care;
     if (this.mode === 'online') this.socket?.emit('world:care', care);
     else this.post({ t: 'care', from: this.self.id, care });
+  }
+
+  /** Missões já concluídas no Sol (do quadro compartilhado da sala). */
+  get board() {
+    return this.world.board;
+  }
+
+  private receiveMission(ev: GameMissionEvent) {
+    const board = applyMissionEvent(this.world.board, ev);
+    if (!board) return; // repetida ou de um Sol antigo
+    this.world.board = board;
+    this.onMissionEvent?.(ev);
+  }
+
+  /**
+   * Registra a missão no quadro e avisa a sala. Devolve `false` se ela já tinha sido concluída
+   * neste Sol (por outra pessoa): quem chamou não deve aplicar a recompensa.
+   */
+  sendMission(ev: GameMissionEvent): boolean {
+    const board = applyMissionEvent(this.world.board, ev);
+    if (!board) return false;
+    this.world.board = board;
+    if (this.mode === 'online') this.socket?.emit('mission:event', ev);
+    else this.post({ t: 'mission', from: this.self.id, ev });
+    return true;
   }
 
   sendSolar(stages: number[]) {
@@ -492,4 +551,5 @@ type LocalMessage =
   | { t: 'emote'; from: string; i: number }
   | { t: 'vehicle'; from: string; v: GameVehicleState }
   | { t: 'time'; from: string; time: GameTimeState }
-  | { t: 'care'; from: string; care: GameCareState };
+  | { t: 'care'; from: string; care: GameCareState }
+  | { t: 'mission'; from: string; ev: GameMissionEvent };

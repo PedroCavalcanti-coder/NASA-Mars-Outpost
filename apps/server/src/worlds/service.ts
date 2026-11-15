@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from 'node:crypto';
 import {
   GAME_MAX_CROPS,
   GAME_MAX_SOLAR,
+  normalizeBoard,
   normalizeCare,
   type RecentWorld,
   WORLD_LINK_DAYS,
@@ -61,6 +62,7 @@ export function sanitizeSave(raw: {
   timeScale?: unknown;
   paused?: unknown;
   care?: unknown;
+  board?: unknown;
   mission?: unknown;
 }): WorldSave | null {
   const clampList = (l: number[], max: number, top: number) =>
@@ -76,6 +78,8 @@ export function sanitizeSave(raw: {
   if (raw.paused === true) save.paused = true;
   const care = normalizeCare(raw.care);
   if (care) save.care = care;
+  const board = normalizeBoard(raw.board);
+  if (board) save.board = board;
   if (raw.mission !== undefined) {
     let json = '';
     try {

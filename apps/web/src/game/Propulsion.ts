@@ -98,6 +98,7 @@ export class Propulsion {
       this.flame.add(m);
     }
     core.position.y = 0.6;
+    this.flame.userData.noOutline = true;
     this.light.position.set(0, -1.8, 0);
     this.flame.add(this.light);
 

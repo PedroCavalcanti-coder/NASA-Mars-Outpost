@@ -15,6 +15,12 @@ export interface SystemContext {
   /** Se o jogador local está dirigindo um veículo (rover). */
   readonly driving: boolean;
 
+  /**
+   * Missão automática do rover: o astronauta viaja na cabine pressurizada e o tanque do traje
+   * não gasta (o custo de oxigênio da missão já sai do estoque da base).
+   */
+  readonly sheltered?: boolean;
+
   /** Fator de noite no ambiente marciano (0.0 = dia pleno, 1.0 = noite fechada). */
   readonly night: number;
 

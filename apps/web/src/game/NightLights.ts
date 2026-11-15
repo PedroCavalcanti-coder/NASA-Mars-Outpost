@@ -6,7 +6,7 @@ interface Source {
   indoor: boolean;
 }
 
-const POOL_INDOOR = 3;
+const POOL_INDOOR = 5;
 const POOL_OUTDOOR = 3;
 /** Fica de olho só nas fontes mais próximas do jogador: um número FIXO de luzes (sem recompilar shaders). */
 const INDOOR_INTENSITY = 30;
@@ -25,6 +25,11 @@ export class NightLights {
   private readonly outdoorPool: THREE.PointLight[] = [];
   private readonly glow: Array<{ mat: THREE.MeshStandardMaterial; base: number }> = [];
   private acc = 0;
+  /** uma lâmpada visível por cômodo/corredor: acesas à noite, mesmo longe do jogador */
+  private lamps: THREE.InstancedMesh | null = null;
+  private readonly lampMat = new THREE.MeshBasicMaterial({ color: 0x777777, toneMapped: false });
+  private readonly lampOff = new THREE.Color(0x77716a);
+  private readonly lampOn = new THREE.Color(0xffe2a0);
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -43,6 +48,21 @@ export class NightLights {
     for (const c of grid.layout.corridors) {
       const w = grid.tileToWorld(c.tile[0], c.tile[1]);
       this.sources.push({ pos: new THREE.Vector3(w.wx, 2.0, w.wz), indoor: true });
+    }
+    // lâmpada visível em cada cômodo e corredor
+    const indoor = this.sources.filter((s) => s.indoor);
+    if (indoor.length) {
+      const bulb = new THREE.SphereGeometry(0.22, 10, 8);
+      this.lamps = new THREE.InstancedMesh(bulb, this.lampMat, indoor.length);
+      const m = new THREE.Matrix4();
+      indoor.forEach((s, i) => {
+        m.makeTranslation(s.pos.x, s.pos.y + 0.35, s.pos.z);
+        this.lamps?.setMatrixAt(i, m);
+      });
+      this.lamps.frustumCulled = false;
+      this.lamps.matrixAutoUpdate = false;
+      this.lamps.userData.keepSeparate = true;
+      scene.add(this.lamps);
     }
     // postes e luzes de pouso
     const wp = new THREE.Vector3();
@@ -107,6 +127,10 @@ export class NightLights {
     for (const l of this.indoorPool) l.intensity += (kIn - l.intensity) * k;
     for (const l of this.outdoorPool) l.intensity += (kOut - l.intensity) * k;
 
+    // lâmpadas das salas: apagadas de dia, acesas à noite e na tempestade
+    const lampOn = Math.min(1, indoorDark * 1.4);
+    this.lampMat.color.copy(this.lampOff).lerp(this.lampOn, lampOn);
+
     // janelas e luzes de sinalização brilham mais no escuro
     const boost = 1 + Math.max(dark, storm * 0.6) * 1.8;
     for (const g of this.glow) g.mat.emissiveIntensity = g.base * boost;
@@ -124,6 +148,11 @@ export class NightLights {
   }
 
   dispose() {
+    if (this.lamps) {
+      this.scene.remove(this.lamps);
+      this.lamps.geometry.dispose();
+    }
+    this.lampMat.dispose();
     for (const l of [...this.indoorPool, ...this.outdoorPool]) {
       this.scene.remove(l);
       l.dispose();

@@ -1,10 +1,17 @@
-import { DEFAULT_SUIT, SUIT_COLORS, SUIT_PARTS, type SuitConfig } from '@mars/shared';
+import { DEFAULT_SUIT, type SuitConfig } from '@mars/shared';
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
+import {
+  ASTRONAUT_MODEL_URL,
+  applySuitAppearance,
+  meshMaterials,
+  prepareModel,
+  setFaceExpression,
+} from '../astronautModel';
 import type { AssetPool } from './assets';
 
 export async function prepareAstronautPreview(pool: AssetPool) {
-  const url = '/assets/modelos/astronaut.glb';
+  const url = ASTRONAUT_MODEL_URL;
   const gltf = await pool.load(url).catch((error) => {
     pool.release(url);
     throw error;
@@ -79,35 +86,19 @@ export async function prepareAstronautPreview(pool: AssetPool) {
   scene.add(landscape);
 
   const model = clone(gltf.scene);
-  const materials: THREE.Material[] = [];
-  const faceTextures: THREE.Texture[] = [];
   model.scale.setScalar(0.75);
+  // materiais próprios, acessórios escondidos e rosto/marcas com texturas clonadas
+  const textures = prepareModel(model);
+  const materials: THREE.Material[] = [];
   model.traverse((o) => {
     if (o.name.startsWith('tool_')) o.visible = false;
     if (!(o instanceof THREE.Mesh)) return;
     o.castShadow = o.receiveShadow = true;
-    if (Array.isArray(o.material)) {
-      o.material = o.material.map((m) => m.clone());
-      materials.push(...o.material);
-    } else {
-      o.material = o.material.clone();
-      materials.push(o.material);
-    }
+    materials.push(...meshMaterials(o));
   });
-  // O GLB usa um atlas de oito expressões; a prévia exibe apenas o sorriso.
-  for (const material of materials) {
-    if (!(material instanceof THREE.MeshStandardMaterial) || material.name !== 'M_Rosto') continue;
-    for (const slot of ['map', 'emissiveMap'] as const) {
-      const source = material[slot];
-      if (!source) continue;
-      const texture = source.clone();
-      texture.repeat.set(0.25, 0.5);
-      texture.offset.set(0, 0);
-      texture.needsUpdate = true;
-      material[slot] = texture;
-      faceTextures.push(texture);
-    }
-  }
+  // O atlas tem oito expressões; a prévia exibe o sorriso (célula 0).
+  setFaceExpression(textures, 0);
+  const faceTextures = textures.all;
   // Normaliza o modelo pelos limites reais e apoia as botas no solo.
   const bounds = new THREE.Box3().setFromObject(model);
   const center = bounds.getCenter(new THREE.Vector3());
@@ -139,17 +130,7 @@ export async function prepareAstronautPreview(pool: AssetPool) {
   return { scene, renderer, camera, model, dispose };
 }
 
+/** Cores, acessórios e marcas na prévia: o mesmo caminho do astronauta dentro do jogo. */
 export function applySuitColors(root: THREE.Object3D, suit: SuitConfig = DEFAULT_SUIT) {
-  for (const part of SUIT_PARTS) {
-    const node = root.getObjectByName(`color_${part}`);
-    node?.traverse((o) => {
-      const mesh = o as THREE.Mesh;
-      if (mesh.isMesh) {
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        for (const m of mats) {
-          (m as THREE.MeshStandardMaterial).color.set(SUIT_COLORS[suit[part]].hex);
-        }
-      }
-    });
-  }
+  applySuitAppearance(root, suit);
 }

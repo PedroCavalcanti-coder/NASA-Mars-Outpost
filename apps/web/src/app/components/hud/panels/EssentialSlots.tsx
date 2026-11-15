@@ -5,6 +5,7 @@
  * e o Mostrador de Alertas Ativos.
  */
 
+import { GAME_SOL_SECONDS, MARS_SOL_LABEL } from '@mars/shared';
 import { AlertTriangle, BatteryCharging, CloudSun, Fan, Moon, Sun, Wind } from 'lucide-react';
 import { useBaseOps } from '../../../../game/tasks/store';
 import { useMission } from '../../../../store/mission';
@@ -102,7 +103,7 @@ export function DefaultClockSlot({ marsTime }: ClockSlotProps) {
     <div
       className="hud-essential-slot hud-essential-clock"
       role="status"
-      title="Ciclo Dia/Noite marciano: cada 10 minutos terrestres equivale a 1 Sol (24h) completo"
+      title={`Um Sol marciano dura ${MARS_SOL_LABEL} (mais que o dia terrestre). No jogo, cada ${Math.round(GAME_SOL_SECONDS / 60)} minutos reais = 1 Sol.`}
       aria-label={`Relógio Marciano: Sol ${marsTime.sol}, ${marsTime.formatted} LMST, ${
         marsTime.isDay ? 'Dia' : 'Noite'
       }`}

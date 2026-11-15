@@ -1,8 +1,18 @@
 import {
+  applyMissionEvent,
+  DUO_GESTURES,
+  type DuoGestureId,
+  duoPartnerPosition,
+  formatSolClock,
   GAME_EMOTES,
   GAME_MAX_SOLAR,
   type GameCareState,
+  type GameMissionBoard,
+  type GameMissionEvent,
   type GameMotion,
+  GESTURE_INVITE_TTL_MS,
+  GESTURE_MAX_DISTANCE,
+  type GestureStart,
   normalizeTimeScale,
 } from '@mars/shared';
 import * as THREE from 'three';
@@ -35,6 +45,28 @@ import {
   type RoomMode,
   RoomRejectedError,
 } from './MultiplayerRoom';
+import {
+  costText,
+  cropGraceDays,
+  describeDirection,
+  GARDEN_CARE_COST,
+  GARDEN_OXYGEN_BONUS,
+  gardenComplete,
+  MISSIONS,
+  type MissionContext,
+  type MissionId,
+  type MissionSite,
+  missionBlock,
+  missionsForSol,
+  roomLabel,
+  STATION_LABEL,
+  type StationSite,
+  soilReward,
+  soilSamples,
+  stationRoomIndex,
+} from './missions/rules';
+import { StationMarkers } from './missions/StationMarkers';
+import { publishMissionBoard, resetMissionBoard, type SoilPhase } from './missions/store';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
 import { type OutlineOptions, OutlineSystem } from './render/Outline';
@@ -42,6 +74,7 @@ import type { AssetPool } from './runtime/assets';
 import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
 import { GameClock } from './sim/clock';
+import { useNap } from './survival/NapSystem';
 import { adjustBaseOxygen } from './survival/OxygenSystem';
 // [seam:survival]
 import type { SystemContext } from './systems/context';
@@ -50,7 +83,6 @@ import { targetLayer } from './tasks/drilling';
 import {
   caredToday,
   cropDead,
-  DRILL_ENERGY_COST,
   dustStage,
   dustStep,
   filterClogged,
@@ -123,6 +155,10 @@ export interface BaseViewerOptions {
   onRoomError?: (msg: string) => void;
   /** avisos do jogo (tarefa concluída, alvo inválido…) */
   onMessage?: (msg: string, kind: 'ok' | 'error' | 'info') => void;
+  /** outro jogador convidou para um gesto em dupla (null = o convite acabou) */
+  onGestureInvite?: (
+    invite: { fromId: string; name: string; gesture: DuoGestureId } | null,
+  ) => void;
   /** um emoji foi enviado (por mim ou por outro jogador): alimenta o chat */
   onEmote?: (info: { name: string; emoji: string; local: boolean }) => void;
   /** a sala recusou a entrada (apelido em uso, sala cheia): a interface deve voltar ao início */
@@ -147,6 +183,8 @@ type PendingTask =
   | { kind: 'crop'; index: number; face: THREE.Vector3 }
   | { kind: 'filter'; index: number; face: THREE.Vector3 }
   | { kind: 'drill'; face: THREE.Vector3 }
+  | { kind: 'station'; site: StationSite; face: THREE.Vector3 }
+  | { kind: 'soilstart'; face: THREE.Vector3 }
   | { kind: 'enter'; face: THREE.Vector3 }
   | { kind: 'goto'; face: THREE.Vector3 };
 
@@ -155,10 +193,18 @@ export type MinigameRequest =
   | { kind: 'solar'; index: number }
   | { kind: 'greenhouse'; index: number }
   | { kind: 'oxygen'; index: number }
-  | { kind: 'drill'; baseId: string; target: string; sol: number };
+  | { kind: 'drill'; baseId: string; target: string; sol: number }
+  | { kind: 'station'; mission: MissionId; title: string; hint: string }
+  | { kind: 'soil' };
 
 /** Resultado de um minigame concluído. */
-export type MinigameResult = { research?: number; layerName?: string; hit?: boolean };
+export type MinigameResult = {
+  research?: number;
+  layerName?: string;
+  hit?: boolean;
+  /** nota 0..1 dos minigames de missão (calibragem e coleta de solo) */
+  quality?: number;
+};
 
 /** Resultado de um clique no cenário. */
 type PickResult =
@@ -166,6 +212,7 @@ type PickResult =
   | { type: 'crop'; index: number }
   | { type: 'filter'; index: number }
   | { type: 'drill' }
+  | { type: 'station'; site: StationSite }
   | { type: 'vehicle' }
   | { type: 'floor'; point: THREE.Vector3 }
   | { type: 'surface'; point: THREE.Vector3; normal: THREE.Vector3 }
@@ -318,7 +365,6 @@ export class BaseViewer {
   private opsSol = 0;
   private opsTimer = 0;
   private panelsCleanedToday: number[] = [];
-  private drillDoneSol = 0;
   /** bateria com fração (a missão guarda inteiros) e último valor escrito nela */
   private batteryFloat = -1;
   private batteryWritten = -1;
@@ -327,6 +373,26 @@ export class BaseViewer {
   private blackout = false;
   private filterSpots: THREE.Vector3[] = [];
   private drillSpot: THREE.Vector3 | null = null;
+
+  // Missões de pesquisa (sorteadas por Sol; o quadro das concluídas é compartilhado pela sala)
+  private missionIds: MissionId[] = [];
+  /** sem sala (ou sem servidor): quadro só deste jogador */
+  private localBoard: GameMissionBoard | undefined;
+  private stationMarkers: StationMarkers | null = null;
+  private stationInfo = new Map<StationSite, { label: string; pos: THREE.Vector3 }>();
+  private missionTimer = 0;
+  private beaconsOn = true;
+  /** amostras de solo que o jogador carrega até o computador */
+  private soilCarry = 0;
+  private soilQuality = 0;
+  private soil: {
+    phase: 'out' | 'sampling' | 'back';
+    t: number;
+    far: THREE.Vector3 | null;
+    /** sem caminho livre até a poeira: o rover só some no véu, sem sair do lugar */
+    virtual: boolean;
+    quality: number;
+  } | null = null;
 
   // Nave: pouso -> desembarque -> decolagem, uma chegada por vez
   private ship: THREE.Object3D | null = null;
@@ -342,6 +408,7 @@ export class BaseViewer {
 
   // Sombras: o mapa só é refeito quando algo que projeta sombra mudou
   private shadowDirty = true;
+  private lastSunHour = -99;
   private lastShadowUpdate = 0;
 
   readonly ready: Promise<void>;
@@ -409,7 +476,7 @@ export class BaseViewer {
     this.sun = new THREE.DirectionalLight(0xffe2c4, 2.4);
     this.sun.position.set(-radius * 0.9, radius * 1.3, radius * 0.5);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.setScalar(coarse ? 1024 : 2048);
+    this.sun.shadow.mapSize.setScalar(coarse ? 1024 : 4096);
     const sc = this.sun.shadow.camera;
     sc.left = sc.bottom = -radius * 1.2;
     sc.right = sc.top = radius * 1.2;
@@ -427,7 +494,7 @@ export class BaseViewer {
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.minZoom = 1.0;
-    this.controls.maxZoom = 3.6;
+    this.controls.maxZoom = 9;
     this.controls.minPolarAngle = 0.6;
     this.controls.maxPolarAngle = 1.12;
     this.controls.screenSpacePanning = false;
@@ -702,7 +769,14 @@ export class BaseViewer {
       );
     }
 
-    this.pickRoots = [model, ...(land ? [land.scene] : []), rover.root, ...this.crops.proxies];
+    this.setupStations();
+    this.pickRoots = [
+      model,
+      ...(land ? [land.scene] : []),
+      rover.root,
+      ...this.crops.proxies,
+      ...(this.stationMarkers ? [this.stationMarkers.group] : []),
+    ];
 
     this.lights.collectGlow(this.scene);
 
@@ -902,11 +976,14 @@ export class BaseViewer {
       actor.applySnapshot(s);
       this.syncRemoteDriving(actor, s);
     };
+    room.onGestureInvite = (fromId, gesture) => this.receiveGestureInvite(fromId, gesture);
+    room.onGestureStart = (start) => this.startGesture(start);
+    room.onGestureDenied = (reason) => this.options?.onMessage?.(reason, 'info');
     room.onEmote = (id, index) => {
       const actor = this.remoteAstronauts.get(id);
       const emoji = GAME_EMOTES[index];
       if (!actor || !emoji) return;
-      this.showEmote(actor, emoji);
+      this.showEmote(actor, emoji, index);
       this.options?.onEmote?.({ name: actor.name, emoji, local: false });
     };
     room.onStorm = (val) => {
@@ -929,6 +1006,10 @@ export class BaseViewer {
     }
     room.onCare = (c) => {
       this.care = { crops: [...c.crops], filter: c.filter };
+    };
+    room.onMissionEvent = (ev) => {
+      this.applyMissionEffects(ev, false);
+      this.publishMissions();
     };
     room.onCrops = (stages) => this.crops?.apply(stages);
     room.onVehicle = (vs) => {
@@ -1150,9 +1231,11 @@ export class BaseViewer {
   private simulate(dt: number, animate: boolean) {
     this.simTime += dt;
     // Tempo do MUNDO (relógio, sobrevivência, canteiros, poeira): segue pausa e 1×/2×/3×.
-    // Andar, câmera e animações continuam em tempo real, mesmo pausado.
+    // Astronautas, rover e suas animações seguem o mesmo tempo (pausa congela, 3× acelera);
+    // só a câmera e a interface continuam em tempo real.
     GameClock.tick(dt);
     const worldDt = dt * GameClock.effectiveScale();
+    const moveDt = worldDt;
 
     // Relógio: igual para todos da sala (ou local, se estiver sozinho/offline)
     if (this.room) {
@@ -1182,26 +1265,31 @@ export class BaseViewer {
 
     if (local) {
       if (this.roverDriver === 'local' && this.rover) {
-        this.updateDriving(dt, local, dir);
+        this.updateDriving(moveDt, local, dir);
       } else {
         // teclado: só atualiza quando muda (cancela o caminho do clique uma vez)
         local.setInput(local.isRevealed ? dir : null);
-        local.update(dt * this.playerSpeedScale, ctx, animate);
+        local.update(moveDt * this.playerSpeedScale, ctx, animate);
         this.handleRepath(local);
         this.handlePending(local);
       }
     }
-    for (const a of this.remoteList) a.update(dt, ctx, animate);
+    if (local) {
+      // rosto LED: dormindo no cochilo, cansado com a moral baixa
+      const nap = useNap.getState();
+      local.setMood(nap.isSleeping ? 'sleeping' : nap.moraleLevel < 35 ? 'tired' : 'normal');
+    }
+    for (const a of this.remoteList) a.update(moveDt, ctx, animate);
 
     // rover de outro jogador / parado: rodas e posição
     if (this.rover) {
       if (this.roverDriver && this.roverDriver !== 'local' && this.roverRemoteTarget) {
         const t = this.roverRemoteTarget;
-        this.rover.follow(dt, t.x, t.z, t.h);
+        this.rover.follow(moveDt, t.x, t.z, t.h);
       } else if (this.roverDriver !== 'local') {
         this.rover.speed = 0;
       }
-      if (animate) this.rover.animate(dt);
+      if (animate) this.rover.animate(moveDt);
     }
 
     // portas e interior
@@ -1223,6 +1311,7 @@ export class BaseViewer {
     this.accumulateSolarDust(worldDt);
     this.growCrops(worldDt);
     this.updateOperations(worldDt);
+    this.updateMissions(dt);
     this.broadcastState(dt, local);
     this.checkStormAlert(local);
 
@@ -1235,8 +1324,10 @@ export class BaseViewer {
   /** Dirige o rover (jogador local). */
   private updateDriving(dt: number, local: AstronautActor, dir: { x: number; z: number } | null) {
     const rover = this.rover!;
-    if (dir) rover.stopPath();
-    rover.drive(dt, { dir }, this.grid);
+    // missão do rover: ele anda sozinho, o teclado fica de fora
+    const input = this.soil ? null : dir;
+    if (input) rover.stopPath();
+    rover.drive(dt, { dir: input }, this.grid);
     if (rover.needsRepath && rover.destination && this.grid) {
       rover.needsRepath = false;
       if (++this.repathCount > 4) {
@@ -1321,8 +1412,18 @@ export class BaseViewer {
       else this.notify('Não consegui chegar ao rover.', 'error');
       return;
     }
+    if (p.kind === 'soilstart') {
+      if (d <= ENTER_REACH + 0.8) this.startSoilRun();
+      else this.notify('Não consegui chegar ao rover.', 'error');
+      return;
+    }
     if (d > TASK_REACH) {
       this.notify('Não consegui chegar lá.', 'error');
+      return;
+    }
+    if (p.kind === 'station') {
+      local.face(p.face);
+      this.activateStation(p.site);
       return;
     }
 
@@ -1349,12 +1450,9 @@ export class BaseViewer {
     }
 
     if (p.kind === 'drill') {
-      if (this.drillDoneSol >= this.currentSol) {
-        this.notify('A sondagem de hoje já foi feita. Volte amanhã.', 'info');
-        return;
-      }
-      if (useMission.getState().state.resources.energy.value < DRILL_ENERGY_COST) {
-        this.notify(`⚡ A sonda precisa de ${DRILL_ENERGY_COST} de energia na bateria.`, 'error');
+      const block = this.drillBlock();
+      if (block) {
+        this.notify(block, 'info');
         return;
       }
       local.face(p.face);
@@ -1380,8 +1478,11 @@ export class BaseViewer {
       });
     } else if (slot.stage === 3) {
       local.startTask('harvest', p.face, () => {
-        this.crops?.setStage(p.index, 0);
+        // a planta rebrota (volta à muda) em vez de sumir: o canteiro nunca fica "invisível"
+        this.crops?.setStage(p.index, 1);
+        this.markCropCared(p.index);
         this.room?.sendCrops(this.crops?.stages() ?? []);
+        this.checkGarden();
         const label =
           slot.kind === 'Batata' ? 'batatas' : slot.kind === 'Alface' ? 'alfaces' : 'tomates';
         useMission.getState().run({
@@ -1391,10 +1492,17 @@ export class BaseViewer {
           text: `${label[0]?.toUpperCase()}${label.slice(1)} frescas para a tripulação.`,
           deltas: { supplies: 6 },
         });
-        this.notify(`🧺 Colheita feita: ${label} frescas para a base!`, 'ok');
+        this.notify(
+          `🧺 Colheita feita: ${label} frescas para a base! O canteiro já rebrotou.`,
+          'ok',
+        );
       });
     } else if (caredToday(this.care.crops[p.index] ?? 0, this.currentSol)) {
       this.notify('🌿 Este canteiro já foi cuidado hoje. Volte amanhã.', 'info');
+    } else if (
+      useMission.getState().state.resources.supplies.value < (GARDEN_CARE_COST.supplies ?? 0)
+    ) {
+      this.notify('🍞 Sem mantimentos para a água do cultivo. Sem recurso, sem cuidado.', 'error');
     } else {
       local.face(p.face);
       this.options?.onMinigame?.({ kind: 'greenhouse', index: p.index });
@@ -1452,6 +1560,10 @@ export class BaseViewer {
     const local = this.localAstronaut;
     const rover = this.rover;
     if (this.roverDriver !== 'local' || !local || !rover) return;
+    if (this.soil) {
+      this.notify('O rover está numa missão automática: aguarde a volta.', 'info');
+      return;
+    }
     const at = this.footPointNear(rover.position, rover.heading) ?? rover.position.clone();
     rover.stopPath();
     rover.speed = 0;
@@ -1475,16 +1587,131 @@ export class BaseViewer {
     const emoji = GAME_EMOTES[index];
     const local = this.localAstronaut;
     if (!emoji || !local?.isRevealed) return false;
-    this.showEmote(local, emoji);
+    this.showEmote(local, emoji, index);
     this.room?.sendEmote(index);
     this.options?.onEmote?.({ name: local.name, emoji, local: true });
     return true;
   }
 
-  /** Dentro do rover o balão sobe sobre o carro; a pé, sobre a cabeça. */
-  private showEmote(actor: AstronautActor, emoji: string) {
+  /** Dentro do rover o balão sobe sobre o carro (sem animação); a pé, sobre a cabeça e com o clipe. */
+  private showEmote(actor: AstronautActor, emoji: string, index: number) {
     if (actor.inVehicle && this.rover) this.rover.emote.show(emoji);
-    else actor.emote.show(emoji);
+    else {
+      actor.emote.show(emoji);
+      actor.playEmote(index);
+    }
+  }
+
+  // ------------------------------------------------------------------ gestos em dupla
+
+  private duoInvite: { fromId: string; gesture: DuoGestureId; timer: number } | null = null;
+
+  /** A sala permite gestos em dupla (online, com servidor validando)? */
+  get canDuoGesture() {
+    return this.room?.supportsDuoGestures === true;
+  }
+
+  /** Astronautas a pé que estão perto o bastante para um gesto em dupla. */
+  nearbyPlayers(): Array<{ id: string; name: string; distance: number }> {
+    const local = this.localAstronaut;
+    if (!this.canDuoGesture || !local?.isRevealed || local.inVehicle) return [];
+    const out: Array<{ id: string; name: string; distance: number }> = [];
+    for (const a of this.remoteList) {
+      if (!a.isRevealed || a.inVehicle) continue;
+      const d = Math.hypot(a.position.x - local.position.x, a.position.z - local.position.z);
+      if (d <= GESTURE_MAX_DISTANCE) out.push({ id: a.id, name: a.name, distance: d });
+    }
+    return out.sort((x, y) => x.distance - y.distance);
+  }
+
+  /** O parceiro tem lugar livre na posição do gesto? (colisões do BaseGrid) */
+  private duoSpotFree(gesture: DuoGestureId, a: AstronautActor, b: AstronautActor) {
+    const heading = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z);
+    const spot = duoPartnerPosition(gesture, a.position.x, a.position.z, heading);
+    return !this.grid || this.grid.isWalkable(spot.x, spot.z);
+  }
+
+  /** Convida o astronauta `targetId` para um gesto em dupla. */
+  inviteGesture(gesture: DuoGestureId, targetId: string): boolean {
+    const local = this.localAstronaut;
+    const target = this.remoteAstronauts.get(targetId);
+    if (!this.canDuoGesture || !local?.isRevealed || !target?.isRevealed) return false;
+    if (local.inVehicle || target.inVehicle || local.isBusy) {
+      this.options?.onMessage?.('Gestos em dupla só valem a pé, sem estar ocupado.', 'info');
+      return false;
+    }
+    if (!this.nearbyPlayers().some((p) => p.id === targetId)) {
+      this.options?.onMessage?.('Chegue mais perto do astronauta para convidar.', 'info');
+      return false;
+    }
+    if (!this.duoSpotFree(gesture, local, target)) {
+      this.options?.onMessage?.(
+        'Sem espaço livre aqui para esse gesto. Afaste-se de paredes.',
+        'info',
+      );
+      return false;
+    }
+    this.room?.sendGestureInvite(gesture, targetId);
+    this.options?.onMessage?.(
+      `Convite enviado a ${target.name}: ${DUO_GESTURES[gesture].label}.`,
+      'ok',
+    );
+    return true;
+  }
+
+  private receiveGestureInvite(fromId: string, gesture: DuoGestureId) {
+    const from = this.remoteAstronauts.get(fromId);
+    if (!from) return;
+    this.clearDuoInvite();
+    const timer = window.setTimeout(() => this.clearDuoInvite(), GESTURE_INVITE_TTL_MS);
+    this.duoInvite = { fromId, gesture, timer };
+    this.options?.onGestureInvite?.({ fromId, name: from.name, gesture });
+  }
+
+  private clearDuoInvite() {
+    if (!this.duoInvite) return;
+    window.clearTimeout(this.duoInvite.timer);
+    this.duoInvite = null;
+    this.options?.onGestureInvite?.(null);
+  }
+
+  /** Aceita o convite pendente (botão "Aceitar"). */
+  acceptGesture(): boolean {
+    const inv = this.duoInvite;
+    const local = this.localAstronaut;
+    const from = inv ? this.remoteAstronauts.get(inv.fromId) : undefined;
+    if (!inv || !local || !from) return false;
+    this.clearDuoInvite();
+    if (local.inVehicle || local.isBusy) {
+      this.options?.onMessage?.('Termine o que está fazendo para aceitar.', 'info');
+      return false;
+    }
+    if (!this.duoSpotFree(inv.gesture, from, local)) {
+      this.options?.onMessage?.('Sem espaço livre aqui para esse gesto.', 'info');
+      return false;
+    }
+    this.room?.acceptGesture(inv.fromId);
+    return true;
+  }
+
+  /** O servidor confirmou: os dois se encaram, deslizam até a posição e tocam o mesmo clipe. */
+  private startGesture(s: GestureStart) {
+    const selfId = this.room?.self.id;
+    const find = (id: string) =>
+      id === selfId ? this.localAstronaut : this.remoteAstronauts.get(id);
+    const a = find(s.a);
+    const b = find(s.b);
+    if (!a || !b || !DUO_GESTURES[s.gesture]) return;
+    if (a.inVehicle || b.inVehicle) return;
+    if (!this.duoSpotFree(s.gesture, a, b)) {
+      this.options?.onMessage?.('Sem espaço livre para o gesto em dupla.', 'info');
+      return;
+    }
+    const heading = Math.atan2(b.position.x - a.position.x, b.position.z - a.position.z);
+    const spot = duoPartnerPosition(s.gesture, a.position.x, a.position.z, heading);
+    a.playDuo(s.gesture, a.position.x, a.position.z, heading);
+    b.playDuo(s.gesture, spot.x, spot.z, heading + Math.PI);
+    if (s.a === selfId || s.b === selfId) this.clearDuoInvite();
   }
 
   get isDriving() {
@@ -1691,7 +1918,7 @@ export class BaseViewer {
     const sun = Math.max(0, 1 - this.nightFactor);
     const stages = this.solarPanels.map((p) => p.stage);
     this.generation = solarGeneration(stages, sun, this.stormCurrent);
-    const grid = gridStep(this.batteryFloat, res.max, this.generation, dt);
+    const grid = gridStep(this.batteryFloat, res.max, this.generation, dt, this.nightFactor);
     this.batteryFloat = grid.battery;
     const wasBlackout = this.blackout;
     this.blackout = grid.blackout;
@@ -1725,7 +1952,11 @@ export class BaseViewer {
     }
 
     // ---- virada do Sol
-    if (this.opsSol === 0) this.opsSol = sol;
+    if (this.opsSol === 0) {
+      this.opsSol = sol;
+      this.refreshMissions();
+      this.announceMissions(sol);
+    }
     if (sol !== this.opsSol) this.onSolChanged(this.opsSol, sol);
 
     // ---- canteiros sem cuidado morrem (coordenador decide e avisa a sala); 2×/s basta
@@ -1748,7 +1979,8 @@ export class BaseViewer {
     }
     if (filterClogged(this.care.filter, sol))
       this.notify('🫁 O filtro de ar entupiu: a base parou de produzir oxigênio.', 'error');
-    this.notify(`☀️ Sol ${sol}: confira as tarefas do dia (tecla T).`, 'info');
+    this.refreshMissions();
+    this.announceMissions(sol);
   }
 
   private killNeglectedCrops(sol: number) {
@@ -1756,7 +1988,13 @@ export class BaseViewer {
     if (!crops || (this.room && !this.room.isCoordinator)) return;
     const dead: number[] = [];
     for (const slot of crops.slots) {
-      if (cropDead(slot.stage, this.care.crops[slot.index] ?? 0, sol)) {
+      if (
+        cropDead(
+          slot.stage,
+          this.care.crops[slot.index] ?? 0,
+          sol - cropGraceDays(this.playerCount()),
+        )
+      ) {
         crops.setStage(slot.index, 0);
         dead.push(slot.index + 1);
       }
@@ -1786,7 +2024,7 @@ export class BaseViewer {
       cropCare: crops.map((c) => this.care.crops[c.index] ?? 0),
       filterSol: this.care.filter,
       filterClogged: clogged,
-      drillDoneSol: this.drillDoneSol,
+      drillDoneSol: this.missionDone('drill') ? this.currentSol : 0,
       drillTarget: targetLayer(this.info.id, this.opsSeed, this.currentSol).name,
       generationPerSol: Math.round(this.generation * SOL_SECONDS),
       loadPerSol: GRID.loadPerSol,
@@ -1808,6 +2046,619 @@ export class BaseViewer {
     while (crops.length <= index) crops.push(0);
     crops[index] = this.currentSol;
     this.setCare({ ...this.care, crops });
+    this.checkGarden();
+  }
+
+  // ================================================================ missões de pesquisa
+
+  private playerCount() {
+    return 1 + (this.room?.remotes.size ?? 0);
+  }
+
+  /** Sorteia as missões do Sol (iguais para a sala toda: depende só da semente e do Sol). */
+  private refreshMissions() {
+    this.missionIds = this.missionTestMode
+      ? (Object.keys(MISSIONS) as MissionId[])
+      : missionsForSol(this.opsSeed, this.currentSol, this.playerCount());
+  }
+
+  /** Modo de teste (painel Dev): todas as missões ativas, sem custo, sem horário e sem apagão. */
+  private missionTestMode = false;
+
+  setMissionTestMode(on: boolean) {
+    this.missionTestMode = on;
+    this.refreshMissions();
+    this.publishMissions();
+    this.notify(
+      on
+        ? '🧪 Teste de missões: todas liberadas, sem custo nem horário.'
+        : '🧪 Teste de missões desligado.',
+      'info',
+    );
+  }
+
+  get isMissionTestMode() {
+    return this.missionTestMode;
+  }
+
+  /** Conclui uma missão agora (painel Dev), aplicando custo e recompensa normais. */
+  devCompleteMission(id: MissionId) {
+    const def = MISSIONS[id];
+    if (!def) return;
+    this.completeMission(id, { text: `Concluída pelo painel Dev: ${def.title}.` });
+  }
+
+  private missionBoard(): GameMissionBoard | undefined {
+    return this.room ? this.room.board : this.localBoard;
+  }
+
+  /** A missão já foi concluída neste Sol (por qualquer jogador da sala)? */
+  private missionDone(id: string): boolean {
+    const b = this.missionBoard();
+    return !!b && b.sol === this.currentSol && b.done.includes(id);
+  }
+
+  private missionContext(): MissionContext {
+    const r = useMission.getState().state.resources;
+    if (this.missionTestMode) {
+      return { energy: 999, supplies: 999, materials: 999, oxygen: 999, night: 0, blackout: false };
+    }
+    return {
+      energy: r.energy.value,
+      supplies: r.supplies.value,
+      materials: r.materials.value,
+      oxygen: r.oxygen.value,
+      // madrugada (antes das 06:00) e entardecer (depois das 18:00) contam como noite fechada:
+      // a missão do rover é só de dia, mesmo quando o céu já clareou um pouco
+      night: this.currentHour < 6 || this.currentHour >= 18 ? 1 : this.nightFactor,
+      blackout: this.blackout,
+    };
+  }
+
+  /** Onde cada missão acontece (painel, marcadores e alerta do Sol). */
+  private siteSpot(site: MissionSite): { label: string; x: number; z: number } | null {
+    if (site === 'rover') {
+      return this.rover
+        ? { label: STATION_LABEL.rover, x: this.roverPark.x, z: this.roverPark.z }
+        : null;
+    }
+    if (site === 'drill') {
+      return this.drillSpot
+        ? { label: STATION_LABEL.drill, x: this.drillSpot.x, z: this.drillSpot.z }
+        : null;
+    }
+    const st = this.stationInfo.get(site);
+    return st ? { label: st.label, x: st.pos.x, z: st.pos.z } : null;
+  }
+
+  /** Alerta de início de Sol: diz quais são as missões E ONDE cada uma fica. */
+  private announceMissions(sol: number) {
+    const here = this.localAstronaut?.position;
+    const parts = this.missionIds.map((id) => {
+      const def = MISSIONS[id];
+      const spot = this.siteSpot(def.site);
+      if (!spot) return def.title;
+      const dir = here ? `, ${describeDirection(here.x, here.z, spot.x, spot.z).text}` : '';
+      return `${def.title} (${spot.label}${dir})`;
+    });
+    this.notify(
+      parts.length
+        ? `☀️ Sol ${sol}. Missões: ${parts.join(' · ')}. Siga os feixes de luz ciano na base ou abra a aba Tarefas (T) e use "Ir".`
+        : `☀️ Sol ${sol}: confira as tarefas do dia (tecla T).`,
+      'info',
+    );
+    this.publishMissions();
+  }
+
+  /** Hologramas das estações: um cômodo por tipo, com fallback quando a base não tem o cômodo. */
+  private setupStations() {
+    const grid = this.grid;
+    if (!grid) return;
+    const rooms = grid.layout.rooms ?? [];
+    const markers = new StationMarkers();
+    this.stationMarkers = markers;
+    this.scene.add(markers.group);
+    const taken: number[] = [];
+    const perRoom = new Map<number, number>();
+    for (const site of ['lab', 'comms', 'power', 'medical'] as StationSite[]) {
+      if (!rooms.length) break;
+      const idx = stationRoomIndex(rooms, site, taken);
+      taken.push(idx);
+      const room = rooms[idx]!;
+      const a = grid.tileToWorld(room.tile[0], room.tile[1]);
+      const b = grid.tileToWorld(room.tile[0] + room.size[0] - 1, room.tile[1] + room.size[1] - 1);
+      const n = perRoom.get(idx) ?? 0;
+      perRoom.set(idx, n + 1);
+      const cx = (a.wx + b.wx) / 2 + n * 1.3;
+      const cz = (a.wz + b.wz) / 2;
+      const spot = grid.nearestWalkablePoint(cx, cz, 6);
+      const x = spot?.x ?? cx;
+      const z = spot?.z ?? cz;
+      const pos = new THREE.Vector3(x, grid.groundY(x, z), z);
+      this.stationInfo.set(site, { label: roomLabel(room.kind), pos });
+      markers.add(site, pos, true);
+    }
+    if (this.rover) {
+      const { x, z } = this.roverPark;
+      markers.add('rover', new THREE.Vector3(x, grid.groundY(x, z), z), false);
+    }
+    if (this.drillSpot) {
+      const d = this.drillSpot;
+      markers.add('drill', new THREE.Vector3(d.x, grid.groundY(d.x, d.z), d.z), false);
+    }
+  }
+
+  /** Estação que recebe as amostras de solo (um computador da base). */
+  private deliveryStation(): StationSite {
+    return this.stationInfo.has('lab') ? 'lab' : 'comms';
+  }
+
+  private drillBlock(): string | null {
+    if (!this.missionIds.includes('drill')) {
+      return 'A ciência não pediu sondagem hoje. Veja as missões do dia (tecla T).';
+    }
+    if (this.missionDone('drill')) return 'A sondagem de hoje já foi feita. Volte amanhã.';
+    return missionBlock(MISSIONS.drill, this.missionContext());
+  }
+
+  private updateMissions(dt: number) {
+    if (!this.started) return;
+    this.stationMarkers?.update(dt);
+    if (this.soil) this.updateSoilRun(dt);
+    this.missionTimer += dt;
+    if (this.missionTimer < 0.5) return;
+    this.missionTimer = 0;
+    this.publishMissions();
+  }
+
+  private publishMissions() {
+    if (!this.started) return;
+    this.refreshMissions(); // entrou/saiu gente: muda quantas missões o Sol tem
+    const ctx = this.missionContext();
+    const board = this.missionBoard();
+    const done = board && board.sol === this.currentSol ? [...board.done] : [];
+    const r1 = (n: number) => Math.round(n * 10) / 10;
+    const sites: Partial<Record<MissionSite, { label: string; x: number; z: number }>> = {};
+    for (const site of ['rover', 'drill', 'lab', 'comms', 'power', 'medical'] as MissionSite[]) {
+      const s = this.siteSpot(site);
+      if (s) sites[site] = { label: s.label, x: r1(s.x), z: r1(s.z) };
+    }
+    const slots = this.crops?.slots ?? [];
+    const planted = slots.filter((c) => c.stage > 0);
+    const here = this.localAstronaut?.position;
+    publishMissionBoard({
+      active: true,
+      sol: this.currentSol,
+      ids: [...this.missionIds],
+      done,
+      night: Math.round(ctx.night * 100) / 100,
+      blackout: this.blackout,
+      sites,
+      player: { x: r1(here?.x ?? 0), z: r1(here?.z ?? 0) },
+      carrying: this.soilCarry,
+      soilPhase: this.soil ? this.soil.phase : this.soilCarry > 0 ? 'deliver' : 'idle',
+      garden: {
+        planted: planted.length,
+        cared: planted.filter((c) => (this.care.crops[c.index] ?? 0) >= this.currentSol).length,
+        bonusDone: !!board && board.garden >= this.currentSol,
+      },
+      beacons: this.beaconsOn,
+    });
+
+    // marcadores 3D: só onde ainda há missão para fazer (verde = pode, laranja = falta algo)
+    const markers = this.stationMarkers;
+    if (!markers) return;
+    const delivery = this.soilCarry > 0 ? this.deliveryStation() : null;
+    for (const site of ['rover', 'drill', 'lab', 'comms', 'power', 'medical'] as MissionSite[]) {
+      let state: 'hidden' | 'ready' | 'blocked' = 'hidden';
+      for (const id of this.missionIds) {
+        const def = MISSIONS[id];
+        if (def.site !== site || done.includes(id)) continue;
+        state = missionBlock(def, ctx) ? 'blocked' : 'ready';
+        break;
+      }
+      if (site === 'rover' && (this.soil || this.soilCarry > 0)) state = 'hidden';
+      if (site === delivery) state = 'ready';
+      markers.set(site, state, this.beaconsOn);
+    }
+  }
+
+  /** Liga/desliga os marcadores 3D das missões. */
+  setMissionBeacons(on: boolean) {
+    this.beaconsOn = on;
+    this.publishMissions();
+  }
+
+  // ------------------------------------------------------------------ concluir e sincronizar
+
+  private makeMissionEvent(
+    id: string,
+    title: string,
+    text: string,
+    deltas: Record<string, number>,
+  ): GameMissionEvent {
+    return {
+      eid: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+      id,
+      sol: this.currentSol,
+      by: this.localAstronaut?.name ?? 'Astronauta',
+      title,
+      text,
+      deltas,
+    };
+  }
+
+  /** Registra no quadro da sala (primeiro a concluir vence) e aplica custo e recompensa. */
+  private commitMissionEvent(ev: GameMissionEvent): boolean {
+    let accepted: boolean;
+    if (this.room) accepted = this.room.sendMission(ev);
+    else {
+      const board = applyMissionEvent(this.localBoard, ev);
+      if (board) this.localBoard = board;
+      accepted = !!board;
+    }
+    if (!accepted) return false;
+    this.applyMissionEffects(ev, true);
+    this.publishMissions();
+    return true;
+  }
+
+  /** Custo e recompensa de uma missão: iguais para todos os jogadores da sala. */
+  private applyMissionEffects(ev: GameMissionEvent, mine: boolean) {
+    const who = ev.by || 'Um astronauta';
+    useMission.getState().run({
+      type: 'reward',
+      tone: 'good',
+      title: ev.title,
+      text: mine ? ev.text : `${who}: ${ev.text}`,
+      deltas: ev.deltas,
+    });
+    const pts = ev.deltas.research ?? 0;
+    if (ev.id === 'garden') {
+      this.notify(
+        mine
+          ? `🌿 Horta em dia! +${ev.deltas.oxygen ?? 0} de oxigênio para a base.`
+          : `🌿 ${who} deixou a horta em dia: +${ev.deltas.oxygen ?? 0} de oxigênio.`,
+        'ok',
+      );
+    } else {
+      this.notify(
+        mine
+          ? `🔬 ${ev.title}: +${pts} pontos de pesquisa.`
+          : `🔬 ${who} concluiu "${ev.title}" (+${pts} de pesquisa).`,
+        'ok',
+      );
+    }
+  }
+
+  private completeMission(
+    id: MissionId,
+    o: { research?: number; title?: string; text: string },
+  ): boolean {
+    const def = MISSIONS[id];
+    const deltas: Record<string, number> = {};
+    for (const k of Object.keys(def.cost) as (keyof typeof def.cost)[]) {
+      deltas[k] = -(def.cost[k] ?? 0);
+    }
+    deltas.research = o.research ?? def.research;
+    if (def.morale) deltas.morale = def.morale;
+    const ok = this.commitMissionEvent(
+      this.makeMissionEvent(id, o.title ?? def.title, o.text, deltas),
+    );
+    if (!ok) this.notify('Essa missão já foi concluída hoje por outro astronauta.', 'info');
+    return ok;
+  }
+
+  /** Todos os canteiros plantados foram cuidados hoje: a horta devolve um pouco de oxigênio. */
+  private checkGarden() {
+    const slots = this.crops?.slots ?? [];
+    const stages = slots.map((c) => c.stage);
+    const care = slots.map((c) => this.care.crops[c.index] ?? 0);
+    if (!gardenComplete(stages, care, this.currentSol)) return;
+    const b = this.missionBoard();
+    if (b && b.garden >= this.currentSol) return;
+    this.commitMissionEvent(
+      this.makeMissionEvent(
+        'garden',
+        'Horta em dia',
+        'Todos os canteiros cuidados: a estufa devolveu oxigênio à base.',
+        { oxygen: GARDEN_OXYGEN_BONUS, research: 2 },
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------ estações e "Ir"
+
+  private goToStation(site: StationSite) {
+    const local = this.localAstronaut;
+    if (!local?.isRevealed || local.isBusy) return;
+    const st = this.stationInfo.get(site);
+    if (!st) return;
+    if (this.roverDriver === 'local') {
+      this.notify('Saia do rover primeiro (tecla E).', 'info');
+      return;
+    }
+    this.goInteract(st.pos, { kind: 'station', site, face: st.pos.clone() });
+  }
+
+  /** Chegou ao holograma: entrega amostras ou abre o console da missão do cômodo. */
+  private activateStation(site: StationSite) {
+    if (this.soilCarry > 0 && (site === 'lab' || site === 'comms')) {
+      this.deliverSoil();
+      return;
+    }
+    const id = this.missionIds.find((m) => MISSIONS[m].site === site);
+    if (!id) {
+      this.notify(`${STATION_LABEL[site]}: nenhuma missão sua aqui hoje.`, 'info');
+      return;
+    }
+    if (this.missionDone(id)) {
+      this.notify('Essa missão já foi concluída hoje. ✨', 'info');
+      return;
+    }
+    const def = MISSIONS[id];
+    const block = missionBlock(def, this.missionContext());
+    if (block) {
+      this.notify(block, 'error');
+      return;
+    }
+    this.options?.onMinigame?.({
+      kind: 'station',
+      mission: id,
+      title: def.title,
+      hint: `${def.summary} Custo: ${costText(def.cost)}.`,
+    });
+  }
+
+  /** "Ir" do painel de missões: anda até o local e começa a missão ao chegar. */
+  goToMission(id: MissionId) {
+    const local = this.localAstronaut;
+    if (!local?.isRevealed || local.isBusy) return;
+    if (this.roverDriver === 'local') {
+      this.notify('Saia do rover primeiro (tecla E).', 'info');
+      return;
+    }
+    const def = MISSIONS[id];
+    if (id === 'soil_robot' && this.soilCarry > 0) {
+      this.goToStation(this.deliveryStation());
+      return;
+    }
+    if (this.missionDone(id)) {
+      this.notify('Essa missão já foi concluída hoje. ✨', 'info');
+      return;
+    }
+    const block = missionBlock(def, this.missionContext());
+    if (block) {
+      this.notify(block, 'error');
+      return;
+    }
+    if (id === 'soil_robot') {
+      const rover = this.rover;
+      if (!rover || !this.grid) return;
+      if (this.roverDriver) {
+        this.notify('O rover está sendo usado por outro astronauta.', 'error');
+        return;
+      }
+      const rp = rover.position;
+      const dx = local.position.x - rp.x;
+      const dz = local.position.z - rp.z;
+      const dl = Math.hypot(dx, dz) || 1;
+      const spot = this.grid.nearestWalkablePoint(
+        rp.x + (dx / dl) * 2.3,
+        rp.z + (dz / dl) * 2.3,
+        10,
+      );
+      if (spot) this.walkTo(spot, { kind: 'soilstart', face: rp.clone() });
+      return;
+    }
+    if (def.site === 'drill') {
+      this.goToTask('drill', 0);
+      return;
+    }
+    this.goToStation(def.site as StationSite);
+  }
+
+  // ------------------------------------------------------------------ coleta de solo (rover)
+
+  /** Para onde o rover vai sozinho: bem longe da base, onde a poeira esconde ele. */
+  private findSoilRoute(): { far: THREE.Vector3; path: THREE.Vector3[] } | null {
+    const grid = this.grid;
+    const rover = this.rover;
+    if (!grid || !rover) return null;
+    const a0 = Math.atan2(rover.position.z, rover.position.x); // para longe do centro da base
+    for (const dist of [60, 44]) {
+      for (const off of [0, 0.6, -0.6, 1.2, -1.2]) {
+        const x = Math.cos(a0 + off) * dist;
+        const z = Math.sin(a0 + off) * dist;
+        const far = grid.nearestWalkablePoint(x, z, 6, 'vehicle');
+        if (!far || Math.hypot(far.x, far.z) < 28) continue;
+        const { path } = grid.findPath(
+          rover.position,
+          far,
+          this.stormCurrent > 0.25,
+          undefined,
+          'vehicle',
+        );
+        const end = path[path.length - 1];
+        if (end && end.distanceTo(far) < 4) return { far: far.clone(), path };
+      }
+    }
+    return null;
+  }
+
+  private startSoilRun() {
+    const local = this.localAstronaut;
+    const rover = this.rover;
+    if (!local?.isRevealed || !rover || this.soil || this.roverDriver) return;
+    if (!this.missionIds.includes('soil_robot')) {
+      this.notify('A coleta de solo não está entre as missões de hoje.', 'info');
+      return;
+    }
+    if (this.missionDone('soil_robot')) {
+      this.notify('A coleta de solo de hoje já foi feita. ✨', 'info');
+      return;
+    }
+    const block = missionBlock(MISSIONS.soil_robot, this.missionContext());
+    if (block) {
+      this.notify(block, 'error');
+      return;
+    }
+    if (this.soilCarry > 0) {
+      this.notify('Você já tem amostras: leve-as a um computador da base.', 'info');
+      return;
+    }
+    this.enterRover();
+    if (this.roverDriver !== 'local') return;
+    const route = this.findSoilRoute();
+    this.soil = {
+      phase: 'out',
+      t: 0,
+      far: route?.far ?? null,
+      virtual: !route,
+      quality: 0,
+    };
+    if (route) {
+      this.repathCount = 0;
+      rover.setPath(route.path, route.far);
+    }
+    publishMissionBoard({ soilPhase: 'out', veil: 0 });
+    this.notify('🚙 O rover segue sozinho para dentro da poeira…', 'ok');
+  }
+
+  private setVeil(v: number) {
+    publishMissionBoard({ veil: Math.round(Math.max(0, Math.min(1, v)) * 50) / 50 });
+  }
+
+  private updateSoilRun(dt: number) {
+    const s = this.soil;
+    const rover = this.rover;
+    if (!s || !rover) return;
+    s.t += dt;
+    const d = Math.hypot(rover.position.x - this.roverPark.x, rover.position.z - this.roverPark.z);
+    if (s.phase === 'out') {
+      const veil = s.virtual ? s.t / 4 : (d - 12) / 20;
+      this.setVeil(veil);
+      if (veil >= 1 || s.t > 45) this.beginSampling();
+    } else if (s.phase === 'back') {
+      const veil = s.virtual ? 1 - s.t / 4 : (d - 6) / 20;
+      this.setVeil(veil);
+      const arrived = s.virtual ? s.t >= 4 : d < 3.5 || s.t > 70 || (!rover.hasPath && s.t > 3);
+      if (arrived) this.finishSoilReturn(d);
+    }
+  }
+
+  /** O rover sumiu na poeira: abre o minigame de coleta. */
+  private beginSampling() {
+    const s = this.soil;
+    const rover = this.rover;
+    if (!s || !rover) return;
+    s.phase = 'sampling';
+    rover.stopPath();
+    rover.speed = 0;
+    rover.root.visible = false;
+    publishMissionBoard({ soilPhase: 'sampling', veil: 1 });
+    this.options?.onMinigame?.({ kind: 'soil' });
+  }
+
+  private finishSoilSampling(quality: number) {
+    const s = this.soil;
+    if (!s || s.phase !== 'sampling') return;
+    s.quality = Math.max(0, Math.min(1, quality));
+    this.soilGoBack();
+  }
+
+  /** O jogador fechou o minigame sem terminar: o rover volta sem amostras. */
+  abortSoilRun() {
+    const s = this.soil;
+    if (!s || s.phase === 'back') return;
+    s.quality = -1;
+    this.soilGoBack();
+  }
+
+  private soilGoBack() {
+    const s = this.soil;
+    const rover = this.rover;
+    const grid = this.grid;
+    if (!s || !rover || !grid) return;
+    const wasHidden = !rover.root.visible;
+    s.phase = 'back';
+    s.t = 0;
+    if (wasHidden && s.far && !s.virtual) {
+      const h = Math.atan2(this.roverPark.x - s.far.x, this.roverPark.z - s.far.z);
+      rover.place(s.far.x, s.far.z, h, GROUND_Y);
+    }
+    rover.root.visible = true;
+    if (!s.virtual) {
+      const park = new THREE.Vector3(this.roverPark.x, 0, this.roverPark.z);
+      const { path } = grid.findPath(
+        rover.position,
+        park,
+        this.stormCurrent > 0.25,
+        undefined,
+        'vehicle',
+      );
+      if (path.length) {
+        this.repathCount = 0;
+        rover.setPath(path, path[path.length - 1]);
+      } else s.virtual = true;
+    }
+    publishMissionBoard({ soilPhase: 'back' });
+  }
+
+  /** O rover chegou: o astronauta desce sozinho com as amostras. */
+  private finishSoilReturn(distToPark: number) {
+    const s = this.soil;
+    const rover = this.rover;
+    if (!s || !rover) return;
+    const quality = s.quality;
+    this.soil = null;
+    rover.stopPath();
+    rover.root.visible = true;
+    if (!s.virtual && distToPark >= 3.5) {
+      rover.place(this.roverPark.x, this.roverPark.z, this.roverPark.h, GROUND_Y);
+    }
+    this.exitRover();
+    this.setVeil(0);
+    if (quality >= 0) {
+      this.soilCarry = soilSamples(quality);
+      this.soilQuality = quality;
+      this.notify(
+        `📦 ${this.soilCarry} amostras de solo! Leve-as a um computador (${this.stationInfo.get(this.deliveryStation())?.label ?? 'laboratório'}).`,
+        'ok',
+      );
+    } else {
+      this.notify('O rover voltou sem amostras: a coleta foi cancelada (nada foi gasto).', 'info');
+    }
+    this.publishMissions();
+  }
+
+  /** Teletransporte (respawn) no meio da missão: tira o rover do piloto automático. */
+  private cancelSoilNow() {
+    if (!this.soil) return;
+    const rover = this.rover;
+    this.soil = null;
+    if (rover) {
+      rover.stopPath();
+      rover.root.visible = true;
+      rover.place(this.roverPark.x, this.roverPark.z, this.roverPark.h, GROUND_Y);
+    }
+    this.setVeil(0);
+    publishMissionBoard({ soilPhase: 'idle' });
+  }
+
+  /** As amostras chegaram ao computador: a missão termina e rende os pontos de pesquisa. */
+  private deliverSoil() {
+    if (this.soilCarry <= 0) return;
+    const samples = this.soilCarry;
+    const ok = this.completeMission('soil_robot', {
+      research: soilReward(this.soilQuality),
+      title: 'Coleta de solo concluída',
+      text: `${samples} amostras de solo analisadas no computador da base.`,
+    });
+    this.soilCarry = 0;
+    this.soilQuality = 0;
+    if (!ok) this.notify('As amostras foram arquivadas sem pontos extras.', 'info');
+    this.publishMissions();
   }
 
   /** Leva o astronauta até a tarefa (painel, canteiro, filtro ou sonda) e a abre ao chegar. */
@@ -1848,7 +2699,14 @@ export class BaseViewer {
       this.options?.onSolarCleaned?.();
     } else if (req.kind === 'greenhouse') {
       this.markCropCared(req.index);
-      this.notify(`🌿 Canteiro ${req.index + 1} cuidado hoje.`, 'ok');
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'info',
+        title: 'Cuidado da horta',
+        text: `Água para o canteiro ${req.index + 1}.`,
+        deltas: { supplies: -(GARDEN_CARE_COST.supplies ?? 0) },
+      });
+      this.notify(`🌿 Canteiro ${req.index + 1} cuidado hoje (-1 🍞).`, 'ok');
     } else if (req.kind === 'oxygen') {
       const wasClogged = filterClogged(this.care.filter, sol);
       this.setCare({ ...this.care, filter: sol });
@@ -1859,16 +2717,21 @@ export class BaseViewer {
         'ok',
       );
     } else if (req.kind === 'drill') {
-      if (this.drillDoneSol >= sol) return;
-      this.drillDoneSol = sol;
-      const research = Math.max(0, Math.round(result.research ?? 0));
-      useMission.getState().run({
-        type: 'reward',
-        tone: result.hit ? 'good' : 'info',
+      if (this.missionDone('drill')) return;
+      const research = Math.max(0, Math.min(20, Math.round(result.research ?? 0)));
+      this.completeMission('drill', {
+        research,
         title: result.hit ? 'Sondagem: amostra no alvo' : 'Sondagem: amostra fora do alvo',
         text: `Amostra de ${result.layerName ?? 'subsolo'} lacrada e analisada.`,
-        deltas: { research, energy: -DRILL_ENERGY_COST },
       });
+    } else if (req.kind === 'station') {
+      const quality = Math.max(0, Math.min(1, result.quality ?? 0.5));
+      this.completeMission(req.mission, {
+        research: MISSIONS[req.mission].research + Math.round(quality * 2),
+        text: `${req.title} concluída.`,
+      });
+    } else if (req.kind === 'soil') {
+      this.finishSoilSampling(result.quality ?? 0.5);
     }
     this.publishOperations(
       !filterClogged(this.care.filter, sol) && !this.blackout,
@@ -2005,10 +2868,10 @@ export class BaseViewer {
     let first: PickResult | null = null;
     for (const h of hits) {
       // marca de máquina em qualquer ancestral
-      let tag: { kind: string; index?: number } | null = null;
+      let tag: { kind: string; index?: number; site?: string } | null = null;
       let visible = true;
       for (let o: THREE.Object3D | null = h.object; o; o = o.parent) {
-        const t = o.userData?.pick as { kind: string; index?: number } | undefined;
+        const t = o.userData?.pick as { kind: string; index?: number; site?: string } | undefined;
         if (t && !tag) tag = t;
         if (!o.visible) visible = false;
       }
@@ -2017,6 +2880,9 @@ export class BaseViewer {
       if (tag?.kind === 'crop') return { type: 'crop', index: tag.index ?? 0 };
       if (tag?.kind === 'filter') return { type: 'filter', index: tag.index ?? 0 };
       if (tag?.kind === 'drill') return { type: 'drill' };
+      if (tag?.kind === 'station') {
+        return { type: 'station', site: (tag.site as StationSite | undefined) ?? 'lab' };
+      }
       if (tag?.kind === 'vehicle') return { type: 'vehicle' };
       if (!visible) continue; // teto escondido, folhas originais das portas…
       if (
@@ -2109,6 +2975,10 @@ export class BaseViewer {
 
     // ---- dirigindo: o clique manda o rover para o solo ----
     if (this.roverDriver === 'local' && this.rover) {
+      if (this.soil) {
+        this.notify('O rover está numa missão automática: aguarde.', 'info');
+        return;
+      }
       let spot: THREE.Vector3 | null = null;
       if (pick.type === 'floor') spot = this.floorTarget(pick.point.x, pick.point.z, 'vehicle');
       else if (pick.type === 'surface' && pick.normal.y > 0.7) {
@@ -2166,6 +3036,10 @@ export class BaseViewer {
       }
       case 'drill': {
         this.goToTask('drill', 0);
+        return;
+      }
+      case 'station': {
+        this.goToStation(pick.site);
         return;
       }
       case 'vehicle': {
@@ -2332,7 +3206,7 @@ export class BaseViewer {
       this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
       this.renderer.shadowMap.enabled = true;
       this.sun.castShadow = true;
-      this.sun.shadow.mapSize.setScalar(2048);
+      this.sun.shadow.mapSize.setScalar(4096);
       this.skyDome.mesh.visible = true;
       this.skyDome.setStarsVisible(true);
       this.renderer.toneMapping = video.postProcessing
@@ -2372,7 +3246,13 @@ export class BaseViewer {
       this.skyDome.update(sky);
       this.nightFactor = sky.night;
 
-      this.sun.position.copy(sky.sunDir).multiplyScalar(160);
+      // A direção do sol (e o mapa de sombras) muda em passos maiores que o resto do céu:
+      // mexer nela a cada quadro faz as bordas das sombras "piscarem" enquanto o tempo corre.
+      if (force || Math.abs(this.currentHour - this.lastSunHour) > 0.08) {
+        this.lastSunHour = this.currentHour;
+        this.sun.position.copy(sky.sunDir).multiplyScalar(160);
+        this.shadowDirty = true;
+      }
       this.sun.color.copy(sky.sunColor);
       this.sun.intensity = sky.sunIntensity;
       this.hemiLight.color.copy(sky.hemiSky);
@@ -2381,20 +3261,18 @@ export class BaseViewer {
 
       this.scene.background = sky.horizon.clone();
       (this.scene.fog as THREE.Fog).color.copy(sky.horizon);
-      this.shadowDirty = true;
     }
     this.skyDome.mesh.position.copy(this.camera.position);
 
     const totalMinutes = Math.floor(this.currentHour * 60);
     if (totalMinutes !== this.lastReportedMinute) {
       this.lastReportedMinute = totalMinutes;
-      const h = Math.floor(this.currentHour);
-      const m = Math.floor((this.currentHour % 1) * 60);
       this.options?.onTimeUpdate?.({
         hour: this.currentHour,
         sol: this.currentSol,
         isDay: this.currentHour >= 6 && this.currentHour < 18,
-        formatted: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`,
+        // relógio do Sol marciano: de 00:00 até 24:39 (o dia de Marte é mais longo que o da Terra)
+        formatted: formatSolClock(this.currentHour),
       });
     }
   }
@@ -2485,6 +3363,7 @@ export class BaseViewer {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    if (this.duoInvite) window.clearTimeout(this.duoInvite.timer);
     // [seam:survival]
     if (this.fadeOverlay) {
       this.fadeOverlay.remove();
@@ -2511,10 +3390,15 @@ export class BaseViewer {
     this.localAstronaut?.dispose();
     for (const a of this.remoteAstronauts.values()) a.dispose();
     this.outline.dispose();
-    if (BaseViewer.clockOwner === null) resetOps();
+    if (BaseViewer.clockOwner === null) {
+      resetOps();
+      resetMissionBoard();
+    }
     this.lights?.dispose();
     this.rover?.dispose();
     this.crops?.dispose();
+    this.stationMarkers?.dispose();
+    this.stationMarkers = null;
     this.room?.dispose();
     this.shipFx.dispose();
     this.grid?.dispose();
@@ -2568,6 +3452,7 @@ export class BaseViewer {
   }
 
   private teleportPlayerTo(point: { x: number; y?: number; z: number }): void {
+    this.cancelSoilNow();
     if (this.roverDriver === 'local') {
       this.exitRover();
     }
@@ -2615,6 +3500,9 @@ export class BaseViewer {
         },
         get driving() {
           return viewer.roverDriver === 'local';
+        },
+        get sheltered() {
+          return viewer.soil !== null;
         },
         get night() {
           return viewer.nightFactor;

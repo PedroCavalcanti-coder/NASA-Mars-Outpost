@@ -387,21 +387,6 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
               Jogar Agora<small>Sua missão começa aqui!</small>
             </span>
           </button>
-
-          <button
-            className="launch-join-cta"
-            type="button"
-            onClick={() => setJoinModalOpen(true)}
-            disabled={launching || Boolean(initializationError)}
-            title="Conectar à base de um amigo usando o código da sala"
-          >
-            <span className="launch-join-cta-icon" aria-hidden="true">
-              <Users size={22} />
-            </span>
-            <span className="launch-join-cta-label">
-              Entrar em um Mundo<small>Conectar com código da sala</small>
-            </span>
-          </button>
         </div>
       </section>
 
@@ -447,15 +432,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
       </div>
 
       <footer className="launch-footer">
-        <span className="launch-system-status">
-          <i />
-          {launching ? 'EXPEDIÇÃO EM VOO' : 'TODOS OS SISTEMAS PRONTOS'}
-        </span>
         <nav className="launch-footer-nav" aria-label="Links do projeto">
-          <Link to="/previa/painel-solar">Prévia: painel solar</Link>
-          <Link to="/previa/filtro-oxigenio">Prévia: oxigênio</Link>
-          <Link to="/previa/estufa">Prévia: estufa</Link>
-          <Link to="/previa/rover">Prévia: rover</Link>
           <Link to="/centro">Centro</Link>
           <Link to="/suporte">Suporte</Link>
           <Link to="/sobre">Sobre</Link>

@@ -1,8 +1,23 @@
-import { DEFAULT_SUIT, SUIT_COLORS, SUIT_PARTS, type SuitConfig } from '@mars/shared';
+import {
+  cloneSuit,
+  DEFAULT_SUIT,
+  DUO_GESTURES,
+  type DuoGestureId,
+  EMOTE_ANIMATIONS,
+  type SuitConfig,
+} from '@mars/shared';
 import * as THREE from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import {
+  ASTRONAUT_MODEL_URL,
+  applySuitAppearance,
+  type ModelTextures,
+  meshMaterials,
+  prepareModel,
+  setFaceExpression,
+} from './astronautModel';
 import type { BaseGrid } from './BaseGrid';
 import { PLAYER_RADIUS } from './BaseGrid';
 import { createNametag, disposeNametag, EmoteBubble } from './nametag';
@@ -14,7 +29,7 @@ let cachedGltf: Promise<{ scene: THREE.Group; animations: THREE.AnimationClip[] 
 
 /** O GLB do astronauta é baixado e decodificado uma única vez; cada jogador recebe um clone. */
 function loadAstronautGLTF() {
-  cachedGltf ??= loader.loadAsync('/assets/modelos/astronaut.glb').then((g) => ({
+  cachedGltf ??= loader.loadAsync(ASTRONAUT_MODEL_URL).then((g) => ({
     scene: g.scene,
     animations: g.animations,
   }));
@@ -32,6 +47,25 @@ const TASKS: Record<ActorTask, { clip: string; tool: string; seconds: number }> 
   plant: { clip: 'Plant', tool: 'tool_botany', seconds: 2.0 },
   harvest: { clip: 'Harvest', tool: 'tool_harvest', seconds: 2.2 },
 };
+
+/** Clipe de reserva quando o modelo não tem o clipe pedido (o v2 não tem Clean/Plant/Harvest). */
+const CLIP_FALLBACK: Record<string, string> = {
+  Clean: 'Work',
+  Plant: 'Work',
+  Harvest: 'Work',
+};
+
+/** Expressões do rosto LED (células do atlas). */
+const FACE_HAPPY = 0;
+const FACE_TIRED = 3;
+const FACE_SLEEPING = 5;
+const FACE_BLINK = 7;
+
+/** Humor do astronauta, vindo dos sistemas de sobrevivência. */
+export type ActorMood = 'normal' | 'tired' | 'sleeping';
+
+/** Tempo para deslizar até a posição de um gesto em dupla. */
+const DUO_SLIDE_SECONDS = 0.25;
 
 export interface ActorSnapshot {
   x: number;
@@ -94,6 +128,25 @@ export class AstronautActor implements Collider {
   private remoteTarget: ActorSnapshot | null = null;
   private remoteMotion: ActorMotion = 'idle';
 
+  private textures: ModelTextures = { face: [], all: [] };
+  private mood: ActorMood = 'normal';
+  private faceCell = -1;
+  private blinkIn = 3 + Math.random() * 3;
+  private blinkLeft = 0;
+  /** emote em andamento (segundos restantes) e a expressão que ele pediu */
+  private emoteLeft = 0;
+  private emoteFace: number | null = null;
+  /** gesto em dupla: tempo restante e deslize até a posição combinada */
+  private duoLeft = 0;
+  private duoFace: number | null = null;
+  private slide: {
+    t: number;
+    from: THREE.Vector2;
+    to: THREE.Vector2;
+    h0: number;
+    h1: number;
+  } | null = null;
+
   private nametag: THREE.Sprite | null = null;
   readonly emote = new EmoteBubble(2.95);
   private appearT = 1;
@@ -154,7 +207,16 @@ export class AstronautActor implements Collider {
   }
 
   get isBusy() {
-    return this.taskLeft > 0;
+    return this.taskLeft > 0 || this.duoLeft > 0;
+  }
+
+  /** Está no meio de um gesto em dupla (movimento bloqueado)? */
+  get inDuoGesture() {
+    return this.duoLeft > 0;
+  }
+
+  get isEmoting() {
+    return this.emoteLeft > 0;
   }
 
   private async init(suit: SuitConfig) {
@@ -164,6 +226,8 @@ export class AstronautActor implements Collider {
     model.scale.setScalar(0.75);
     this.model = model;
 
+    // materiais e texturas do rosto/marcas próprios deste ator; acessórios `acc_*` escondidos
+    this.textures = prepareModel(model);
     model.traverse((o) => {
       const mesh = o as THREE.Mesh;
       if (mesh.isMesh) {
@@ -172,9 +236,6 @@ export class AstronautActor implements Collider {
         // malhas skinadas têm a caixa calculada na pose de repouso: não deixe o frustum cortá-las
         mesh.frustumCulled = false;
         mesh.userData.isInterior = true; // a poeira não entra quando o teto está aberto
-        mesh.material = Array.isArray(mesh.material)
-          ? mesh.material.map((m) => m.clone())
-          : mesh.material.clone();
       }
       // ferramentas ficam guardadas até a tarefa pedir
       if (/^tool_[a-z]+$/.test(o.name)) {
@@ -183,7 +244,8 @@ export class AstronautActor implements Collider {
       }
     });
 
-    this.applySuit(model, suit);
+    applySuitAppearance(model, cloneSuit(suit));
+    this.setExpression(FACE_HAPPY);
     this.root.add(model);
 
     this.mixer = new THREE.AnimationMixer(model);
@@ -199,17 +261,144 @@ export class AstronautActor implements Collider {
     }
   }
 
-  private applySuit(model: THREE.Object3D, suit: SuitConfig) {
-    for (const part of SUIT_PARTS) {
-      model.getObjectByName(`color_${part}`)?.traverse((o) => {
-        const mesh = o as THREE.Mesh;
-        if (!mesh.isMesh) return;
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        for (const m of mats) {
-          (m as THREE.MeshStandardMaterial).color.set(SUIT_COLORS[suit[part]].hex);
-        }
-      });
+  // ------------------------------------------------------------------ rosto LED
+
+  /** Troca a expressão do rosto (0 feliz ... 7 piscada). */
+  setExpression(cell: number) {
+    if (cell === this.faceCell) return;
+    this.faceCell = cell;
+    setFaceExpression(this.textures, cell);
+  }
+
+  /** Sobrevivência: cansado ou dormindo muda o rosto padrão. */
+  setMood(mood: ActorMood) {
+    this.mood = mood;
+  }
+
+  private baseFace() {
+    if (this.mood === 'sleeping') return FACE_SLEEPING;
+    return this.mood === 'tired' ? FACE_TIRED : FACE_HAPPY;
+  }
+
+  /** Rosto do momento: gesto > humor, com uma piscada curta a cada 3–6 s. */
+  private updateFace(dt: number) {
+    if (this.textures.face.length === 0) return;
+    const forced = this.duoFace ?? this.emoteFace;
+    if (forced !== null) {
+      this.blinkLeft = 0;
+      this.setExpression(forced);
+      return;
     }
+    const base = this.baseFace();
+    if (base === FACE_SLEEPING) {
+      this.setExpression(base);
+      return;
+    }
+    if (this.blinkLeft > 0) {
+      this.blinkLeft -= dt;
+      this.setExpression(this.blinkLeft > 0 ? FACE_BLINK : base);
+      return;
+    }
+    this.blinkIn -= dt;
+    if (this.blinkIn <= 0) {
+      this.blinkIn = 3 + Math.random() * 3;
+      this.blinkLeft = 0.14;
+      this.setExpression(FACE_BLINK);
+    } else this.setExpression(base);
+  }
+
+  // ------------------------------------------------------------------ emotes e gestos
+
+  /**
+   * Toca o clipe do emote `index` (tabela `EMOTE_ANIMATIONS`). Não interrompe tarefas, não
+   * toca dentro do rover nem durante um gesto em dupla; andar cancela. Devolve se tocou.
+   */
+  playEmote(index: number): boolean {
+    const def = EMOTE_ANIMATIONS[index];
+    if (!def || !this.revealed || this.driving || this.taskLeft > 0 || this.duoLeft > 0)
+      return false;
+    const action = this.actions.get(def.clip);
+    if (!action) return false;
+    this.stopMoving();
+    this.vel.set(0, 0);
+    const seconds = def.loop ? (def.seconds ?? 4) : action.getClip().duration;
+    this.emoteLeft = seconds;
+    this.emoteFace = def.expression;
+    this.playOneShot(def.clip, def.loop === true, 0.2);
+    return true;
+  }
+
+  /** Para o emote (o jogador andou, a tarefa começou...) e volta ao clipe de base. */
+  cancelEmote() {
+    if (this.emoteLeft <= 0) return;
+    this.emoteLeft = 0;
+    this.emoteFace = null;
+    this.crossfadeTo(this.isMoving ? 'Walk' : 'Idle', 0.2);
+  }
+
+  /**
+   * Gesto em dupla: gira, desliza até (x, z) olhando para `heading` e toca o clipe.
+   * O movimento fica bloqueado até o fim. Devolve a duração (s) ou 0 se não foi possível.
+   */
+  playDuo(gesture: DuoGestureId, x: number, z: number, heading: number): number {
+    const def = DUO_GESTURES[gesture];
+    const action = this.actions.get(def.clip);
+    if (!action || !this.revealed || this.driving) return 0;
+    this.cancelEmote();
+    this.stopMoving();
+    this.vel.set(0, 0);
+    this.taskLeft = 0;
+    this.onTaskDone = null;
+    const pos = this.root.position;
+    this.slide = {
+      t: 0,
+      from: new THREE.Vector2(pos.x, pos.z),
+      to: new THREE.Vector2(x, z),
+      h0: this.currentHeading,
+      h1: heading,
+    };
+    this.duoFace = def.expression;
+    this.duoLeft = DUO_SLIDE_SECONDS + action.getClip().duration;
+    // o clipe começa junto com o deslize, para os dois jogadores terminarem juntos
+    this.playOneShot(def.clip, false, 0.12);
+    return this.duoLeft;
+  }
+
+  private tickDuo(dt: number) {
+    const s = this.slide;
+    if (s) {
+      s.t = Math.min(1, s.t + dt / DUO_SLIDE_SECONDS);
+      const k = s.t * s.t * (3 - 2 * s.t);
+      this.root.position.x = s.from.x + (s.to.x - s.from.x) * k;
+      this.root.position.z = s.from.y + (s.to.y - s.from.y) * k;
+      let d = s.h1 - s.h0;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      this.currentHeading = s.h0 + d * k;
+      this.root.rotation.y = this.currentHeading;
+      if (s.t >= 1) this.slide = null;
+    }
+    this.duoLeft -= dt;
+    if (this.duoLeft <= 0) {
+      this.duoLeft = 0;
+      this.slide = null;
+      this.duoFace = null;
+      this.crossfadeTo('Idle', 0.25);
+    }
+  }
+
+  /** Clipe de uma vez só (ou em loop) com entrada suave. */
+  private playOneShot(name: string, loop: boolean, fade: number) {
+    const next = this.actions.get(name);
+    if (!next) return;
+    const prev = this.actions.get(this.currentClip);
+    next.reset();
+    next.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Number.POSITIVE_INFINITY : 1);
+    next.clampWhenFinished = !loop;
+    next.setEffectiveTimeScale(1).setEffectiveWeight(1);
+    next.fadeIn(fade).play();
+    if (prev && prev !== next) prev.fadeOut(fade);
+    this.currentClip = name;
   }
 
   /** Faz o astronauta surgir (com um pequeno "pop") na posição indicada. */
@@ -251,7 +440,7 @@ export class AstronautActor implements Collider {
   // ------------------------------------------------------------------ comandos (jogador local)
 
   setPath(waypoints: THREE.Vector3[], destination?: THREE.Vector3) {
-    if (!waypoints.length || this.taskLeft > 0 || this.driving) return;
+    if (!waypoints.length || this.taskLeft > 0 || this.duoLeft > 0 || this.driving) return;
     this.waypoints = [...waypoints];
     this.currentTargetIndex = 0;
     this.destination = destination ? destination.clone() : waypoints[waypoints.length - 1]!.clone();
@@ -262,7 +451,7 @@ export class AstronautActor implements Collider {
 
   /** Teclado: direção no mundo (vetor unitário) ou null para soltar. Cancela o caminho do clique. */
   setInput(dir: { x: number; z: number } | null) {
-    if (this.taskLeft > 0 || this.driving) {
+    if (this.taskLeft > 0 || this.duoLeft > 0 || this.driving) {
       this.input = null;
       return;
     }
@@ -305,18 +494,25 @@ export class AstronautActor implements Collider {
     );
     this.root.rotation.y = this.currentHeading;
     for (const [name, tool] of this.tools) tool.visible = name === def.tool;
+    this.cancelEmote();
     this.crossfadeTo(def.clip, 0.15);
   }
 
-  private crossfadeTo(name: string, duration: number, timeScale = 1) {
+  private crossfadeTo(requested: string, duration: number, timeScale = 1) {
+    // o v2 não tem Clean/Plant/Harvest: usa `Work`; sem nada disso, volta para `Idle`
+    let name = requested;
+    if (!this.actions.has(name)) name = CLIP_FALLBACK[name] ?? 'Idle';
+    if (!this.actions.has(name)) name = 'Idle';
     const next = this.actions.get(name);
     if (!next) return;
-    if (this.currentClip === name) {
+    if (this.currentClip === name && next.isRunning()) {
       next.setEffectiveTimeScale(timeScale);
       return;
     }
     const prev = this.actions.get(this.currentClip);
     next.reset().setEffectiveTimeScale(timeScale).setEffectiveWeight(1);
+    next.setLoop(THREE.LoopRepeat, Number.POSITIVE_INFINITY);
+    next.clampWhenFinished = false;
     next.fadeIn(duration).play();
     prev?.fadeOut(duration);
     this.currentClip = name;
@@ -339,6 +535,11 @@ export class AstronautActor implements Collider {
     if (!this.revealed) return;
     this.emote.update(dt);
     if (animate) this.mixer?.update(dt);
+    this.updateFace(dt);
+    if (this.emoteLeft > 0) {
+      this.emoteLeft -= dt;
+      if (this.emoteLeft <= 0) this.cancelEmote();
+    }
 
     if (this.appearT < 1) {
       this.appearT = Math.min(1, this.appearT + dt / 0.45);
@@ -348,6 +549,10 @@ export class AstronautActor implements Collider {
     }
 
     if (this.driving) return;
+    if (this.duoLeft > 0) {
+      this.tickDuo(dt);
+      return;
+    }
     if (this.isLocal) this.updateLocal(dt, ctx);
     else this.updateRemote(dt, ctx.grid);
   }
@@ -479,6 +684,11 @@ export class AstronautActor implements Collider {
 
     // ---- 4. orientação e animação ----
     const speed = this.vel.length();
+    if (this.emoteLeft > 0) {
+      // andar (ou pedir para andar) cancela o emote; parado, o clipe segue até o fim
+      if (this.input || this.pathActive || speed > 0.3) this.cancelEmote();
+      else return;
+    }
     // só gira com velocidade de verdade (evita "rodopiar" ao raspar na parede)
     if (speed > 0.7) this.turnTowards(Math.atan2(this.vel.x, this.vel.y), dt);
     if (speed > 0.3 || (this.input && speed > 0.1)) {
@@ -545,6 +755,7 @@ export class AstronautActor implements Collider {
 
     this.turnTowards(dist > 0.15 ? Math.atan2(dx, dz) : t.h, dt);
 
+    if (this.emoteLeft > 0 && (t.m !== 'idle' || dist > 0.15)) this.cancelEmote();
     if (t.m !== this.remoteMotion) {
       this.remoteMotion = t.m;
       const clip =
@@ -574,12 +785,13 @@ export class AstronautActor implements Collider {
     this.mixer?.stopAllAction();
     disposeNametag(this.nametag);
     this.emote.dispose();
-    // As geometrias são compartilhadas entre todos os clones: só os materiais são nossos.
+    // Geometrias e texturas de cor são compartilhadas: só materiais e texturas clonadas são nossos.
     this.model?.traverse((o) => {
       const m = o as THREE.Mesh;
       if (!m.isMesh) return;
-      for (const mat of Array.isArray(m.material) ? m.material : [m.material]) mat.dispose();
+      for (const mat of meshMaterials(m)) mat.dispose();
     });
+    for (const t of this.textures.all) t.dispose();
     this.root.removeFromParent();
   }
 }

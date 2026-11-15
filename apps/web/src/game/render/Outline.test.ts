@@ -104,10 +104,14 @@ describe('Outline (Linha de Contorno)', () => {
 
       expect(mat.uniforms.outlineColor?.value.getHexString()).toBe('0f141c');
 
-      manager.updateOptions({ color: '#ff5722', strength: 2.0 });
+      manager.updateOptions({ color: '#ff5722', strength: 0.5 });
       expect(mat.uniforms.outlineColor?.value.getHexString()).toBe('ff5722');
-      // 0.034 * 2.0 = 0.068
-      expect(mat.uniforms.outlineThickness?.value).toBeCloseTo(0.068, 3);
+      // 0.034 * 0.5 = 0.017
+      expect(mat.uniforms.outlineThickness?.value).toBeCloseTo(0.017, 3);
+
+      // a espessura nunca passa de 1×
+      manager.updateOptions({ strength: 2.0 });
+      expect(mat.uniforms.outlineThickness?.value).toBeCloseTo(0.034, 3);
     });
 
     it('adiciona e remove cascos de várias malhas irmãs sem quebrar a travessia', () => {

@@ -1,4 +1,5 @@
 import type { SuitConfig } from './astronaut';
+import type { DuoGestureId, GestureStart } from './gestures';
 
 /** Namespace Socket.IO das salas de jogo (aceita convidados, sem login). */
 export const GAME_NAMESPACE = '/game';
@@ -104,7 +105,21 @@ export function applyTimeState(world: GameWorldState, t: GameTimeState): void {
 
 /** `drive`: o jogador está dentro do rover (x, z, h passam a ser os do veículo). */
 /** Emojis do painel circular. O servidor só aceita estes (pelo índice), nunca texto livre. */
-export const GAME_EMOTES = ['😀', '😂', '👍', '👋', '❤️', '😮', '🎉', '🚀'] as const;
+export const GAME_EMOTES = [
+  '😀',
+  '😂',
+  '👍',
+  '👋',
+  '❤️',
+  '😮',
+  '🎉',
+  '🚀',
+  // gestos do Astronauta v2 (sempre no fim: o servidor valida pelo índice)
+  '👎',
+  '👏',
+  '👉',
+  '💃',
+] as const;
 
 export type GameMotionKind = 'idle' | 'walk' | 'clean' | 'plant' | 'harvest' | 'drive';
 
@@ -157,6 +172,110 @@ export function normalizeCare(raw: unknown): GameCareState | null {
   return { crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol), filter: sol(r.filter) };
 }
 
+/**
+ * Quadro de missões da sala: quais missões de pesquisa já foram concluídas no Sol atual e em que
+ * Sol a horta devolveu oxigênio pela última vez. O servidor guarda e não deixa duas pessoas
+ * concluírem a mesma missão no mesmo Sol.
+ */
+export interface GameMissionBoard {
+  sol: number;
+  done: string[];
+  garden: number;
+}
+
+export const GAME_BOARD_MAX_DONE = 12;
+
+/** Valida o quadro vindo da rede/banco (ids curtos, no máximo `GAME_BOARD_MAX_DONE`). */
+export function normalizeBoard(raw: unknown): GameMissionBoard | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const int = (v: unknown) =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100_000, Math.round(v))) : 0;
+  const done = Array.isArray(r.done)
+    ? r.done.filter((x): x is string => typeof x === 'string' && /^[a-z_]{1,24}$/.test(x))
+    : [];
+  return {
+    sol: int(r.sol),
+    done: [...new Set(done)].slice(0, GAME_BOARD_MAX_DONE),
+    garden: int(r.garden),
+  };
+}
+
+/** Chaves de variação aceitas num evento de missão (recursos, pesquisa e moral). */
+export const GAME_MISSION_DELTA_KEYS = [
+  'energy',
+  'supplies',
+  'materials',
+  'oxygen',
+  'research',
+  'morale',
+] as const;
+
+/**
+ * Missão concluída (ou bônus da horta): todos os jogadores aplicam o mesmo custo e a mesma
+ * recompensa, então a base e os pontos de pesquisa ficam iguais para a sala inteira.
+ */
+export interface GameMissionEvent {
+  /** id único do evento (evita aplicar duas vezes) */
+  eid: string;
+  /** id da missão (`soil_robot`, `drill`…) ou `garden` */
+  id: string;
+  sol: number;
+  by: string;
+  title: string;
+  text: string;
+  deltas: Record<string, number>;
+}
+
+/** Valida um evento de missão recebido: texto curto, deltas conhecidos e limitados. */
+export function normalizeMissionEvent(raw: unknown): GameMissionEvent | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.eid !== 'string' || !/^[\w-]{4,40}$/.test(r.eid)) return null;
+  if (typeof r.id !== 'string' || !/^[a-z_]{1,24}$/.test(r.id)) return null;
+  if (typeof r.sol !== 'number' || !Number.isFinite(r.sol) || r.sol < 1 || r.sol > 100_000)
+    return null;
+  const deltas: Record<string, number> = {};
+  if (r.deltas && typeof r.deltas === 'object') {
+    for (const key of GAME_MISSION_DELTA_KEYS) {
+      const v = (r.deltas as Record<string, unknown>)[key];
+      if (typeof v === 'number' && Number.isFinite(v) && v !== 0) {
+        deltas[key] = Math.max(-60, Math.min(60, Math.round(v)));
+      }
+    }
+  }
+  const text = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+  return {
+    eid: r.eid,
+    id: r.id,
+    sol: Math.round(r.sol),
+    by: text(r.by, 24),
+    title: text(r.title, 60),
+    text: text(r.text, 200),
+    deltas,
+  };
+}
+
+/**
+ * Aplica um evento ao quadro: vira o Sol se preciso e recusa (`null`) missão repetida no mesmo Sol
+ * ou evento de um Sol que já passou. A horta só rende uma vez por Sol.
+ */
+export function applyMissionEvent(
+  board: GameMissionBoard | undefined,
+  ev: GameMissionEvent,
+): GameMissionBoard | null {
+  const cur = board ?? { sol: ev.sol, done: [], garden: 0 };
+  if (ev.sol < cur.sol) return null;
+  const base: GameMissionBoard =
+    ev.sol > cur.sol ? { sol: ev.sol, done: [], garden: cur.garden } : cur;
+  if (ev.id === 'garden') {
+    if (base.garden >= ev.sol) return null;
+    return { ...base, garden: ev.sol };
+  }
+  if (base.done.includes(ev.id)) return null;
+  return { ...base, done: [...base.done, ev.id].slice(-GAME_BOARD_MAX_DONE) };
+}
+
 /** Estado compartilhado do mundo: todos veem o mesmo relógio, tempestade, painéis, canteiros e rover. */
 export interface GameWorldState {
   /** instante (ms, relógio do servidor) em que a sala estava às `GAME_START_HOUR` do Sol 1 */
@@ -169,6 +288,8 @@ export interface GameWorldState {
   vehicle?: GameVehicleState;
   /** cuidados diários (horta e filtro de ar); ausente = ninguém cuidou ainda */
   care?: GameCareState;
+  /** missões concluídas no Sol atual; ausente = nada feito ainda */
+  board?: GameMissionBoard;
   /** relógio: velocidade, pausa e âncora (ver `worldClock`); ausentes = 1×, rodando desde `clockStart` */
   timeScale?: GameTimeScale;
   paused?: boolean;
@@ -202,6 +323,7 @@ export interface WorldSave {
   crops: number[];
   vehicle?: GameVehicleState;
   care?: GameCareState;
+  board?: GameMissionBoard;
   /** velocidade e pausa do relógio quando o mundo foi salvo */
   timeScale?: GameTimeScale;
   paused?: boolean;
@@ -251,7 +373,15 @@ export interface GameServerToClient {
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
   'world:care': (c: GameCareState) => void;
+  /** missão de pesquisa concluída por outro jogador (aplicar custo e recompensa) */
+  'mission:event': (ev: GameMissionEvent) => void;
   'player:emote': (id: string, emote: number) => void;
+  /** convite para um gesto em dupla, vindo de outro jogador (validado pelo servidor) */
+  'gesture:invite': (fromId: string, gesture: DuoGestureId) => void;
+  /** os dois jogadores executam o gesto agora */
+  'gesture:start': (start: GestureStart) => void;
+  /** convite recusado pelo servidor (longe demais, rover, sem alvo...) */
+  'gesture:denied': (reason: string) => void;
   /** relógio mudou (pausa/velocidade/salto): vai para todos, inclusive quem pediu */
   'world:time': (t: GameTimeState) => void;
 }
@@ -264,7 +394,10 @@ export interface GameClientToServer {
   'world:crops': (stages: number[]) => void;
   'world:vehicle': (v: GameVehicleState) => void;
   'world:care': (c: GameCareState) => void;
+  'mission:event': (ev: GameMissionEvent) => void;
   'player:emote': (emote: number) => void;
+  'gesture:invite': (gesture: DuoGestureId, targetId: string) => void;
+  'gesture:accept': (fromId: string) => void;
   /** pede mudança no relógio (restrita ao coordenador se houver mais de um jogador) */
   'world:time': (req: GameTimeRequest) => void;
   /** Grava o mundo no banco e vincula o jogador a ele. */

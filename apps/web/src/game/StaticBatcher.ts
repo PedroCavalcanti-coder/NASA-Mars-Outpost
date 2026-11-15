@@ -67,6 +67,7 @@ export function batchStaticMeshes(
         !prot &&
         !(mesh as THREE.SkinnedMesh).isSkinnedMesh &&
         !Array.isArray(mesh.material) &&
+        !(mesh as THREE.InstancedMesh).isInstancedMesh &&
         mesh.visible &&
         mesh.geometry.getIndex() &&
         !mesh.userData.keepSeparate

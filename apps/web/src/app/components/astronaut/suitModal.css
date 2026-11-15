@@ -443,3 +443,100 @@
     transform: none;
   }
 }
+
+/* Acessórios e marcas do Astronauta v2 */
+.suit-extras-field {
+  margin-top: 12px;
+}
+.suit-extras-field small {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+.suit-accessory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 9px;
+}
+.suit-accessory-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 2px solid #29362f;
+  border-radius: 6px;
+  background: #1c2822;
+  color: #efe3c6;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.suit-accessory-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.suit-accessory-btn.is-active {
+  border-color: #f0b25c;
+  background: #3a3220;
+}
+.suit-accessory-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #55655b;
+  border-radius: 4px;
+  color: #f0b25c;
+}
+.suit-mark-row {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.suit-mark-slot {
+  font-size: 13px;
+  font-weight: 800;
+  color: #efe3c6;
+}
+.suit-mark-options {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 4px;
+}
+.suit-mark-btn {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 2px;
+  border: 2px solid #29362f;
+  border-radius: 6px;
+  background: #1c2822;
+  color: #8fa196;
+  cursor: pointer;
+}
+.suit-mark-btn.is-active {
+  border-color: #f0b25c;
+  background: #3a3220;
+  color: #f0b25c;
+}
+.suit-mark-btn i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-repeat: no-repeat;
+}
+@media (max-width: 700px) {
+  .suit-accessory-grid {
+    grid-template-columns: 1fr;
+  }
+  .suit-mark-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

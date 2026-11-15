@@ -145,7 +145,7 @@ export class OxygenSystem implements GameSystem {
     if (dt <= 0 || this.isFainting) return;
 
     // Dirigir o rover conta como estar fora da base (no exterior)
-    const insideSafe = ctx.insideBase && !ctx.driving;
+    const insideSafe = (ctx.insideBase && !ctx.driving) || ctx.sheltered === true;
     const baseOxygenAvailable = useMission.getState().state.resources.oxygen?.value ?? 0;
 
     if (insideSafe) {
