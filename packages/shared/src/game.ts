@@ -1,3 +1,4 @@
+import type { IntegrityState, RepairIntent } from './integrity';
 import type { SuitConfig } from './astronaut';
 
 /** Namespace Socket.IO das salas de jogo (aceita convidados, sem login). */
@@ -65,7 +66,7 @@ export const normalizeTimeScale = (s: unknown): GameTimeScale => (s === 2 || s =
 /** Hora/Sol do mundo levando em conta pausa e velocidade. */
 export function worldClock(world: GameWorldState, now: number) {
   return gameClock(world.clockStart, now, {
-    paused: world.paused,
+    paused: world.paused || Boolean(world.repairPause),
     scale: world.timeScale,
     timeUpdatedAt: world.timeUpdatedAt,
     virtualElapsedMs: world.virtualElapsedMs,
@@ -168,6 +169,8 @@ export function normalizeCare(raw: unknown): GameCareState | null {
 /** Estado compartilhado do mundo: todos veem o mesmo relógio, tempestade, painéis, canteiros e rover. */
 export interface GameWorldState {
   /** instante (ms, relógio do servidor) em que a sala estava às `GAME_START_HOUR` do Sol 1 */
+  integrity?: IntegrityState;
+  repairPause?: string;
   clockStart: number;
   storm: number;
   solar: number[];
@@ -203,7 +206,8 @@ export const normalizeNickname = (name: string) =>
 
 /** O que fica gravado no banco (JSON) para retomar um mundo. */
 export interface WorldSave {
-  v: 1;
+  v: 1 | 2;
+  integrity?: IntegrityState;
   /** tempo de jogo decorrido: o relógio retoma de onde parou */
   elapsedMs: number;
   solar: number[];
@@ -251,6 +255,7 @@ export interface GameJoinResult {
 }
 
 export interface GameServerToClient {
+  'world:integrity': (state: IntegrityState) => void;
   'player:joined': (p: GamePlayerInfo) => void;
   'player:left': (id: string) => void;
   'player:state': (id: string, s: GameMotion) => void;
@@ -266,6 +271,11 @@ export interface GameServerToClient {
 }
 
 export interface GameClientToServer {
+  'world:repair': (
+    intent: RepairIntent,
+    ack: (r: GameAck<{ state: IntegrityState }>) => void,
+  ) => void;
+  'world:repair-pause': (active: boolean) => void;
   'room:join': (req: GameJoinRequest, ack: (r: GameAck<GameJoinResult>) => void) => void;
   'player:state': (s: GameMotion) => void;
   'world:storm': (value: number) => void;

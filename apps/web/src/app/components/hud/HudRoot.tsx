@@ -222,7 +222,7 @@ export function HudRoot(props: HudRootProps) {
     <HudContext.Provider value={contextValue}>
       <ResourceRewardFx viewer={viewer} />
       <div className="hud-root">
-        <div className="hud-room-status" aria-label={`Sala ${roomCode}, ${players.count} de 4 jogadores`}>
+        <div className="hud-room-status" data-bit-target="crew" aria-label={`Sala ${roomCode}, ${players.count} de 4 jogadores`}>
           <span>{roomCode}</span>
           <Users size={20} aria-hidden="true" />
           <span>{players.count}/4</span>

@@ -9,7 +9,12 @@
 import { Menu } from 'lucide-react';
 import './essentialLayout.css';
 import type { ComponentType } from 'react';
-import { BatterySlot, DefaultOxygenSlot, ResourceSlot, ResearchSlot } from './panels/EssentialSlots';
+import {
+  BatterySlot,
+  DefaultOxygenSlot,
+  ResourceSlot,
+  ResearchSlot,
+} from './panels/EssentialSlots';
 import { EventOrb } from './panels/EventOrb';
 import { MarsCycleContext } from './panels/OxygenOrb';
 import { useGroupPanels } from './useHudPanels';
@@ -25,11 +30,7 @@ interface EssentialBarProps {
   onOpenSystemMenu: () => void;
 }
 
-export function EssentialBar({
-  marsTime,
-  stormActive,
-  onOpenSystemMenu,
-}: EssentialBarProps) {
+export function EssentialBar({ marsTime, stormActive, onOpenSystemMenu }: EssentialBarProps) {
   // Painéis registrados dinamicamente no grupo 'essencial' (Conversa 3: Relógio, Conversa 5: Oxigênio)
   const registeredEssential = useGroupPanels('essencial');
 
@@ -49,6 +50,7 @@ export function EssentialBar({
       <button
         type="button"
         className="hud-essential-bar__menu-btn"
+        data-bit-target="settings"
         onClick={onOpenSystemMenu}
         title="Menu do Sistema e Configurações (O)"
         aria-label="Abrir menu do sistema"
@@ -59,7 +61,7 @@ export function EssentialBar({
         <div className="hud-resource-row">
           <BatterySlot />
           <ResourceSlot kind="supplies" />
-          <ResourceSlot kind="materials" />
+          <ResourceSlot kind="armor" />
         </div>
         <ResearchSlot />
       </div>

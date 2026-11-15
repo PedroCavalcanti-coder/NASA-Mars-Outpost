@@ -1,3 +1,4 @@
+import { guideProgress } from '../../../game/guide/events';
 import {
   type KeyboardEvent,
   type PointerEvent,
@@ -28,6 +29,7 @@ export function useGreenhouse() {
     null,
   );
   const complete = crops.every(healthy);
+  useEffect(() => { if (watering) guideProgress(); }, [crops, watering]);
   useEffect(() => {
     if (!watering || complete) return;
     const { audio } = useGameSettings.getState();

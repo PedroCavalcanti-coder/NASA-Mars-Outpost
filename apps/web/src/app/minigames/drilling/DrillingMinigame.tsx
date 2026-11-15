@@ -1,3 +1,4 @@
+import { guideProgress } from '../../../game/guide/events';
 import { Drill, FlaskConical, Thermometer, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -68,6 +69,7 @@ export default function DrillingMinigame({
     return () => cancelAnimationFrame(frame);
   }, [profile, result]);
 
+  useEffect(() => { if (drilling && drill.depth > 0) guideProgress(); }, [drill.depth, drilling]);
   const start = useCallback(() => {
     if (result) return;
     holding.current = true;
@@ -89,6 +91,7 @@ export default function DrillingMinigame({
   // teclado: segurar Espaço/↓ perfura, Enter coleta
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (e.target instanceof Element && e.target.closest('.bit-guide')) return;
       if (e.key === ' ' || e.key === 'ArrowDown') {
         e.preventDefault();
         if (!e.repeat) start();
@@ -202,7 +205,7 @@ export default function DrillingMinigame({
         <rect x="204" y="64" width="12" height={Math.max(0, bitY - 64)} fill="#c9ced8" />
         <g
           transform={`translate(210 ${bitY})`}
-          className={drilling && !drill.jammed ? 'drill-mg__bit is-spinning' : 'drill-mg__bit'}
+          className={drilling && drill.depth > 0 ? 'drill-mg__bit is-spinning' : 'drill-mg__bit'}
         >
           <path d="M-12 -14H12L0 16Z" fill="#e7ebf2" stroke="#2b2f37" strokeWidth="3" />
           {drill.heat > 0.45 && <circle r={10 + drill.heat * 10} className="drill-mg__glow" />}

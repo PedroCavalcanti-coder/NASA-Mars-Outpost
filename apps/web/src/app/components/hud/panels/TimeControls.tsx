@@ -112,7 +112,7 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
           target.tagName === 'SELECT' ||
-          target.isContentEditable)
+          target.isContentEditable || target.closest('.bit-guide'))
       ) {
         return;
       }
@@ -158,6 +158,7 @@ export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControls
     <section
       className={`time-controls ${paused ? 'time-controls--paused' : ''}`}
       aria-label="Controle de tempo da simulação"
+      data-bit-target="speed"
     >
       {/* Indicador de Sol e Horário Marciano */}
       {!hideTimeDisplay && (

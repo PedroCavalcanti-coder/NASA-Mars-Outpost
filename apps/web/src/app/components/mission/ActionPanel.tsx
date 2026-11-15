@@ -6,23 +6,15 @@ import { useMission } from '../../../store/mission';
 const ICONS: Record<ActionId, ReactNode> = {
   research: <FlaskConical size={18} />,
   expedition: <Truck size={18} />,
-  mine: <Pickaxe size={18} />,
-  maintain: <Hammer size={18} />,
-  build_solar: <Sun size={18} />,
-  build_greenhouse: <Sprout size={18} />,
-  build_lab: <Microscope size={18} />,
 };
-
 const GROUPS: { title: string; actions: ActionId[] }[] = [
-  // a limpeza dos painéis agora é feita painel por painel (tarefas do Sol), não por ação
-  { title: 'Operações', actions: ['research', 'expedition', 'mine'] },
-  { title: 'Construir', actions: ['build_solar', 'build_greenhouse', 'build_lab'] },
+  { title: 'Operações', actions: ['research', 'expedition'] },
 ];
 
 const COST_LABEL: Record<ResourceId, string> = {
   energy: 'E',
   supplies: 'M',
-  materials: 'Mt',
+  armor: 'Mt',
   oxygen: 'O₂',
 };
 

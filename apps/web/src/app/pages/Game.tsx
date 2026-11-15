@@ -1,3 +1,5 @@
+import RepairMinigame from '../minigames/RepairMinigame';
+import { migrateMission } from '@mars/sim';
 import { WORLD_AUTOSAVE_MS } from '@mars/shared';
 import { TriangleAlert } from 'lucide-react';
 import {
@@ -19,6 +21,8 @@ import type {
   MinigameResult,
   BaseViewer as Viewer,
 } from '../../game/BaseViewer';
+import { BitGuide } from '../components/bit/BitGuide';
+import { emitGuideEvent } from '../../game/guide/events';
 import { registerDevAction } from '../../game/dev/devActions';
 import {
   expeditionSnapshot,
@@ -121,6 +125,7 @@ function ReadyGame() {
   // Com um minigame aberto por cima, a base fica carregada mas para de desenhar
   // (a simulação segue pelo relógio de apoio: numa sala, o mundo não para para os outros).
   useEffect(() => {
+    viewer.current?.setRepairOpen(minigame?.kind === 'repair');
     if (!minigame) return;
     const runtime = peekExpedition()?.runtime;
     if (!runtime) return;
@@ -204,6 +209,7 @@ function ReadyGame() {
 
     // callbacks da interface e configurações (o viewer só começa a usá-los ao `activate`)
     const options: BaseViewerOptions = {
+      onGuideEvent: emitGuideEvent,
       roomCode,
       videoSettings: video,
       outlineSettings: outline,
@@ -234,7 +240,8 @@ function ReadyGame() {
         if (alive) setPlayers(p);
       },
       onChat: ({ name, message, local }) => {
-        if (alive) setChat((c) => [...c.slice(-49), { id: ++chatId.current, name, emoji: message, local }]);
+        if (alive)
+          setChat((c) => [...c.slice(-49), { id: ++chatId.current, name, emoji: message, local }]);
       },
       onEmote: ({ name: who, emoji, local }) => {
         if (!alive) return;
@@ -260,7 +267,7 @@ function ReadyGame() {
           Array.isArray(m.log)
         ) {
           useMission.setState({
-            state: info.mission as ReturnType<typeof useMission.getState>['state'],
+            state: migrateMission(info.mission),
           });
           toast('💾 Mundo retomado de onde você parou.', 'ok');
         }
@@ -502,10 +509,22 @@ function ReadyGame() {
 
   return (
     <main className="game">
+      {!loading && !error && (
+        <BitGuide
+          key={`${user?.id ?? name}:${baseId}`}
+          identity={String(user?.id ?? name)}
+          viewer={viewer.current}
+          minigame={minigame}
+          suspended={settingsOpen || leaveOpen}
+          driving={driving}
+        />
+      )}
       {minigame &&
         createPortal(
           <Suspense fallback={null}>
-            {minigame.kind === 'solar' ? (
+            {minigame.kind === 'repair' ? (
+              <RepairMinigame id={minigame.id} viewer={viewer.current} onClose={closeMinigame} />
+            ) : minigame.kind === 'solar' ? (
               <SolarCleaningPreview onClose={closeMinigame} onComplete={finishMinigame} />
             ) : minigame.kind === 'oxygen' ? (
               <OxygenFilterPreview onClose={closeMinigame} onComplete={finishMinigame} />

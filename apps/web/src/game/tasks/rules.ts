@@ -141,7 +141,7 @@ export const drillDay = (seed: number, sol: number) => sol === 1 || seeded(seed,
 
 // -------------------------------------------------------------------------------------- tarefas
 
-export type TaskKind = 'solar' | 'crop' | 'plant' | 'filter' | 'drill';
+export type TaskKind = 'solar' | 'crop' | 'plant' | 'filter' | 'drill' | 'repair';
 
 export interface DailyTask {
   id: string;
@@ -196,12 +196,14 @@ export function buildTasks(t: TaskInput): DailyTask[] {
       id: `crop-${i}-${t.sol}`,
       kind: 'crop',
       // Pronto para colher depois da primeira irrigação; caso contrário, precisa de água.
-      title: ripe && !needsCare
-        ? `Colher o canteiro ${i + 1} (${name})`
-        : `Irrigar o canteiro ${i + 1} (${name})`,
-      detail: ripe && !needsCare
-        ? 'Pronto! Colha hoje, senão estraga na virada do Sol.'
-        : 'Regue hoje para manter a planta saudável.',
+      title:
+        ripe && !needsCare
+          ? `Colher o canteiro ${i + 1} (${name})`
+          : `Irrigar o canteiro ${i + 1} (${name})`,
+      detail:
+        ripe && !needsCare
+          ? 'Pronto! Colha hoje, senão estraga na virada do Sol.'
+          : 'Regue hoje para manter a planta saudável.',
       index: i,
       done: !ripe && !needsCare && caredToday(care, t.sol),
       required: true,

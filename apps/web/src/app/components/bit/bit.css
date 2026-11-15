@@ -1,0 +1,316 @@
+.bit-guide {
+  position: fixed;
+  z-index: 110;
+  left: 22px;
+  bottom: 320px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+  font-family: var(--font-body, "Barlow", sans-serif);
+  color: #f5fbff;
+}
+.bit-avatar {
+  position: relative;
+  order: -1;
+  width: 148px;
+  flex: 0 0 148px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.bit-avatar:focus-visible {
+  outline: 3px solid #7defff;
+  border-radius: 24px;
+  outline-offset: 5px;
+}
+.bit-character {
+  display: block;
+  width: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 5px 3px #081c3625);
+}
+.bit-name {
+  display: block;
+  width: 84px;
+  margin: -14px auto 0;
+  position: relative;
+  border: 2px solid #6cecff;
+  background: #18394e;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  transform: rotate(-3deg);
+}
+.bit-dialogue {
+  pointer-events: auto;
+  max-width: 310px;
+  padding: 16px 18px 12px;
+  margin-bottom: 25px;
+  background: #122b41f5;
+  border: 2px solid #76c5df;
+  border-radius: 20px 20px 20px 5px;
+  box-shadow: 0 5px 0 #081d2e55;
+  animation: bit-appear 0.24s ease-out;
+}
+.bit-dialogue__heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  color: #83ebff;
+  font-weight: 900;
+  font-size: 17px;
+}
+.bit-dialogue__heading span + span {
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  color: #b3cad7;
+}
+.bit-dialogue p {
+  font-size: 17px;
+  line-height: 1.5;
+  margin: 9px 0 12px;
+}
+.bit-dialogue__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bit-dialogue button {
+  border: 1px solid #6c99aa;
+  border-radius: 8px;
+  padding: 9px 12px;
+  min-height: 40px;
+  background: #23465b;
+  color: #effbff;
+  font: inherit;
+  cursor: pointer;
+}
+.bit-dialogue button:first-child {
+  background: #ffd079;
+  border-color: #ffd079;
+  color: #172e41;
+  font-weight: 800;
+}
+.bit-dialogue button:focus-visible {
+  outline: 3px solid #73edff;
+  outline-offset: 3px;
+}
+.bit-guide--activity {
+  bottom: 58px;
+  left: 16px;
+}
+.bit-guide--activity .bit-avatar {
+  width: 112px;
+  flex-basis: 112px;
+}
+.bit-head {
+  transform-origin: 120px 170px;
+  animation: bit-bob 5s ease-in-out infinite;
+}
+.bit-hand {
+  transform-origin: 155px 185px;
+}
+.bit-eyes {
+  transform-origin: 130px 115px;
+  animation: bit-blink 7s infinite;
+}
+.bit-sparks {
+  opacity: 0;
+}
+[data-expression="thinking"] .bit-head {
+  transform: rotate(-7deg);
+  animation: none;
+}
+[data-expression="thinking"] .bit-eye-right {
+  transform: translateY(5px) scaleY(0.9);
+}
+[data-expression="warning"] .bit-eyes {
+  stroke: #ffcf75;
+}
+[data-expression="warning"] .bit-sparks {
+  opacity: 0.7;
+}
+[data-expression="excited"] .bit-sparks,
+[data-expression="celebrating"] .bit-sparks {
+  opacity: 1;
+}
+[data-expression="celebrating"] .bit-hand {
+  animation: bit-wave 0.8s ease-in-out 3;
+}
+[data-expression="talking"] .bit-head {
+  animation: bit-talk 0.7s ease-in-out infinite;
+}
+[data-expression="talking"] .bit-hand {
+  animation: bit-wave 1.7s ease-in-out infinite;
+}
+@keyframes bit-bob {
+  50% {
+    transform: translateY(-3px) rotate(1deg);
+  }
+}
+@keyframes bit-blink {
+  0%,
+  44%,
+  48%,
+  100% {
+    transform: scaleY(1);
+  }
+  46% {
+    transform: scaleY(0.12);
+  }
+}
+@keyframes bit-wave {
+  50% {
+    transform: rotate(-12deg);
+  }
+}
+@keyframes bit-talk {
+  50% {
+    transform: translateY(-2px) rotate(-1.5deg);
+  }
+}
+@keyframes bit-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.bit-guide[data-reduced="true"] .bit-character [class],
+.bit-guide[data-reduced="true"] {
+  animation: none;
+}
+@media (max-width: 767px) {
+  .bit-guide {
+    bottom: 245px;
+    left: 8px;
+    gap: 0;
+    max-width: calc(100vw - 16px);
+  }
+  .bit-avatar,
+  .bit-guide--activity .bit-avatar {
+    width: 88px;
+    flex-basis: 88px;
+  }
+  .bit-dialogue {
+    max-width: min(270px, calc(100vw - 112px));
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+  .bit-dialogue p {
+    font-size: 15px;
+  }
+  .bit-dialogue button {
+    padding: 8px;
+    min-height: 44px;
+  }
+  .bit-guide--activity {
+    bottom: 8px;
+  }
+  .bit-name {
+    width: 66px;
+    font-size: 14px;
+    margin-top: -8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bit-guide .bit-character [class],
+  .bit-guide {
+    animation: none;
+  }
+}
+/* Reserve scenery beneath the activity for the companion; it never covers tools.
+   Keep this reservation while playing, even with the balloon folded, to prevent
+   the target from moving beneath a captured pointer. */
+body:has(.bit-guide--activity) .solar-panel-art {
+  top: calc(50% - 75px);
+  width: min(92vw, 112svh);
+}
+body:has(.bit-guide--activity) :is(.greenhouse-preview, .oxygen-preview, .drill-mg) {
+  padding-bottom: 180px;
+}
+body:has(.bit-guide--activity) .oxygen-filter-art {
+  max-height: 57svh;
+}
+body:has(.bit-guide--activity) .drill-mg__section {
+  max-height: calc(100svh - 220px);
+}
+@media (max-width: 767px) {
+  body:has(.bit-guide--activity) :is(.greenhouse-preview, .oxygen-preview, .drill-mg) {
+    padding-bottom: 220px;
+  }
+  body:has(.bit-guide--activity) .oxygen-filter-art {
+    max-height: 34svh;
+  }
+}
+@media (max-aspect-ratio: 3 / 4) {
+  body:has(.bit-guide--activity) .solar-panel-art {
+    top: calc(50% - 95px);
+    width: min(65svh, 125vw);
+  }
+}
+@media (max-height: 500px) {
+  .bit-guide--activity .bit-avatar {
+    width: 76px;
+    flex-basis: 76px;
+  }
+  .bit-guide--activity .bit-dialogue {
+    max-width: 340px;
+    margin-bottom: 5px;
+    padding: 8px 12px;
+  }
+  .bit-guide--activity .bit-dialogue p {
+    margin: 4px 0;
+    font-size: 14px;
+  }
+}
+.bit-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 108;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  animation: bit-appear 0.25s ease-out;
+}
+.bit-spotlight__outline {
+  fill: none;
+  stroke: #8eeeff;
+  stroke-width: 2.5;
+}
+.bit-guide--spotlight {
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 24px);
+}
+.bit-guide--spotlight[data-placement="top"] {
+  top: max(12px, 5svh);
+  bottom: auto;
+}
+.bit-guide--spotlight[data-placement="bottom"] {
+  top: auto;
+  bottom: max(160px, 22svh);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bit-spotlight {
+    animation: none;
+  }
+}
+/* The always-visible mobile chat shares the bottom edge with the oxygen orb.
+   Bring the original orb forward inside the HUD only while explaining it. */
+body:has(
+    .bit-spotlight:is(
+        [data-target="personal-oxygen"],
+        [data-target="day-cycle"],
+        [data-target="events"],
+        [data-target="speed"]
+      )
+  )
+  .hud-oxygen-anchor {
+  z-index: 39;
+}

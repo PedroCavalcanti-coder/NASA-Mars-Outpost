@@ -1,0 +1,122 @@
+.repair-mg {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  background: #29444c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff3d0;
+  font-size: 22px;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.repair-mg h1 {
+  font-size: clamp(28px, 4vw, 48px);
+  margin: 0;
+}
+.repair-mg p {
+  text-align: center;
+}
+.repair-close {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  background: #526a73;
+  border: 4px solid #162c36;
+  border-radius: 12px;
+  color: white;
+  padding: 12px;
+}
+.repair-wall {
+  position: relative;
+  width: min(520px, 80vw);
+  height: min(350px, 45vh);
+  border: 14px solid #192f39;
+  border-radius: 28px;
+  background: #7f999d;
+  box-shadow:
+    inset 0 8px #b8c9c5,
+    0 8px #152831;
+  display: grid;
+  place-items: center;
+}
+.repair-wall > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.repair-target,
+.repair-piece {
+  position: relative;
+  padding: 18px 30px;
+  font: inherit;
+  font-weight: 800;
+  background: #b8cac5;
+  border: 6px solid #243e48;
+  border-radius: 16px;
+  box-shadow: 0 5px #132a34;
+  color: #203943;
+  cursor: pointer;
+  margin: 16px;
+}
+.repair-piece.selected {
+  outline: 4px solid white;
+}
+.repair-plate {
+  position: relative;
+  background: #a4b8bc;
+  border: 9px solid #405a64;
+  border-radius: 18px;
+  width: 80%;
+  height: 75%;
+  box-shadow: inset 0 7px #dce6df;
+  display: grid;
+  place-items: center;
+  color: #284650;
+}
+.repair-screw {
+  position: absolute;
+  width: 58px;
+  height: 58px;
+  border: 6px solid #304751;
+  border-radius: 50%;
+  background: #d3dfd9;
+  color: #3d5961;
+  font-size: 34px;
+  line-height: 1;
+  transform: rotate(var(--turn));
+  touch-action: none;
+  cursor: pointer;
+}
+.repair-screw.done {
+  background: #92cd9b;
+}
+.screw-0 {
+  top: 12px;
+  left: 12px;
+}
+.screw-1 {
+  top: 12px;
+  right: 12px;
+}
+.screw-2 {
+  bottom: 12px;
+  left: 12px;
+}
+.screw-3 {
+  bottom: 12px;
+  right: 12px;
+}
+.repair-mg progress {
+  accent-color: #9bdaa7;
+  width: 250px;
+  height: 20px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .repair-screw {
+    transform: none;
+  }
+}

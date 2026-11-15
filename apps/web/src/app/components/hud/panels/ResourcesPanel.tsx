@@ -2,7 +2,7 @@
  * Painel de Recursos da Base Marciana.
  *
  * Rede elétrica em tempo real (painéis → bateria → suporte à vida) e as reservas da missão:
- * mantimentos, materiais e moral da tripulação.
+ * mantimentos, blindagem e moral da tripulação.
  */
 
 import { BatteryCharging, Fan, Sun, Zap } from 'lucide-react';

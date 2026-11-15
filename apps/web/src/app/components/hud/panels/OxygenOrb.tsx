@@ -50,6 +50,7 @@ export function OxygenOrb({
   return (
     <section
       className="oxygen-orb"
+      data-bit-target="day-cycle"
       data-level={state}
       title={title}
       aria-label="Oxigênio e ciclo do Sol"
@@ -112,6 +113,7 @@ export function OxygenOrb({
             strokeLinejoin="round"
           />
         </g>
+        <g data-bit-target="personal-oxygen">
         <circle cx="130" cy="132" r="68" fill="#789aab" stroke="#193547" strokeWidth="3" />
         <circle cx="130" cy="132" r="65" fill="#253f50" />
         <g clipPath={`url(#${id}-glass)`}>
@@ -131,6 +133,7 @@ export function OxygenOrb({
         <text x="130" y="155" className="oxygen-orb__value">
           {Math.round(amount)}%
         </text>
+        </g>
         <text x="130" y="231" className="oxygen-orb__sol">
           SOL {time.sol}
         </text>

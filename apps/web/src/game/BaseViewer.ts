@@ -1,3 +1,13 @@
+import type { GuideEvent } from './guide/events';
+import {
+  armorValue,
+  leakRate,
+  BASE_EVENTS,
+  type RepairIntent,
+  type IntegrityState,
+} from '@mars/shared';
+import { checkOutcome } from '@mars/sim';
+import { IntegrityVisuals } from './IntegrityVisuals';
 import { useGameSettings } from '../lib/gameSettings';
 import {
   GAME_EMOTES,
@@ -57,6 +67,7 @@ import {
   filterClogged,
   GRID,
   gridStep,
+  gridLoad,
   hashString,
   OXYGEN_PLANT,
   panelDustRate,
@@ -107,6 +118,7 @@ function disposeTree(root: THREE.Object3D) {
 }
 
 export interface BaseViewerOptions {
+  onGuideEvent?: (event: GuideEvent) => void;
   roomCode?: string;
   initialHour?: number;
   initialSol?: number;
@@ -151,10 +163,12 @@ type PendingTask =
   | { kind: 'filter'; index: number; face: THREE.Vector3 }
   | { kind: 'drill'; face: THREE.Vector3 }
   | { kind: 'enter'; face: THREE.Vector3 }
+  | { kind: 'repair'; id: number; face: THREE.Vector3 }
   | { kind: 'goto'; face: THREE.Vector3 };
 
 /** Minigame que o viewer pede para a interface abrir (e que volta em `completeMinigame`). */
 export type MinigameRequest =
+  | { kind: 'repair'; id: number }
   | { kind: 'solar'; index: number }
   | { kind: 'greenhouse'; index: number }
   | { kind: 'oxygen'; index: number }
@@ -165,6 +179,7 @@ export type MinigameResult = { research?: number; layerName?: string; hit?: bool
 
 /** Resultado de um clique no cenário. */
 type PickResult =
+  | { type: 'repair'; id: number }
   | { type: 'solar'; index: number }
   | { type: 'crop'; index: number }
   | { type: 'filter'; index: number }
@@ -205,6 +220,17 @@ function isTypingTarget(t: EventTarget | null) {
 }
 
 export class BaseViewer {
+  private guideMoved = false;
+  get guideReady() { return Boolean(this.localAstronaut?.isRevealed); }
+  private integrityVisuals: IntegrityVisuals | null = null;
+  private integrityLeak = 0;
+  private integrityOutlines = new Set<THREE.Object3D>();
+  private stopIntegritySubscription?: () => void;
+  private repairOpen = false;
+  private repairPaused = false;
+  private hazardReady = false;
+  private eventSeen = -1;
+  private integrityWarning = new Set<string>();
   private readonly renderer: THREE.WebGLRenderer;
   /** linha de contorno (desligada por padrão; ligada nas configurações de vídeo) */
   private readonly outline: OutlineSystem;
@@ -695,6 +721,7 @@ export class BaseViewer {
     rover.place(this.roverPark.x, this.roverPark.z, this.roverPark.h, GROUND_Y);
     this.scene.add(rover.root);
 
+    this.integrityVisuals = new IntegrityVisuals(this.scene, model, grid);
     // ---- interior (tetos/paredes transparentes) e portas automáticas ----
     this.interior = new InteriorFader(model, grid);
     this.interior.setRoofsForcedHidden(this.roofsAlwaysHidden);
@@ -749,7 +776,7 @@ export class BaseViewer {
     for (const object of interactables) this.interactionOutline.addObject(object);
     this.interactionOutline.addObject(rover.root, 'vehicle');
     for (const object of interactables) {
-      const tag = object.userData.pick as { kind: string; index?: number };
+      const tag = object.userData.pick as { kind: string; index?: number; id?: number };
       if (tag.kind === 'crop') continue;
       // Usa somente a geometria real, sem os cascos auxiliares de contorno.
       const bounds = new THREE.Box3();
@@ -766,9 +793,10 @@ export class BaseViewer {
         }
       });
       if (bounds.isEmpty()) continue;
-      const center = tag.kind === 'filter' || tag.kind === 'drill'
-        ? object.getWorldPosition(new THREE.Vector3())
-        : bounds.getCenter(new THREE.Vector3());
+      const center =
+        tag.kind === 'filter' || tag.kind === 'drill'
+          ? object.getWorldPosition(new THREE.Vector3())
+          : bounds.getCenter(new THREE.Vector3());
       center.y = bounds.max.y + 0.08;
       this.taskMarkerPositions.set(`${tag.kind}:${tag.index ?? 0}`, center);
     }
@@ -978,6 +1006,22 @@ export class BaseViewer {
       this.showEmote(actor, emoji);
       this.options?.onEmote?.({ name: actor.name, emoji, local: false });
     };
+    useMission.setState({
+      triggerEvent: (id) => {
+        if (BASE_EVENTS.some((e) => e.id === id))
+          void this.repairAction({ op: 'event', event: id as (typeof BASE_EVENTS)[number]['id'] });
+      },
+    });
+    this.stopIntegritySubscription = useMission.subscribe((next, prev) => {
+      if (next.state.status !== 'playing' && prev.state.status === 'playing')
+        void this.repairAction({ op: 'stop' });
+      if (next.state.log.length === 0 && prev.state.log.length > 0) {
+        this.eventSeen = -1;
+        void this.repairAction({ op: 'restart' });
+      }
+    });
+    room.onIntegrity = (state) => this.applyIntegrity(state);
+    if (room.world.integrity) this.applyIntegrity(room.world.integrity);
     room.onStorm = (val) => {
       this.stormTarget = val;
       this.options?.onStormChange?.(val > 0, true);
@@ -986,7 +1030,12 @@ export class BaseViewer {
     // Plantas de um mundo novo precisam ser irrigadas antes da primeira colheita.
     const startSol = room.clock().sol;
     const known = room.world.care;
-    if (known) this.care = { crops: [...known.crops], filter: known.filter, needsCare: [...(known.needsCare ?? [])] };
+    if (known)
+      this.care = {
+        crops: [...known.crops],
+        filter: known.filter,
+        needsCare: [...(known.needsCare ?? [])],
+      };
     else {
       this.care = {
         crops: (this.crops?.slots ?? []).map(() => startSol),
@@ -1220,7 +1269,18 @@ export class BaseViewer {
     // Tempo do MUNDO (relógio, sobrevivência, canteiros, poeira): segue pausa e 1×/2×/3×.
     // Andar, câmera e animações continuam em tempo real, mesmo pausado.
     GameClock.tick(dt);
-    const worldDt = dt * GameClock.effectiveScale();
+    this.room?.tickHazards();
+    if (this.localAstronaut?.isRevealed && !this.hazardReady && this.room) {
+      this.hazardReady = true;
+      void this.room.requestRepair({ op: 'ready' });
+    }
+    const pauseRepair = this.repairOpen && (this.room?.playerCount ?? 1) === 1;
+    if (pauseRepair !== this.repairPaused) {
+      this.repairPaused = pauseRepair;
+      this.room?.repairPause(pauseRepair);
+    }
+    const worldDt =
+      this.repairOpen && (this.room?.playerCount ?? 1) === 1 ? 0 : dt * GameClock.effectiveScale();
 
     // Relógio: igual para todos da sala (ou local, se estiver sozinho/offline)
     if (this.room) {
@@ -1260,6 +1320,7 @@ export class BaseViewer {
         local.update(dt * this.playerSpeedScale, ctx, animate);
         const distance = Math.hypot(local.position.x - previousX, local.position.z - previousZ);
         if (local.isRevealed && distance > 0 && local.motion === 'walk') {
+          if (!this.guideMoved) { this.guideMoved = true; this.options?.onGuideEvent?.({ type: 'moved' }); }
           this.footstepDistance += distance;
           if (this.footstepDistance >= 1.5) {
             this.footstepDistance %= 1.5;
@@ -1276,7 +1337,9 @@ export class BaseViewer {
                   new Audio('/assets/audio/footstep-metal-2.mp3'),
                 ];
               }
-              const step = (onMetal ? this.metalFootstepAudio! : this.footstepAudio)[this.nextFootstep]!;
+              const step = (onMetal ? this.metalFootstepAudio! : this.footstepAudio)[
+                this.nextFootstep
+              ]!;
               this.nextFootstep = 1 - this.nextFootstep;
               step.volume = (audio.masterVolume * audio.sfxVolume) / 10000;
               step.currentTime = 0;
@@ -1334,7 +1397,8 @@ export class BaseViewer {
     const inside = this.interior?.insideFactor ?? 0;
     const volume = audio.muted
       ? 0
-      : (audio.masterVolume * audio.sfxVolume * 0.5 * this.stormCurrent * (1 - inside * 0.7)) / 10000;
+      : (audio.masterVolume * audio.sfxVolume * 0.5 * this.stormCurrent * (1 - inside * 0.7)) /
+        10000;
 
     if (volume <= 0) {
       this.stormAudio?.pause();
@@ -1346,16 +1410,23 @@ export class BaseViewer {
       this.stormAudio.loop = true;
     }
     this.stormAudio.volume = Math.min(1, volume);
-    if (this.stormAudio.paused && !this.stormAudioStarting && performance.now() >= this.stormAudioRetryAt) {
+    if (
+      this.stormAudio.paused &&
+      !this.stormAudioStarting &&
+      performance.now() >= this.stormAudioRetryAt
+    ) {
       this.stormAudioStarting = true;
-      void this.stormAudio.play().catch(() => {
-        this.stormAudioRetryAt = performance.now() + 2000;
-      }).finally(() => {
-        this.stormAudioStarting = false;
-        if (this.disposed || this.stormCurrent === 0 || useGameSettings.getState().audio.muted) {
-          this.stormAudio?.pause();
-        }
-      });
+      void this.stormAudio
+        .play()
+        .catch(() => {
+          this.stormAudioRetryAt = performance.now() + 2000;
+        })
+        .finally(() => {
+          this.stormAudioStarting = false;
+          if (this.disposed || this.stormCurrent === 0 || useGameSettings.getState().audio.muted) {
+            this.stormAudio?.pause();
+          }
+        });
     }
   }
 
@@ -1449,10 +1520,15 @@ export class BaseViewer {
       return;
     }
     if (d > TASK_REACH) {
+      this.options?.onGuideEvent?.({ type: 'difficulty' });
       this.notify('Não consegui chegar lá.', 'error');
       return;
     }
 
+    if (p.kind === 'repair') {
+      void this.openRepair(p.id);
+      return;
+    }
     if (p.kind === 'clean') {
       const panel = this.solarPanels[p.index];
       if (!panel) return;
@@ -1476,6 +1552,10 @@ export class BaseViewer {
     }
 
     if (p.kind === 'drill') {
+      if (useMission.getState().state.resources.armor.value <= 0) {
+        this.notify('Repare a blindagem antes de fazer a sondagem.', 'error');
+        return;
+      }
       if (this.drillDoneSol >= this.currentSol) {
         this.notify('A sondagem de hoje já foi feita. Volte amanhã.', 'info');
         return;
@@ -1506,6 +1586,7 @@ export class BaseViewer {
         crops[p.index] = this.currentSol;
         needsCare[p.index] = true;
         this.setCare({ ...this.care, crops, needsCare });
+        this.options?.onGuideEvent?.({ type: 'complete', activity: 'plant' });
         this.notify('🌱 Muda plantada! Regue antes da colheita.', 'ok');
         if (this.crops?.slots.every((crop) => crop.stage > 0)) this.playTaskCompleteSound();
       });
@@ -1525,6 +1606,7 @@ export class BaseViewer {
           text: `${label[0]?.toUpperCase()}${label.slice(1)} frescas para a tripulação.`,
           deltas: { supplies: 6 },
         });
+        this.options?.onGuideEvent?.({ type: 'complete', activity: 'harvest' });
         this.notify(`🧺 Colheita feita: ${label} frescas para a base!`, 'ok');
         this.playTaskCompleteSound();
       });
@@ -1768,7 +1850,7 @@ export class BaseViewer {
   private reveal(a: Arrival) {
     const at = a.actor.isLocal ? a.spawn : (this.remoteSnapshotPosition(a.actor) ?? a.spawn);
     a.actor.reveal(at, a.heading);
-    if (a.actor.isLocal) this.cameraFocus.copy(a.spawn);
+    if (a.actor.isLocal) { this.cameraFocus.copy(a.spawn); this.options?.onGuideEvent?.({ type: 'ready' }); }
     else {
       const s = this.room?.remotes.get(a.actor.id)?.motion;
       if (s) this.syncRemoteDriving(a.actor, s);
@@ -1856,6 +1938,31 @@ export class BaseViewer {
     const sun = Math.max(0, 1 - this.nightFactor);
     const stages = this.solarPanels.map((p) => p.stage);
     this.generation = solarGeneration(stages, sun, this.stormCurrent);
+    const integrity = this.room?.world.integrity;
+    if (integrity && mission.state.status === 'playing') {
+      this.integrityLeak += leakRate(integrity) * dt;
+      if (this.integrityLeak >= 1) {
+        const whole = Math.floor(this.integrityLeak);
+        adjustBaseOxygen(-whole);
+        this.integrityLeak -= whole;
+      }
+      if (armorValue(integrity) <= 25)
+        this.batteryFloat = Math.max(0, this.batteryFloat - gridLoad() * 0.25 * dt);
+      const now = (this.room?.clock().elapsedMs ?? 0) / 1000;
+      for (const f of integrity.fractures) {
+        const key = `${f.id}:${f.nextDecay}`;
+        if (
+          !f.tutorial &&
+          !f.owner &&
+          f.damage < 40 &&
+          f.nextDecay - now <= 20 &&
+          !this.integrityWarning.has(key)
+        ) {
+          this.integrityWarning.add(key);
+          this.notify('A fratura vai piorar. Repare a blindagem!', 'error');
+        }
+      }
+    }
     const grid = gridStep(this.batteryFloat, res.max, this.generation, dt);
     this.batteryFloat = grid.battery;
     const wasBlackout = this.blackout;
@@ -1961,14 +2068,23 @@ export class BaseViewer {
       blackout: this.blackout,
       oxygenProducing: producing,
     });
-    this.taskMarkers.sync(tasksFrom(useBaseOps.getState()), (kind, index) =>
-      this.taskMarkerPositions.get(`${kind}:${index}`) ?? null,
-    );
+    this.taskMarkers.sync(tasksFrom(useBaseOps.getState()), (kind, index) => {
+      if (kind === 'repair') {
+        const f = this.room?.world.integrity?.fractures.find((f) => f.id === index);
+        const a = f && this.integrityVisuals?.anchors[f.anchor];
+        return a ? a.point.clone().add(new THREE.Vector3(0, 0.6, 0)) : null;
+      }
+      return this.taskMarkerPositions.get(`${kind}:${index}`) ?? null;
+    });
   }
 
   /** Cuidados mudaram aqui: guarda e avisa a sala. */
   private setCare(next: GameCareState) {
-    this.care = { crops: [...next.crops], filter: next.filter, needsCare: [...(next.needsCare ?? [])] };
+    this.care = {
+      crops: [...next.crops],
+      filter: next.filter,
+      needsCare: [...(next.needsCare ?? [])],
+    };
     this.room?.sendCare(this.care);
   }
 
@@ -1982,14 +2098,18 @@ export class BaseViewer {
   }
 
   /** Leva o astronauta até a tarefa (painel, canteiro, filtro ou sonda) e a abre ao chegar. */
-  goToTask(kind: 'solar' | 'crop' | 'plant' | 'filter' | 'drill', index: number) {
+  goToTask(kind: 'solar' | 'crop' | 'plant' | 'filter' | 'drill' | 'repair', index: number) {
     const local = this.localAstronaut;
     if (!local?.isRevealed || local.isBusy) return;
     if (this.roverDriver === 'local') {
       this.notify('Saia do rover primeiro (tecla E).', 'info');
       return;
     }
-    if (kind === 'solar') {
+    if (kind === 'repair') {
+      const f = this.room?.world.integrity?.fractures.find((f) => f.id === index);
+      const a = f && this.integrityVisuals?.anchors[f.anchor];
+      if (a) this.goInteract(a.approach, { kind: 'repair', id: index, face: a.approach.clone() });
+    } else if (kind === 'solar') {
       const panel = this.solarPanels[index];
       if (panel)
         this.goInteract(panel.parentPos, { kind: 'clean', index, face: panel.parentPos.clone() });
@@ -2010,6 +2130,7 @@ export class BaseViewer {
   /** O minigame terminou com sucesso: aplica o efeito no mundo e na missão. */
   completeMinigame(req: MinigameRequest, result: MinigameResult = {}) {
     const sol = this.currentSol;
+    if (req.kind === 'repair') return;
     if (req.kind === 'solar') {
       this.solarDust[req.index] = 0;
       this.setSolarStage(req.index, 0);
@@ -2030,6 +2151,10 @@ export class BaseViewer {
         'ok',
       );
     } else if (req.kind === 'drill') {
+      if (useMission.getState().state.resources.armor.value <= 0) {
+        this.notify('Repare a blindagem antes de concluir a sondagem.', 'error');
+        return;
+      }
       if (this.drillDoneSol >= sol) return;
       this.drillDoneSol = sol;
       const research = Math.max(0, Math.round(result.research ?? 0));
@@ -2041,6 +2166,7 @@ export class BaseViewer {
         deltas: { research, energy: -DRILL_ENERGY_COST },
       });
     }
+    this.options?.onGuideEvent?.({ type: 'complete', activity: req.kind, hit: result.hit });
     this.playTaskCompleteSound();
     this.publishOperations(
       !filterClogged(this.care.filter, sol) && !this.blackout,
@@ -2082,6 +2208,7 @@ export class BaseViewer {
   };
 
   private onKeyDown = (e: KeyboardEvent) => {
+    if (e.target instanceof Element && e.target.closest('.bit-guide')) return;
     if (isTypingTarget(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
     // minigame aberto por cima: setas/Espaço são dele, o astronauta não anda
     if (isGameOverlayOpen()) return;
@@ -2172,20 +2299,24 @@ export class BaseViewer {
    *    a normal, e é ela que diz DE QUAL LADO da parede foi o clique (dentro ou fora).
    */
   private pickScene(): PickResult {
-    const hits = this.raycaster.intersectObjects(this.pickRoots, true);
+    const hits = this.raycaster.intersectObjects(
+      [...this.pickRoots, ...(this.integrityVisuals?.proxies ?? [])],
+      true,
+    );
     const normal = new THREE.Vector3();
     let first: PickResult | null = null;
     for (const h of hits) {
       // marca de máquina em qualquer ancestral
-      let tag: { kind: string; index?: number } | null = null;
+      let tag: { kind: string; index?: number; id?: number } | null = null;
       let visible = true;
       for (let o: THREE.Object3D | null = h.object; o; o = o.parent) {
-        const t = o.userData?.pick as { kind: string; index?: number } | undefined;
+        const t = o.userData?.pick as { kind: string; index?: number; id?: number } | undefined;
         if (t && !tag) tag = t;
         if (!o.visible) visible = false;
       }
       if (!visible) continue; // teto escondido, plantas de outros estágios…
       // máquinas vencem paredes translúcidas (só uma parede OPACA esconde a máquina)
+      if (tag?.kind === 'repair') return { type: 'repair', id: tag.id! };
       if (tag?.kind === 'solar') return { type: 'solar', index: tag.index ?? 0 };
       if (tag?.kind === 'crop') return { type: 'crop', index: tag.index ?? 0 };
       if (tag?.kind === 'filter') return { type: 'filter', index: tag.index ?? 0 };
@@ -2285,6 +2416,7 @@ export class BaseViewer {
     }
     const pick = this.pickScene();
     if (
+      pick.type === 'repair' ||
       pick.type === 'solar' ||
       pick.type === 'crop' ||
       pick.type === 'filter' ||
@@ -2327,6 +2459,9 @@ export class BaseViewer {
     if (local.isBusy) return;
 
     switch (pick.type) {
+      case 'repair':
+        this.goToTask('repair', pick.id);
+        return;
       case 'solar': {
         const panel = this.solarPanels[pick.index];
         if (panel)
@@ -2490,6 +2625,105 @@ export class BaseViewer {
   setRoofsAlwaysHidden(hidden: boolean) {
     this.roofsAlwaysHidden = hidden;
     this.interior?.setRoofsForcedHidden(hidden);
+  }
+
+  async repairEmergency() {
+    return this.repairAction({ op: 'emergency' });
+  }
+  async repairAction(intent: RepairIntent) {
+    const ok = (await this.room?.requestRepair(intent)) ?? false;
+    if (ok && (intent.op === 'plate' || intent.op === 'screw')) {
+      const { audio } = useGameSettings.getState();
+      if (!audio.muted) {
+        const sound = new Audio('/assets/audio/oxygen-metal-clang.mp3');
+        sound.volume = ((audio.masterVolume * audio.sfxVolume) / 10000) * 0.12;
+        this.doorSounds.add(sound);
+        sound.addEventListener('ended', () => this.doorSounds.delete(sound), { once: true });
+        void sound.play().catch(() => this.doorSounds.delete(sound));
+      }
+    }
+    return ok;
+  }
+  setRepairOpen(open: boolean) {
+    this.repairOpen = open;
+  }
+  repairFinished() {
+    this.playTaskCompleteSound();
+  }
+  private async openRepair(id: number) {
+    if (await this.repairAction({ op: 'reserve', fracture: id }))
+      this.options?.onMinigame?.({ kind: 'repair', id });
+    else this.notify('Outro astronauta está reparando esta fratura.', 'info');
+  }
+  private applyIntegrity(state: IntegrityState) {
+    for (const proxy of this.integrityOutlines) this.interactionOutline.removeObject(proxy);
+    this.integrityOutlines.clear();
+    this.integrityVisuals?.sync(state);
+    for (const proxy of this.integrityVisuals?.proxies ?? []) {
+      this.interactionOutline.addObject(proxy);
+      this.integrityOutlines.add(proxy);
+    }
+    publishOps({ integrity: structuredClone(state) });
+    const mission = useMission.getState();
+    const old = mission.state.resources.armor.value;
+    const value = armorValue(state);
+    const credits = mission.state.eventCredits ?? { research: 0, supplies: 0 };
+    useMission.setState((m) => {
+      const next = {
+        ...m.state,
+        resources: { ...m.state.resources, armor: { value, max: 100 } },
+        eventCredits: { ...state.credits },
+      };
+      checkOutcome(next);
+      return { state: next };
+    });
+    const gain = {
+      research: Math.max(0, state.credits.research - credits.research),
+      supplies: Math.max(0, state.credits.supplies - credits.supplies),
+    };
+    if (gain.research || gain.supplies)
+      useMission.getState().run({
+        type: 'reward',
+        tone: 'good',
+        title: 'Evento da base',
+        text: 'Suprimentos e descobertas recebidos.',
+        deltas: gain,
+      });
+    if (value !== old)
+      useMission.setState((m) => ({
+        feedback: { key: Date.now(), deltas: { armor: value - old }, reward: value > old },
+      }));
+    if (value < old) this.notify(`Blindagem: ${value}%. Repare as fraturas!`, 'error');
+
+    if (state.event && state.event.seq !== this.eventSeen) {
+      this.eventSeen = state.event.seq;
+      const e = BASE_EVENTS.find((e) => e.id === state.event!.id);
+      useMission
+        .getState()
+        .run({
+          type: 'reward',
+          tone: e?.damage ? 'bad' : 'info',
+          title: e?.title ?? 'Evento na base',
+          text: e?.damage
+            ? 'Procure os marcadores de fratura e repare o casco.'
+            : 'Uma oportunidade chegou à base.',
+          deltas: {},
+        });
+      this.notify(e?.title ?? 'Evento na base', e?.damage ? 'error' : 'info');
+    }
+    if (
+      state.tutorial === 'active' &&
+      state.fractures.some((f) => f.tutorial) &&
+      this.eventSeen === -1
+    ) {
+      this.eventSeen = 0;
+      this.notify(
+        'Uma pequena fratura apareceu. Entre na base e clique no marcador para aprender a reparar.',
+        'info',
+      );
+    }
+    if (useMission.getState().state.status !== 'playing' && !state.stopped)
+      void this.repairAction({ op: 'stop' });
   }
 
   setStormStrength(val: number) {
@@ -2679,11 +2913,21 @@ export class BaseViewer {
       Boolean(player?.isRevealed && this.grid),
       (x, z) => this.grid?.isInsideBase(x, z) ?? true,
     );
+    this.integrityVisuals?.update(
+      (this.room?.clock().elapsedMs ?? this.simTime * 1000) / 1000,
+      this.room?.world.integrity,
+      this.currentSol,
+      this.currentReducedMotion,
+    );
     this.renderer.render(this.scene, this.camera);
     this.outline.render();
   }
 
   dispose() {
+    if (this.disposed) return;
+    this.stopIntegritySubscription?.();
+    this.room?.repairPause(false);
+    this.integrityVisuals?.dispose();
     this.stormAudio?.pause();
     for (const sound of this.doorSounds) sound.pause();
     this.doorSounds.clear();

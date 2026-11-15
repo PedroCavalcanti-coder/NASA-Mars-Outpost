@@ -1,4 +1,11 @@
 import {
+  type IntegrityState,
+  type RepairIntent,
+  newIntegrity,
+  tickIntegrity,
+  repairIntent,
+} from '@mars/shared';
+import {
   applyTimeChange,
   applyTimeState,
   GAME_MAX_PLAYERS,
@@ -64,6 +71,7 @@ export class MultiplayerRoom {
   onPlayerJoined?: (p: RemotePlayer, existing: boolean) => void;
   onPlayerLeft?: (id: string) => void;
   onPlayerState?: (id: string, s: GameMotion) => void;
+  onIntegrity?: (state: IntegrityState) => void;
   onStorm?: (value: number) => void;
   onSolar?: (stages: number[]) => void;
   onCrops?: (stages: number[]) => void;
@@ -177,6 +185,7 @@ export class MultiplayerRoom {
         if (r) r.motion = s;
         this.onPlayerState?.(id, s);
       });
+      socket.on('world:integrity', (s) => this.acceptIntegrity(s));
       socket.on('world:storm', (v) => {
         this.world.storm = v;
         this.onStorm?.(v);
@@ -288,6 +297,7 @@ export class MultiplayerRoom {
             solar: m.world.solar,
             crops: m.world.crops,
             vehicle: m.world.vehicle,
+            integrity: m.world.integrity,
             care: m.world.care,
             timeScale: m.world.timeScale,
             paused: m.world.paused,
@@ -307,6 +317,12 @@ export class MultiplayerRoom {
           this.onPlayerState?.(m.from, m.s);
           break;
         }
+        case 'integrity':
+          this.acceptIntegrity(m.state);
+          break;
+        case 'repair':
+          if (this.isCoordinator) void this.requestRepair(m.intent, m.from);
+          break;
         case 'storm':
           this.world.storm = m.v;
           this.onStorm?.(m.v);
@@ -372,6 +388,83 @@ export class MultiplayerRoom {
   }
 
   // ------------------------------------------------------------------ envio
+
+  private acceptIntegrity(state: IntegrityState) {
+    if (this.world.integrity && state.revision < this.world.integrity.revision) return;
+    this.world.integrity = state;
+    this.onIntegrity?.(state);
+  }
+  tickHazards() {
+    if (this.mode !== 'local' || !this.isCoordinator) return;
+    const state = (this.world.integrity ??= newIntegrity());
+    const rev = state.revision;
+    const wind = state.wind;
+    const c = this.clock();
+    tickIntegrity(state, c.elapsedMs / 1000, Date.now(), c.hour);
+    if (state.wind > wind) {
+      this.sendSolar(this.world.solar.map((n) => Math.max(0, n - 1)));
+      this.onSolar?.(this.world.solar);
+    }
+    if (state.revision !== rev) {
+      this.onIntegrity?.(state);
+      this.post({ t: 'integrity', from: this.self.id, state });
+    }
+    const storm =
+      state.event?.id === 'dust_storm' && c.elapsedMs / 1000 - state.event.start >= 15 ? 0.85 : 0;
+    if (storm !== this.world.storm) {
+      this.sendStorm(storm);
+      this.onStorm?.(storm);
+    }
+  }
+  requestRepair(intent: RepairIntent, actor = this.self.id): Promise<boolean> {
+    if (this.mode === 'online')
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(false), 5000);
+        this.socket?.emit('world:repair', intent, (r) => {
+          clearTimeout(timer);
+          if (r.ok) this.acceptIntegrity(r.state);
+          resolve(r.ok);
+        });
+      });
+    if (!this.isCoordinator) {
+      this.post({ t: 'repair', from: this.self.id, intent });
+      return new Promise((resolve) =>
+        setTimeout(
+          () => resolve(this.world.integrity?.fractures.some((f) => f.owner === actor) ?? false),
+          400,
+        ),
+      );
+    }
+    const state = (this.world.integrity ??= newIntegrity());
+    const ok = repairIntent(
+      state,
+      intent,
+      actor,
+      this.clock().elapsedMs / 1000,
+      Date.now(),
+      import.meta.env.DEV,
+    );
+    this.onIntegrity?.(state);
+    this.post({ t: 'integrity', from: this.self.id, state });
+    return Promise.resolve(ok);
+  }
+  repairPause(active: boolean) {
+    if (this.mode === 'online') this.socket?.emit('world:repair-pause', active);
+    else {
+      const c = this.clock();
+      this.world.virtualElapsedMs = c.elapsedMs;
+      this.world.timeUpdatedAt = this.serverNow();
+      this.world.repairPause = active ? 'repair' : undefined;
+      const time = {
+        paused: this.world.paused === true || active,
+        scale: this.world.timeScale ?? 1,
+        timeUpdatedAt: this.world.timeUpdatedAt,
+        virtualElapsedMs: c.elapsedMs,
+      };
+      this.onTime?.(time);
+      this.post({ t: 'time', from: this.self.id, time });
+    }
+  }
 
   sendState(s: GameMotion) {
     if (this.disposed) return;
@@ -485,6 +578,8 @@ export class RoomRejectedError extends Error {}
 export class RoomFullError extends RoomRejectedError {}
 
 type LocalMessage =
+  | { t: 'integrity'; from: string; state: IntegrityState }
+  | { t: 'repair'; from: string; intent: RepairIntent }
   | { t: 'hello'; from: string }
   | {
       t: 'hi';

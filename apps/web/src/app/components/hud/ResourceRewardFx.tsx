@@ -4,7 +4,7 @@ import type { BaseViewer } from '../../../game/BaseViewer';
 import { useMission } from '../../../store/mission';
 import './resourceRewardFx.css';
 
-const RESOURCES = ['supplies', 'energy', 'materials'] as const;
+const RESOURCES = ['supplies', 'energy', 'armor'] as const;
 
 /** Escuta cada recompensa, inclusive quando vários comandos chegam no mesmo quadro. */
 export function ResourceRewardFx({ viewer }: { viewer: BaseViewer | null }) {
@@ -64,43 +64,62 @@ export function ResourceRewardFx({ viewer }: { viewer: BaseViewer | null }) {
           const angle = (i / count) * Math.PI * 2;
           const x = source.x + Math.cos(angle) * (16 + (i % 3) * 9);
           const y = source.y + Math.sin(angle) * 26;
-          animate(particle, [
-            { transform: `translate(${x}px, ${y}px) scale(0.65)`, opacity: 0 },
-            { transform: `translate(${x + (target.x - x) * 0.015}px, ${y - 14}px) scale(1)`, opacity: 1, offset: 0.2 },
-            { transform: `translate(${target.x}px, ${target.y}px) scale(0.4)`, opacity: 0.8 },
-          ], {
-            duration,
-            delay: i * stagger,
-            easing: 'cubic-bezier(0.55, 0, 1, 0.45)',
-            fill: 'both',
-          });
+          animate(
+            particle,
+            [
+              { transform: `translate(${x}px, ${y}px) scale(0.65)`, opacity: 0 },
+              {
+                transform: `translate(${x + (target.x - x) * 0.015}px, ${y - 14}px) scale(1)`,
+                opacity: 1,
+                offset: 0.2,
+              },
+              { transform: `translate(${target.x}px, ${target.y}px) scale(0.4)`, opacity: 0.8 },
+            ],
+            {
+              duration,
+              delay: i * stagger,
+              easing: 'cubic-bezier(0.55, 0, 1, 0.45)',
+              fill: 'both',
+            },
+          );
         }
 
         // A chegada destaca o anel e mostra somente a quantidade realmente recebida.
-        const timer = setTimeout(() => {
-          timers.delete(timer);
-          if (!layer.current || !gauge.isConnected) return;
-          const label = document.createElement('span');
-          label.className = `resource-reward-fx__amount resource-reward-fx--${kind}`;
-          label.textContent = `+${amount}`;
-          const bounds = gauge.getBoundingClientRect();
-          label.style.left = `${bounds.left + bounds.width / 2}px`;
-          label.style.top = `${bounds.bottom + 5}px`;
-          layer.current.appendChild(label);
-          animate(label, [
-            { opacity: 0, transform: 'translate(-50%, 6px)' },
-            { opacity: 1, transform: 'translate(-50%, 0)', offset: 0.15 },
-            { opacity: 1, offset: 0.75 },
-            { opacity: 0, transform: `translate(-50%, ${reducedMotion ? 0 : -12}px)` },
-          ], { duration: 1200, fill: 'both' });
-          if (!reducedMotion) {
-            animate(gauge, [
-              { filter: 'drop-shadow(0 0 0 transparent)' },
-              { filter: 'drop-shadow(0 0 12px var(--gauge-color))', offset: 0.3 },
-              { filter: 'drop-shadow(0 0 0 transparent)' },
-            ], { duration: 450 + (count - 1) * stagger });
-          }
-        }, reducedMotion ? 0 : duration);
+        const timer = setTimeout(
+          () => {
+            timers.delete(timer);
+            if (!layer.current || !gauge.isConnected) return;
+            const label = document.createElement('span');
+            label.className = `resource-reward-fx__amount resource-reward-fx--${kind}`;
+            label.textContent = `+${amount}`;
+            const bounds = gauge.getBoundingClientRect();
+            label.style.left = `${bounds.left + bounds.width / 2}px`;
+            label.style.top = `${bounds.bottom + 5}px`;
+            layer.current.appendChild(label);
+            animate(
+              label,
+              [
+                { opacity: 0, transform: 'translate(-50%, 6px)' },
+                { opacity: 1, transform: 'translate(-50%, 0)', offset: 0.15 },
+                { opacity: 1, offset: 0.75 },
+                { opacity: 0, transform: `translate(-50%, ${reducedMotion ? 0 : -12}px)` },
+              ],
+              { duration: 1200, fill: 'both' },
+            );
+            if (!reducedMotion) {
+              animate(
+                gauge,
+                [
+                  { filter: 'drop-shadow(0 0 0 transparent)' },
+                  { filter: 'drop-shadow(0 0 12px var(--gauge-color))', offset: 0.3 },
+                  { filter: 'drop-shadow(0 0 0 transparent)' },
+                ],
+                { duration: 450 + (count - 1) * stagger },
+              );
+            }
+          },
+          reducedMotion ? 0 : duration,
+        );
         timers.add(timer);
       }
     });
@@ -110,5 +129,8 @@ export function ResourceRewardFx({ viewer }: { viewer: BaseViewer | null }) {
     };
   }, [viewer]);
 
-  return createPortal(<div ref={layer} className="resource-reward-fx" aria-hidden="true" />, document.body);
+  return createPortal(
+    <div ref={layer} className="resource-reward-fx" aria-hidden="true" />,
+    document.body,
+  );
 }

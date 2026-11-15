@@ -36,7 +36,7 @@ export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
 
   return (
     <div className="hud-bottom">
-      <section className="crew-chat crew-chat--always" aria-label="Chat da tripulação">
+      <section className="crew-chat crew-chat--always" data-bit-target="chat" aria-label="Chat da tripulação">
         <ul ref={messages} className={`crew-chat__messages ${showMessages ? "" : "is-hidden"}`} aria-live="polite" aria-label="Mensagens recentes">
           {chat.map((m) => (
             <li key={m.id} className="crew-chat__line">

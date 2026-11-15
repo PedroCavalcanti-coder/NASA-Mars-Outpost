@@ -6,9 +6,15 @@
   overflow: hidden;
 }
 
-.resource-reward-fx--supplies { --reward-color: #8bcf78; }
-.resource-reward-fx--energy { --reward-color: #edce70; }
-.resource-reward-fx--materials { --reward-color: #79b9df; }
+.resource-reward-fx--supplies {
+  --reward-color: #8bcf78;
+}
+.resource-reward-fx--energy {
+  --reward-color: #edce70;
+}
+.resource-reward-fx--armor {
+  --reward-color: #79b9df;
+}
 
 .resource-reward-fx__icon {
   position: absolute;
@@ -29,6 +35,8 @@
 .resource-reward-fx__amount {
   position: absolute;
   color: var(--reward-color);
-  font: 800 22px 'Barlow', sans-serif;
+  font:
+    800 22px "Barlow",
+    sans-serif;
   text-shadow: 0 2px 3px #172a35;
 }

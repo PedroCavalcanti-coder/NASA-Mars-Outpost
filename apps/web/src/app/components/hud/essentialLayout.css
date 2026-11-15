@@ -13,7 +13,9 @@
   border: 3px solid #20394b;
   border-radius: 14px;
   background: #3c515a;
-  box-shadow: inset 0 0 0 2px #789aab, 0 3px 0 #152e3d;
+  box-shadow:
+    inset 0 0 0 2px #789aab,
+    0 3px 0 #152e3d;
 }
 
 .hud-root .hud-event-controls .time-controls__speed-group {
@@ -42,13 +44,41 @@
   pointer-events: auto;
 }
 
-.hud-resource-row { display: flex; align-items: flex-start; gap: 12px; }
-.hud-research { color: #fff8df; filter: drop-shadow(0 2px 2px #172a35bb); }
-.hud-research__heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; font-size: 12px; font-weight: 800; }
-.hud-research__heading span:first-child { display: flex; align-items: center; gap: 5px; }
-.hud-research__track { height: 14px; padding: 2px; border: 2px solid #20394b; border-radius: 8px; background: #3c515a; }
-.hud-research__fill { height: 100%; border-radius: 5px; background: #b6a2ef; transition: width 300ms ease; }
-
+.hud-resource-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.hud-research {
+  color: #fff8df;
+  filter: drop-shadow(0 2px 2px #172a35bb);
+}
+.hud-research__heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.hud-research__heading span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.hud-research__track {
+  height: 14px;
+  padding: 2px;
+  border: 2px solid #20394b;
+  border-radius: 8px;
+  background: #3c515a;
+}
+.hud-research__fill {
+  height: 100%;
+  border-radius: 5px;
+  background: #b6a2ef;
+  transition: width 300ms ease;
+}
 
 .hud-resource-gauge {
   --gauge-color: #edce70;
@@ -59,29 +89,88 @@
   color: #f7faf8;
   filter: drop-shadow(0 2px 2px #172a35bb);
 }
-.hud-resource-gauge--supplies { --gauge-color: #8bcf78; }
-.hud-resource-gauge--materials { --gauge-color: #79b9df; }
-.hud-resource-gauge__dial { position: relative; width: 100%; }
-.hud-resource-gauge__dial svg { display: block; width: 100%; overflow: visible; }
+.hud-resource-gauge--supplies {
+  --gauge-color: #8bcf78;
+}
+.hud-resource-gauge--armor {
+  --gauge-color: #79b9df;
+}
+.hud-resource-gauge__dial {
+  position: relative;
+  width: 100%;
+}
+.hud-resource-gauge__dial svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
 .hud-resource-gauge__track,
-.hud-resource-gauge__fill { fill: none; stroke-width: 7; stroke-linecap: round; }
-.hud-resource-gauge__track { stroke: #20394b99; }
-.hud-resource-gauge__fill { stroke: var(--gauge-color); transition: stroke-dasharray 300ms ease; }
-.hud-resource-gauge__icon { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; }
-.hud-resource-gauge__value { margin-top: -4px; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hud-resource-gauge__fill {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+.hud-resource-gauge__track {
+  stroke: #20394b99;
+}
+.hud-resource-gauge__fill {
+  stroke: var(--gauge-color);
+  transition: stroke-dasharray 300ms ease;
+}
+.hud-resource-gauge__icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+}
+.hud-resource-gauge__supplies-icon {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.hud-resource-gauge__dial .hud-resource-gauge__supplies-icon svg {
+  width: auto;
+  flex: none;
+}
+.hud-resource-gauge__value {
+  margin-top: -4px;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 767px) {
   .hud-energy-anchor {
     left: 16px;
     top: 24px;
   }
-  .hud-resource-gauge { width: 64px; }
-  .hud-resource-row { gap: 6px; }
+  .hud-resource-gauge {
+    width: 64px;
+  }
+  .hud-resource-row {
+    gap: 6px;
+  }
   .hud-event-controls {
     gap: 6px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-resource-gauge__fill, .hud-research__fill { transition: none; }
+  .hud-resource-gauge__fill,
+  .hud-research__fill {
+    transition: none;
+  }
+}
+
+.hud-resource-gauge--armor[data-level="warning"] {
+  --gauge-color: #f4cc70;
+}
+.hud-resource-gauge--armor[data-level="critical"],
+.hud-resource-gauge--armor[data-level="emergency"] {
+  --gauge-color: #f28670;
+}
+.hud-resource-gauge--armor[data-level="emergency"] .hud-resource-gauge__value::after {
+  content: " !";
+  color: #ff9d85;
 }

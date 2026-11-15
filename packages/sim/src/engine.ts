@@ -4,16 +4,12 @@ import {
   CRISIS_INFO,
   CRISIS_PENALTY,
   ECONOMY,
-  EVENT_CHANCE,
   EXPEDITION,
   FACILITY_MAX,
-  MAINTAIN_MORALE,
   MAX_SOLS,
-  MINE_YIELD,
   RESEARCH_ACTION,
   RESEARCH_GOAL,
 } from './balance';
-import { rollEvent } from './events';
 import { random, randomInt } from './rng';
 import { change, cloneState, crises, isOperational, pushLog, RESOURCE_IDS } from './state';
 import type {
@@ -30,7 +26,7 @@ import type {
 const RESOURCE_NAMES: Record<ResourceId, string> = {
   energy: 'energia',
   supplies: 'mantimentos',
-  materials: 'materiais',
+  armor: 'blindagem',
   oxygen: 'oxigênio',
 };
 
@@ -97,8 +93,7 @@ function performAction(s: MissionState, id: ActionId) {
       const roll = random(s);
       if (roll < chance) {
         const [r0, r1] = EXPEDITION.success.research;
-        const [m0, m1] = EXPEDITION.success.materials;
-        change(s, { research: randomInt(s, r0, r1), materials: randomInt(s, m0, m1) }, deltas);
+        change(s, { research: randomInt(s, r0, r1) }, deltas);
         pushLog(s, {
           tone: 'good',
           title: 'Expedição bem-sucedida',
@@ -126,27 +121,6 @@ function performAction(s: MissionState, id: ActionId) {
       }
       return;
     }
-    case 'mine': {
-      change(s, { materials: randomInt(s, MINE_YIELD[0], MINE_YIELD[1]) }, deltas);
-      pushLog(s, {
-        tone: 'good',
-        title: 'Escavação',
-        text: 'Regolito processado em materiais de construção.',
-        deltas,
-      });
-      return;
-    }
-    case 'maintain': {
-      s.solarEfficiency = 1;
-      change(s, { morale: MAINTAIN_MORALE }, deltas);
-      pushLog(s, {
-        tone: 'good',
-        title: 'Manutenção',
-        text: 'Painéis limpos (100% de eficiência) e sistemas revisados.',
-        deltas,
-      });
-      return;
-    }
   }
 }
 
@@ -171,7 +145,7 @@ function endSol(s: MissionState, realtime = false) {
     );
 
   // 3) evento do sol
-  if (s.sol >= 2 && random(s) < EVENT_CHANCE) pushLog(s, rollEvent(s));
+  // Eventos são controlados pela agenda compartilhada do mundo.
 
   // 4) crises de recursos
   const active = crises(s);
@@ -190,7 +164,7 @@ function endSol(s: MissionState, realtime = false) {
   s.actionsLeft = ACTIONS_PER_SOL;
 }
 
-function checkOutcome(s: MissionState) {
+export function checkOutcome(s: MissionState) {
   if (s.status !== 'playing') return;
   if (s.research >= RESEARCH_GOAL && isOperational(s)) {
     s.status = 'won';
@@ -222,7 +196,11 @@ function checkOutcome(s: MissionState) {
   }
 }
 
-const REWARD_KEYS = new Set<DeltaKey>([...RESOURCE_IDS, 'research', 'morale']);
+const REWARD_KEYS = new Set<DeltaKey>([
+  ...RESOURCE_IDS.filter((key) => key !== 'armor'),
+  'research',
+  'morale',
+]);
 
 /** Recompensa de tarefa: só chaves conhecidas e números finitos (limitados a ±100). */
 function applyReward(s: MissionState, cmd: Extract<Command, { type: 'reward' }>) {

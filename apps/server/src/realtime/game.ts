@@ -1,4 +1,11 @@
 import {
+  REPAIR_ANCHORS,
+  newIntegrity,
+  restoreIntegrity,
+  tickIntegrity,
+  repairIntent,
+} from '@mars/shared';
+import {
   applyTimeChange,
   GAME_EMOTES,
   GAME_MAX_CROPS,
@@ -84,6 +91,7 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
   if (!save) {
     // a sala "nasce" às 09:00 do Sol 1
     return {
+      integrity: newIntegrity(Math.random() * 2 ** 32),
       clockStart: now,
       storm: 0,
       solar: new Array<number>(GAME_MAX_SOLAR).fill(0),
@@ -96,6 +104,7 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
   });
   return {
     // o relógio retoma de onde o mundo parou, com a mesma velocidade/pausa
+    integrity: restoreIntegrity(save.integrity) ?? newIntegrity(Math.random() * 2 ** 32),
     clockStart: now - save.elapsedMs,
     storm: 0,
     solar,
@@ -112,7 +121,7 @@ function worldFromSave(save: WorldSave | null): GameWorldState {
 /** Estado atual do relógio da sala (para reenviar a quem teve o pedido recusado). */
 function timeState(world: GameWorldState, now: number): GameTimeState {
   return {
-    paused: world.paused === true,
+    paused: world.paused === true || Boolean(world.repairPause),
     scale: normalizeTimeScale(world.timeScale),
     timeUpdatedAt: now,
     virtualElapsedMs: worldClock(world, now).elapsedMs,
@@ -165,6 +174,7 @@ function snapshot(room: Room, mission: unknown): WorldSave | null {
     care: room.world.care,
     timeScale: room.world.timeScale,
     paused: room.world.paused,
+    integrity: room.world.integrity,
     mission,
   });
 }
@@ -212,6 +222,30 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
   void purgeExpired().catch((e: Error) => console.error('[game] limpeza de mundos:', e.message));
   const sweep = setInterval(() => void purgeExpired().catch(() => {}), 24 * 60 * 60 * 1000);
   sweep.unref();
+
+  const hazards = setInterval(() => {
+    for (const room of rooms.values()) {
+      if (!room.players.size) continue;
+      const w = room.world;
+      const c = worldClock(w, Date.now());
+      w.integrity ??= newIntegrity();
+      const rev = w.integrity.revision;
+      const wind = w.integrity.wind;
+      tickIntegrity(w.integrity, c.elapsedMs / 1000, Date.now(), c.hour);
+      if (w.integrity.wind > wind) {
+        w.solar = w.solar.map((n) => Math.max(0, n - 1));
+        ns.to(room.code).emit('world:solar', w.solar);
+      }
+      const e = w.integrity.event;
+      const storm = e?.id === 'dust_storm' && c.elapsedMs / 1000 - e.start >= 15 ? 0.85 : 0;
+      if (w.storm !== storm) {
+        w.storm = storm;
+        ns.to(room.code).emit('world:storm', storm);
+      }
+      if (w.integrity.revision !== rev) ns.to(room.code).emit('world:integrity', w.integrity);
+    }
+  }, 250);
+  hazards.unref();
 
   ns.on('connection', (socket) => {
     socket.data.tokens = STATE_RATE;
@@ -275,7 +309,12 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         slot,
       };
       const others = [...room.players.values()].map((p) => ({ ...p.info, motion: p.motion }));
+      if (room.world.repairPause && room.world.repairPause !== 'empty') {
+        room.world.repairPause = undefined;
+        room.world.timeUpdatedAt = Date.now();
+      }
       room.players.set(socket.id, { info });
+      ns.to(room.code).emit('world:time', timeState(room.world, Date.now()));
       socket.data.room = code;
       socket.data.info = info;
       socket.data.owner = owner;
@@ -294,6 +333,10 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       }
       socket.data.linked = linked;
 
+      if (room.world.repairPause === 'empty') {
+        room.world.repairPause = undefined;
+        room.world.timeUpdatedAt = Date.now();
+      }
       reply({
         ok: true,
         self: info,
@@ -330,6 +373,63 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       } catch (err) {
         console.error('[game] falha ao salvar o mundo:', (err as Error).message);
         reply({ ok: false, error: 'Não foi possível salvar agora. Tente de novo.' });
+      }
+    });
+
+    socket.on('world:repair', (intent, ack) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data) || !intent || typeof intent !== 'object')
+        return ack?.({ ok: false, error: 'Pedido inválido' });
+      const c = worldClock(room.world, Date.now());
+      const state = (room.world.integrity ??= newIntegrity());
+      if (
+        ![
+          'ready',
+          'stop',
+          'restart',
+          'event',
+          'emergency',
+          'reserve',
+          'heartbeat',
+          'release',
+          'plate',
+          'screw',
+        ].includes(intent.op)
+      )
+        return ack?.({ ok: false, error: 'Pedido inválido' });
+      if (intent.op === 'reserve') {
+        const f = state.fractures.find((f) => f.id === intent.fracture);
+        const anchors = REPAIR_ANCHORS[room.baseId as keyof typeof REPAIR_ANCHORS];
+        const a = f && anchors?.[f.anchor];
+        const motion = room.players.get(socket.id)?.motion;
+        if (!a || !motion || Math.hypot(motion.x - a.approach[0], motion.z - a.approach[2]) > 3.5)
+          return ack?.({ ok: false, error: 'Aproxime-se da fratura.' });
+      }
+      if (
+        !repairIntent(
+          state,
+          intent,
+          socket.id,
+          c.elapsedMs / 1000,
+          Date.now(),
+          process.env.NODE_ENV !== 'production',
+        )
+      )
+        return ack?.({ ok: false, error: 'Reparo ocupado ou indisponível' });
+      ns.to(room.code).emit('world:integrity', state);
+      ack?.({ ok: true, state });
+    });
+    socket.on('world:repair-pause', (active) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (room) {
+        const was = room.world.paused === true;
+        applyTimeChange(room.world, Date.now(), {
+          paused: was,
+          scale: normalizeTimeScale(room.world.timeScale),
+        });
+        room.world.repairPause = active === true && room.players.size === 1 ? socket.id : undefined;
+        const t = timeState(room.world, Date.now());
+        ns.to(room.code).emit('world:time', t);
       }
     });
 
@@ -452,12 +552,21 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
         room.world.vehicle = { x: leaving.motion.x, z: leaving.motion.z, h: leaving.motion.h };
         socket.to(room.code).emit('world:vehicle', room.world.vehicle);
       }
+      if (room.world.repairPause === socket.id) {
+        room.world.repairPause = undefined;
+        room.world.timeUpdatedAt = Date.now();
+      }
       room.players.delete(socket.id);
       socket.to(room.code).emit('player:left', socket.id);
       if (room.saved && socket.data.linked && socket.data.owner) {
         void touchLink(socket.data.owner, room.code, socket.data.info?.name ?? '').catch(() => {});
       }
       if (room.players.size === 0) {
+        applyTimeChange(room.world, Date.now(), {
+          paused: room.world.paused === true,
+          scale: normalizeTimeScale(room.world.timeScale),
+        });
+        room.world.repairPause = 'empty';
         // o último jogador a sair deixa o mundo como ele ficou (se o mundo é salvo)
         if (room.saved) {
           const save = snapshot(room, room.mission);
