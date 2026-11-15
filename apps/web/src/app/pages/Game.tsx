@@ -920,7 +920,7 @@ function ReadyGame() {
                   filtro, cama, rover…) e o astronauta vai até ele e usa
                 </li>
                 <li>
-                  <b>E</b> entra e sai do rover · arraste para girar a câmera · role para dar zoom
+                  clique no rover para entrar · duplo clique nele para sair · arraste para girar a câmera · role para dar zoom
                 </li>
               </ul>
             </div>

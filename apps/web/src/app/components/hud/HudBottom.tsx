@@ -76,7 +76,6 @@ export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
           <button type="button" className="hud-bottom__exit" onClick={onExitRover}>
             <Car size={18} />
             <span>Sair do rover</span>
-            <kbd>E</kbd>
           </button>
         )}
       </div>
