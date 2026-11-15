@@ -1,38 +1,75 @@
 /**
- * Faixa inferior da HUD: mensagens da sala, coordenadas, botão de sair do rover e dicas.
+ * Faixa inferior da HUD: mensagens da sala e botão de sair do rover.
  *
  * Antes eram elementos soltos do `Game` (centralizados na tela inteira, passando por baixo
  * da doca). Agora ficam dentro da HUD, alinhados à esquerda e sem invadir a doca da direita.
  */
 
-import { Car, MapPin } from 'lucide-react';
+import { Car, MessageCircle, Send } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import './crewChat.css';
 import { useHudContext } from './HudContext';
-import { useIsTouch } from './TouchControls';
 
 interface HudBottomProps {
+  chatOpen: boolean;
+  onToggleChat: () => void;
   driving: boolean;
   onExitRover: () => void;
-  showHints: boolean;
-  showCoords: boolean;
 }
 
-export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBottomProps) {
-  const { chat, coords } = useHudContext();
-  const touch = useIsTouch();
-  const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
+export function HudBottom({ driving, onExitRover, chatOpen }: HudBottomProps) {
+  const { chat, onSendChat } = useHudContext();
+  const [draft, setDraft] = useState('');
+  const [showMessages, setShowMessages] = useState(false);
+  const lastMessageId = chat.at(-1)?.id;
+  const messages = useRef<HTMLUListElement>(null);
+  useEffect(() => {
+    if (messages.current) messages.current.scrollTop = messages.current.scrollHeight;
+  }, [chat, chatOpen]);
+
+  useEffect(() => {
+    if (!lastMessageId) return;
+    setShowMessages(true);
+    const timer = window.setTimeout(() => setShowMessages(false), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [lastMessageId]);
 
   return (
     <div className="hud-bottom">
-      {chat.length > 0 && (
-        <ul className="hud-bottom__chat" aria-live="polite" aria-label="Mensagens da sala">
+      <section className="crew-chat crew-chat--always" aria-label="Chat da tripulação">
+        <ul
+          ref={messages}
+          className={`crew-chat__messages ${showMessages ? '' : 'is-hidden'}`}
+          aria-live="polite"
+          aria-label="Mensagens recentes"
+        >
           {chat.map((m) => (
-            <li key={m.id} className={m.local ? 'is-me' : ''}>
-              <strong>{m.name}</strong>
-              <span className="hud-bottom__emoji">{m.emoji}</span>
+            <li key={m.id} className="crew-chat__line">
+              <strong>{m.local ? 'Você' : m.name}</strong>
+              <span>{m.emoji}</span>
             </li>
           ))}
         </ul>
-      )}
+        <form
+          className="crew-chat__input-row"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (onSendChat(draft)) setDraft('');
+          }}
+        >
+          <MessageCircle size={19} aria-hidden="true" />
+          <input
+            aria-label="Mensagem para a tripulação"
+            placeholder="Escreva uma mensagem..."
+            maxLength={240}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <button type="submit" aria-label="Enviar mensagem" disabled={!draft.trim()}>
+            <Send size={19} />
+          </button>
+        </form>
+      </section>
 
       <div className="hud-bottom__row">
         {driving && (
@@ -42,38 +79,7 @@ export function HudBottom({ driving, onExitRover, showHints, showCoords }: HudBo
             <kbd>E</kbd>
           </button>
         )}
-        {showCoords && coords && (
-          <span className="hud-bottom__coords">
-            <MapPin size={13} aria-hidden="true" />X {signed(coords.gx)} · Y {signed(coords.gy)} ·{' '}
-            <strong className={coords.inside ? 'is-inside' : 'is-outside'}>
-              {coords.inside ? 'interior' : 'exterior'}
-            </strong>
-          </span>
-        )}
       </div>
-
-      {showHints && touch && (
-        <p className="hud-bottom__hints" role="note">
-          <span>Joystick para andar</span>
-          <span>Toque num objeto: o astronauta vai até ele e usa</span>
-          <span>Arraste para girar · pinça para zoom</span>
-        </p>
-      )}
-      {showHints && !touch && (
-        <p className="hud-bottom__hints" role="note">
-          <span>
-            <kbd>WASD</kbd> ou clique para andar
-          </span>
-          <span>Clique em painéis, canteiros, filtros e na sonda para trabalhar</span>
-          <span>
-            <kbd>T</kbd> tarefas do Sol
-          </span>
-          <span>
-            <kbd>E</kbd> rover
-          </span>
-          <span>Arraste para girar a câmera</span>
-        </p>
-      )}
     </div>
   );
 }

@@ -5,6 +5,7 @@
  * Exibido exclusivamente em modo desenvolvedor (?dev na URL ou import.meta.env.DEV).
  */
 
+import { EVENTS } from '@mars/sim';
 import { Play, Terminal, Wrench } from 'lucide-react';
 import { useMemo, useSyncExternalStore } from 'react';
 import {
@@ -13,6 +14,7 @@ import {
   refreshDevActions,
   subscribeDevActions,
 } from '../../../../game/dev/devActions';
+import { useMission } from '../../../../store/mission';
 
 function useDevActions(): readonly ResolvedDevAction[] {
   return useSyncExternalStore(
@@ -21,6 +23,16 @@ function useDevActions(): readonly ResolvedDevAction[] {
     getRegisteredDevActions,
   );
 }
+
+const EVENT_LABELS: Record<string, string> = {
+  dust_storm: 'Tempestade de poeira',
+  recycler_failure: 'Falha no reciclador de água',
+  micrometeorite: 'Micrometeorito no laboratório',
+  solar_flare: 'Erupção solar',
+  discovery: 'Achado geológico',
+  supply_drop: 'Cápsula de carga',
+  cleaning_wind: 'Rajada de vento',
+};
 
 export function DevPanel() {
   const actions = useDevActions();
@@ -59,6 +71,24 @@ export function DevPanel() {
         </div>
       </div>
 
+      <div className="hud-dev-group">
+        <h4 className="hud-dev-group-title">Eventos aleatórios</h4>
+        <div className="hud-dev-actions-grid">
+          {EVENTS.map((event) => (
+            <button
+              key={event.id}
+              type="button"
+              className="hud-dev-action-btn"
+              onClick={() => useMission.getState().triggerEvent(event.id)}
+            >
+              <div className="hud-dev-action-head">
+                <Play size={13} className="hud-dev-play-icon" />
+                <span className="hud-dev-action-name">{EVENT_LABELS[event.id] ?? event.id}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
       {actions.length === 0 ? (
         <div className="hud-dev-empty">
           <Wrench size={24} />

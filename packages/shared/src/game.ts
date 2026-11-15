@@ -163,6 +163,8 @@ export interface GameVehicleState {
 export interface GameCareState {
   crops: number[];
   filter: number;
+  /** Plantas que ainda precisam ser irrigadas nesta plantação. */
+  needsCare?: boolean[];
 }
 
 /** Valida cuidados vindos da rede/banco: inteiros 0..100000, no máximo `GAME_MAX_CROPS` canteiros. */
@@ -172,7 +174,13 @@ export function normalizeCare(raw: unknown): GameCareState | null {
   const sol = (v: unknown) =>
     typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100_000, Math.round(v))) : 0;
   if (!Array.isArray(r.crops)) return null;
-  return { crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol), filter: sol(r.filter) };
+  return {
+    crops: r.crops.slice(0, GAME_MAX_CROPS).map(sol),
+    filter: sol(r.filter),
+    ...(Array.isArray(r.needsCare)
+      ? { needsCare: r.needsCare.slice(0, GAME_MAX_CROPS).map((v) => v === true) }
+      : {}),
+  };
 }
 
 /**
@@ -385,6 +393,7 @@ export interface GameServerToClient {
   'gesture:start': (start: GestureStart) => void;
   /** convite recusado pelo servidor (longe demais, rover, sem alvo...) */
   'gesture:denied': (reason: string) => void;
+  'player:chat': (id: string, message: string) => void;
   /** relógio mudou (pausa/velocidade/salto): vai para todos, inclusive quem pediu */
   'world:time': (t: GameTimeState) => void;
 }
@@ -401,6 +410,7 @@ export interface GameClientToServer {
   'player:emote': (emote: number) => void;
   'gesture:invite': (gesture: DuoGestureId, targetId: string) => void;
   'gesture:accept': (fromId: string) => void;
+  'player:chat': (message: string) => void;
   /** pede mudança no relógio (restrita ao coordenador se houver mais de um jogador) */
   'world:time': (req: GameTimeRequest) => void;
   /** Grava o mundo no banco e vincula o jogador a ele. */

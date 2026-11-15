@@ -17,6 +17,7 @@ interface Door {
   radius: number;
   /** 0 = fechada, 1 = aberta */
   k: number;
+  opening: boolean;
 }
 
 const OPEN_SPEED = 4; // 1 / 0,25 s
@@ -37,7 +38,10 @@ export class DoorSystem {
   private readonly tmp = new THREE.Matrix4();
   private readonly box = new THREE.Box3();
 
-  constructor(model: THREE.Object3D) {
+  constructor(
+    model: THREE.Object3D,
+    private readonly onOpen?: () => void,
+  ) {
     model.updateMatrixWorld(true);
     const inverse = new THREE.Matrix4().copy(model.matrixWorld).invert();
     const wp = new THREE.Vector3();
@@ -63,6 +67,7 @@ export class DoorSystem {
         z: wp.z,
         radius: o.name.endsWith('PortaGaragem') ? GARAGE_RADIUS : DOOR_RADIUS,
         k: 0,
+        opening: false,
       };
       this.doors.push(door);
 
@@ -144,6 +149,8 @@ export class DoorSystem {
           break;
         }
       }
+      if (near && !d.opening) this.onOpen?.();
+      d.opening = near;
       const target = near ? 1 : 0;
       if (d.k === target) continue;
       d.k += Math.sign(target - d.k) * Math.min(Math.abs(target - d.k), OPEN_SPEED * dt);

@@ -18,6 +18,8 @@ import { JoinWorldModal } from '../components/JoinWorldModal';
 import { SettingsModal } from '../components/SettingsModal';
 import './home.css';
 
+const DECOMPRESSION_GAIN = 0.5;
+
 export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean }) {
   useSyncExternalStore(subscribeExpedition, expeditionSnapshot);
   const session = peekExpedition();
@@ -108,7 +110,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
         (event) => {
           if (event === 'decompression') {
             if (!airAudio.current) airAudio.current = new Audio('/assets/audio/air.mp3');
-            airAudio.current.volume = landingVolume.current;
+            airAudio.current.volume = landingVolume.current * DECOMPRESSION_GAIN;
             airAudio.current.currentTime = 0;
             void airAudio.current.play().catch(() => {});
             return;
@@ -201,7 +203,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
   useEffect(() => {
     landingVolume.current = audio.muted ? 0 : (audio.masterVolume / 100) * (audio.sfxVolume / 100);
-    if (airAudio.current) airAudio.current.volume = landingVolume.current;
+    if (airAudio.current) airAudio.current.volume = landingVolume.current * DECOMPRESSION_GAIN;
     if (fallingAudio.current)
       fallingAudio.current.volume = landingVolume.current * fallingGain.current;
     if (launchAudio.current) {

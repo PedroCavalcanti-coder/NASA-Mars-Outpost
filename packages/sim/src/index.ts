@@ -3,7 +3,7 @@ import { GAME_NAME } from '@mars/shared';
 
 export * from './balance';
 export * from './engine';
-export { EVENTS } from './events';
+export { EVENTS, triggerEvent } from './events';
 export { createMission, crises, isOperational, RESOURCE_IDS } from './state';
 export * from './types';
 

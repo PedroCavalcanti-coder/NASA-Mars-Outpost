@@ -166,7 +166,7 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
                 required
                 autoFocus
                 className="join-input join-input--code"
-                placeholder="Ex: MARS-JEZERO-7A9B"
+                placeholder="Ex: 7A9B"
                 value={code}
                 onChange={(e) => {
                   setCode(e.target.value.toUpperCase());
@@ -175,7 +175,7 @@ export function JoinWorldModal({ open, onClose, onJoin, initialCode = '' }: Prop
                 maxLength={40}
               />
               <span className="join-field-hint">
-                O anfitrião da sala encontra este código no menu de configurações do jogo.
+                O anfitrião encontra o código no topo da tela ou nas configurações.
               </span>
             </div>
 

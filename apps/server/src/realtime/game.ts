@@ -470,6 +470,13 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('mission:event', ev);
     });
 
+    socket.on('player:chat', (raw) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2) || typeof raw !== 'string') return;
+      const message = raw.trim().slice(0, 240);
+      if (message) socket.to(room.code).emit('player:chat', socket.id, message);
+    });
+
     socket.on('player:emote', (raw) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room) return;

@@ -22,7 +22,7 @@ export const KNOWN_PANEL_META: Record<string, PanelMeta> = {
   camera: { shortcut: 'C', order: 40 },
   chat: { shortcut: 'Q', order: 50 },
   sistema: { shortcut: 'O', order: 60 },
-  dev: { shortcut: 'D', order: 99 },
+  dev: { shortcut: '0', order: 99 },
 };
 
 export function getPanelMeta(id: string): PanelMeta {

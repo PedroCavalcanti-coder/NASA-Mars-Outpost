@@ -30,15 +30,6 @@
   cursor: grabbing;
 }
 
-.game__vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, rgba(8, 16, 38, 0.75) 0%, transparent 18%),
-    linear-gradient(0deg, rgba(8, 16, 38, 0.8) 0%, transparent 15%);
-}
-
 /* ---------- Cabeçalho HUD Superior ---------- */
 .game__header {
   position: absolute;

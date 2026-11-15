@@ -2,15 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { CROPS, cropReducer, healthy, initialCrops, plantHealth } from './greenhouseState';
 
 describe('greenhouse care', () => {
-  it('requires both hydration and stage-appropriate light for recovery', () => {
+  it('a planta se recupera quando recebe água suficiente (a luz não é mais exigida)', () => {
     let crops = initialCrops();
     expect(crops.some(healthy)).toBe(false);
     crops = cropReducer(crops, { type: 'water', index: 0, seconds: 10 });
-    expect(healthy(crops[0], 0)).toBe(false);
-    expect(plantHealth(crops[0], 0)).toBeLessThan(1);
-    crops = cropReducer(crops, { type: 'light', index: 0 });
     expect(healthy(crops[0], 0)).toBe(true);
-    expect(plantHealth(crops[0], 0)).toBe(1);
     expect(healthy(crops[1], 1)).toBe(false);
   });
   it('preserves partial watering, prevents overflow, and leaves other beds alone', () => {

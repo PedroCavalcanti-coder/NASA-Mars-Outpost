@@ -80,6 +80,8 @@ registerDevAction({
 });
 
 export interface TimeControlsProps {
+  /** The combined oxygen orb already displays the day cycle. */
+  hideTimeDisplay?: boolean;
   /** Permite passar o tempo atual de Marte (caso fornecido pelo BaseViewer) */
   marsTime?: {
     sol: number;
@@ -96,7 +98,7 @@ export interface TimeControlsProps {
  * selo visual evidente "PAUSADO", suporte a atalhos de teclado (Espaço, 1, 2, 3),
  * e validação de autoridade multiplayer (coordenador vs participante).
  */
-export function TimeControls({ marsTime }: TimeControlsProps) {
+export function TimeControls({ marsTime, hideTimeDisplay = false }: TimeControlsProps) {
   const clock = useGameClock();
   const { paused, scale, canControl, isCoordinator, playerCount } = clock;
 
@@ -158,18 +160,20 @@ export function TimeControls({ marsTime }: TimeControlsProps) {
       aria-label="Controle de tempo da simulação"
     >
       {/* Indicador de Sol e Horário Marciano */}
-      <div
-        className="time-controls__time-display"
-        title={`Sol ${displaySol} · ${displayFormatted} LMST`}
-      >
-        {displayIsDay ? (
-          <Sun size={15} className="time-controls__icon-sun" aria-hidden="true" />
-        ) : (
-          <Moon size={15} className="time-controls__icon-moon" aria-hidden="true" />
-        )}
-        <span className="time-controls__sol">SOL {displaySol}</span>
-        <span className="time-controls__lmst">{displayFormatted}</span>
-      </div>
+      {!hideTimeDisplay && (
+        <div
+          className="time-controls__time-display"
+          title={`Sol ${displaySol} · ${displayFormatted} LMST`}
+        >
+          {displayIsDay ? (
+            <Sun size={15} className="time-controls__icon-sun" aria-hidden="true" />
+          ) : (
+            <Moon size={15} className="time-controls__icon-moon" aria-hidden="true" />
+          )}
+          <span className="time-controls__sol">SOL {displaySol}</span>
+          <span className="time-controls__lmst">{displayFormatted}</span>
+        </div>
+      )}
 
       {/* Selo de Pausa */}
       {paused && (

@@ -48,6 +48,13 @@ export class CropSystem {
   private readonly proxyMat = new THREE.MeshBasicMaterial({ visible: false });
   private readonly moundGeo = new THREE.CylinderGeometry(0.26, 0.34, 0.1, 10);
   private readonly moundMat = new THREE.MeshStandardMaterial({ color: 0x5a3a24, roughness: 1 });
+  private readonly emptyOutlineGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(-0.45, 0, -0.45),
+    new THREE.Vector3(0.45, 0, -0.45),
+    new THREE.Vector3(0.45, 0, 0.45),
+    new THREE.Vector3(-0.45, 0, 0.45),
+  ]);
+  private readonly emptyOutlineMat = new THREE.LineBasicMaterial({ color: '#ffffff' });
 
   constructor(
     model: THREE.Object3D,
@@ -101,6 +108,7 @@ export class CropSystem {
           continue;
         }
         const plant = src.clone(true);
+        plant.userData.pick = { kind: 'crop', index: this.slots.length };
         plant.position.copy(marker.position);
         plant.quaternion.copy(marker.quaternion);
         plant.scale.copy(marker.scale);
@@ -122,6 +130,12 @@ export class CropSystem {
       const proxy = new THREE.Mesh(this.proxyGeo, this.proxyMat);
       proxy.position.set(world.x, world.y + 0.65, world.z);
       proxy.userData.pick = { kind: 'crop', index: this.slots.length };
+      // O canteiro vazio também precisa indicar onde é possível plantar.
+      const emptyOutline = new THREE.LineLoop(this.emptyOutlineGeo, this.emptyOutlineMat);
+      emptyOutline.position.y = -0.63;
+      emptyOutline.raycast = () => {};
+      proxy.add(emptyOutline);
+      visuals[0] = emptyOutline;
       proxy.updateMatrix();
       proxy.matrixWorld.copy(proxy.matrix);
       proxy.matrixAutoUpdate = false; // posição fixa: a matriz já está pronta para o clique
@@ -143,6 +157,8 @@ export class CropSystem {
   }
 
   private show(slot: CropSlot) {
+    const hint = slot.proxy.children.find((c) => c.userData.emptyHint);
+    if (hint) hint.visible = slot.stage === 0;
     slot.visuals.forEach((v, s) => {
       if (v) v.visible = s === slot.stage;
     });
@@ -191,5 +207,7 @@ export class CropSystem {
     this.proxyMat.dispose();
     this.moundGeo.dispose();
     this.moundMat.dispose();
+    this.emptyOutlineGeo.dispose();
+    this.emptyOutlineMat.dispose();
   }
 }

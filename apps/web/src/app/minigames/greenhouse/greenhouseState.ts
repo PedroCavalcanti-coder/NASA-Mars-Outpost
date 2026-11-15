@@ -17,13 +17,13 @@ export function initialCrops(): CropState {
 }
 export function healthy(crop: Crop, index: number) {
   const needs = CROPS[index];
-  return !!needs && crop.water >= needs.water && crop.light === needs.light;
+  return !!needs && crop.water >= needs.water;
 }
 export function plantHealth(crop: Crop, index: number) {
   const needs = CROPS[index];
   if (!needs) return 0;
   const hydration = Math.min(1, crop.water / needs.water);
-  return hydration * (crop.light === needs.light ? 1 : 0.55);
+  return hydration;
 }
 export type CropAction =
   | { type: 'water'; index: CropIndex; seconds: number }

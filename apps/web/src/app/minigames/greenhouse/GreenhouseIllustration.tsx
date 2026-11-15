@@ -128,8 +128,7 @@ function CropBed({
   const x = needs.x;
   const ready = healthy(crop, index);
   const health = plantHealth(crop, index);
-  const watering = game.watering === index && crop.water < needs.water;
-  const tabIndex = game.portrait && game.camera !== index ? -1 : 0;
+  const watering = game.watering;
   return (
     <g className="greenhouse-bed" data-crop={index} data-healthy={ready} data-watering={watering}>
       <path d={`M${x - 72} 148V102M${x + 72} 148V102`} stroke="#334e49" strokeWidth="4" />
@@ -169,18 +168,6 @@ function CropBed({
           fill={bulb < crop.light ? '#fff1ae' : '#2f4b40'}
         />
       ))}
-      <foreignObject x={x - 108} y="116" width="216" height="72">
-        <button
-          type="button"
-          className="greenhouse-control greenhouse-lamp-control"
-          data-crop={index}
-          tabIndex={tabIndex}
-          disabled={game.complete}
-          aria-label={`${needs.name}: ajustar luz. Intensidade ${crop.light} de 3; ideal ${needs.light}.`}
-          title="Toque para ajustar a luz"
-          onClick={() => game.light(index)}
-        />
-      </foreignObject>
       <path d={`M${x} 284V311`} stroke="#72968a" strokeWidth="7" />
       <path d={`M${x - 20} 311H${x + 20}`} stroke="#b6c7a6" strokeWidth="7" strokeLinecap="round" />
       {watering && (
@@ -281,27 +268,6 @@ function CropBed({
           strokeLinecap="round"
         />
       </g>
-      <foreignObject x={x - 60} y="450" width="84" height="84">
-        <button
-          type="button"
-          className="greenhouse-control greenhouse-water-control"
-          data-crop={index}
-          tabIndex={tabIndex}
-          disabled={game.complete}
-          aria-label={`${needs.name}: segure para regar. ${crop.water >= needs.water ? 'Água suficiente.' : 'Precisa de água.'}`}
-          title="Segure para regar"
-          onPointerDown={(event) => game.down(event, index)}
-          onPointerUp={game.up}
-          onPointerCancel={game.up}
-          onLostPointerCapture={game.up}
-          onKeyDown={(event) => game.keyDown(event, index)}
-          onKeyUp={game.keyUp}
-          onBlur={game.stop}
-          onClick={(event) => {
-            if (event.detail === 0) game.waterStep(index);
-          }}
-        />
-      </foreignObject>
       <foreignObject x={x + 50} y="507" width="30" height="25">
         <Droplets className="greenhouse-water-mark" />
       </foreignObject>
@@ -338,19 +304,14 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
   return (
     <svg
       className="greenhouse-art"
-      viewBox={
-        game.portrait
-          ? `${CROPS[game.complete ? 1 : game.camera].x - 145} 85 290 555`
-          : '0 0 1000 660'
-      }
+      viewBox="0 0 1000 660"
       aria-labelledby={`${id}-title ${id}-description`}
     >
       <title id={`${id}-title`}>Uma pequena estufa em Marte</title>
       <desc id={`${id}-description`}>
         Canteiros hidropônicos com brotos, plantas de folhas levemente murchas e tomateiros adultos.
-        Segure as válvulas nos canteiros para regar. Toque nas luminárias para alternar a luz. As
-        mudas precisam de luz suave, as plantas em crescimento de luz média e os tomateiros de luz
-        forte. As folhas e os sinais verdes dos canteiros mostram a recuperação.
+        Segure a válvula na tubulação à esquerda para regar todos os canteiros. As folhas e os
+        sinais verdes mostram a recuperação.
       </desc>
       <defs>
         <linearGradient id={`${id}-sky`} x2="0" y2="1">
@@ -446,6 +407,33 @@ export function GreenhouseIllustration({ game }: { game: GreenhouseGame }) {
         stroke="#86a89b"
         strokeWidth="10"
       />
+      <g className="greenhouse-main-valve" data-watering={game.watering} aria-hidden="true">
+        <circle cx="72" cy="410" r="31" fill="#365751" stroke="#203f3e" strokeWidth="5" />
+        <g className="greenhouse-valve-wheel">
+          <circle cx="72" cy="410" r="24" fill="#d99545" stroke="#f5d294" strokeWidth="5" />
+          <path d="M72 389v42M51 410h42" stroke="#ffe1a6" strokeWidth="6" strokeLinecap="round" />
+          <circle cx="72" cy="410" r="6" fill="#735333" />
+        </g>
+      </g>
+      <foreignObject x="33" y="371" width="78" height="78">
+        <button
+          type="button"
+          className="greenhouse-control greenhouse-water-control"
+          disabled={game.complete}
+          aria-label="Segure para irrigar todas as plantas"
+          title="Segure para irrigar"
+          onPointerDown={game.down}
+          onPointerUp={game.up}
+          onPointerCancel={game.up}
+          onLostPointerCapture={game.up}
+          onKeyDown={game.keyDown}
+          onKeyUp={game.keyUp}
+          onBlur={game.stop}
+          onClick={(event) => {
+            if (event.detail === 0) game.waterStep();
+          }}
+        />
+      </foreignObject>
       {CROPS.map((crop) => (
         <CropBed
           key={crop.x}

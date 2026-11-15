@@ -107,6 +107,13 @@ function RedirectHome() {
   return <Navigate to={sala ? `/?sala=${encodeURIComponent(sala)}` : '/'} replace />;
 }
 
+/** Código de sala de 4 caracteres (sem o nome da base). */
+function newRoomCode() {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = crypto.getRandomValues(new Uint32Array(4));
+  return Array.from(bytes, (value) => alphabet[value % alphabet.length]).join('');
+}
+
 /** Recarregou a página no meio do jogo: reabre a mesma base e a mesma sala, sem o pouso. */
 function ResumeGame() {
   const nav = useNavigate();
@@ -196,8 +203,7 @@ function ReadyGame() {
     // recarregou a página: continua na mesma sala (o mesmo mundo e o mesmo save)
     const resumedRoom = getPlaySession()?.room;
     if (resumedRoom) return resumedRoom;
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `MARS-${baseId.toUpperCase()}-${rand}`;
+    return newRoomCode();
   });
 
   const mount = useRef<HTMLDivElement>(null);
@@ -382,11 +388,14 @@ function ReadyGame() {
       onGestureInvite: (invite) => {
         if (alive) setDuoInvite(invite);
       },
+      onChat: ({ name, message, local }) => {
+        if (alive)
+          setChat((c) => [...c.slice(-49), { id: ++chatId.current, name, emoji: message, local }]);
+      },
       onEmote: ({ name: who, emoji, local }) => {
         if (!alive) return;
         const id = ++chatId.current;
-        setChat((c) => [...c.slice(-5), { id, name: who, emoji, local }]);
-        window.setTimeout(() => setChat((c) => c.filter((m) => m.id !== id)), 9000);
+        setChat((c) => [...c.slice(-49), { id, name: who, emoji, local }]);
       },
       onMessage: (msg, kind) => {
         // o aviso das missões do dia fica mais tempo na tela: diz onde cada uma acontece
@@ -532,9 +541,8 @@ function ReadyGame() {
 
   /** Mundo novo: sala nova e missão do zero (recarrega a base já na sala nova). */
   function newWorld() {
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
     clearMissionSnapshot();
-    savePlaySession({ room: `MARS-${baseId.toUpperCase()}-${rand}`, base: baseId });
+    savePlaySession({ room: newRoomCode(), base: baseId });
     window.location.replace('/jogar');
   }
 
@@ -779,7 +787,6 @@ function ReadyGame() {
       {/* `display: contents` mantém o layout; `inert` bloqueia a base enquanto o minigame está aberto */}
       <div className="game__interface" style={{ display: 'contents' }} inert={minigame !== null}>
         <div className="game__canvas" ref={mount} />
-        <div className="game__vignette" />
 
         <MissionVeil />
         {touch && !loading && !error && intro === 'gone' && (
@@ -814,6 +821,7 @@ function ReadyGame() {
             onToggleRoofs={toggleRoofs}
             chat={chat}
             onSendEmote={pickEmote}
+            onSendChat={(message) => viewer.current?.sendChat(message) ?? false}
             info={info}
             astronautName={name ?? 'Explorador'}
             coords={coords}

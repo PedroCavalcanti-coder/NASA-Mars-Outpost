@@ -20,6 +20,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { VideoSettings } from '../app/components/SettingsModal';
 import { type BaseId, type BaseInfo, baseModelUrl } from '../lib/bases';
 import { isGameOverlayOpen } from '../lib/gameOverlay';
+import { useGameSettings } from '../lib/gameSettings';
 import { getGuestName } from '../lib/guest';
 import { loadGLB } from '../lib/modelCache';
 import { readSuitPreference } from '../lib/suitPreference';
@@ -72,7 +73,7 @@ import { StationMarkers } from './missions/StationMarkers';
 import { publishMissionBoard, resetMissionBoard, type SoilPhase } from './missions/store';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
-import { type OutlineOptions, OutlineSystem } from './render/Outline';
+import { InvertedHullManager, type OutlineOptions, OutlineSystem } from './render/Outline';
 import type { AssetPool } from './runtime/assets';
 import type { GameRuntime } from './runtime/expedition';
 import { batchStaticMeshes, freezeStatic } from './StaticBatcher';
@@ -82,6 +83,7 @@ import { adjustBaseOxygen } from './survival/OxygenSystem';
 // [seam:survival]
 import type { SystemContext } from './systems/context';
 import { GameSystemRegistry } from './systems/registry';
+import { TaskMarkers } from './TaskMarkers';
 import { targetLayer } from './tasks/drilling';
 import {
   caredToday,
@@ -99,7 +101,7 @@ import {
   seeded,
   solarGeneration,
 } from './tasks/rules';
-import { publishOps, resetOps } from './tasks/store';
+import { publishOps, resetOps, tasksFrom, useBaseOps } from './tasks/store';
 import { Rover } from './Vehicle';
 import './survival';
 
@@ -165,6 +167,7 @@ export interface BaseViewerOptions {
     invite: { fromId: string; name: string; gesture: DuoGestureId } | null,
   ) => void;
   /** um emoji foi enviado (por mim ou por outro jogador): alimenta o chat */
+  onChat?: (info: { name: string; message: string; local: boolean }) => void;
   onEmote?: (info: { name: string; emoji: string; local: boolean }) => void;
   /** a sala recusou a entrada (apelido em uso, sala cheia): a interface deve voltar ao início */
   onRoomRejected?: () => void;
@@ -267,7 +270,15 @@ export class BaseViewer {
   private readonly renderer: THREE.WebGLRenderer;
   /** linha de contorno (desligada por padrão; ligada nas configurações de vídeo) */
   private readonly outline: OutlineSystem;
+  /** Indicação de interação, independente do contorno opcional das configurações de vídeo. */
+  private readonly interactionOutline = new InvertedHullManager({
+    enabled: true,
+    color: '#ffffff',
+    strength: 2,
+  });
   private readonly scene = new THREE.Scene();
+  private readonly taskMarkers = new TaskMarkers(this.scene);
+  private readonly taskMarkerPositions = new Map<string, THREE.Vector3>();
   private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.5, 900);
   private readonly controls: OrbitControls;
   private readonly resizeObserver: ResizeObserver;
@@ -332,6 +343,11 @@ export class BaseViewer {
 
   // Astronautas (local e remotos)
   private localAstronaut: AstronautActor | null = null;
+  private footstepAudio: [HTMLAudioElement, HTMLAudioElement] | null = null;
+  private metalFootstepAudio: [HTMLAudioElement, HTMLAudioElement] | null = null;
+  private nextFootstep = 0;
+  private footstepDistance = 0;
+  private readonly doorSounds = new Set<HTMLAudioElement>();
   private readonly remoteAstronauts = new Map<string, AstronautActor>();
   private readonly remoteList: AstronautActor[] = [];
   private pending: PendingTask | null = null;
@@ -787,12 +803,21 @@ export class BaseViewer {
     // ---- interior (tetos/paredes transparentes) e portas automáticas ----
     this.interior = new InteriorFader(model, grid);
     this.interior.setRoofsForcedHidden(this.roofsAlwaysHidden);
-    this.doors = new DoorSystem(model);
+    this.doors = new DoorSystem(model, () => {
+      const { audio } = useGameSettings.getState();
+      if (audio.muted || audio.masterVolume <= 0 || audio.sfxVolume <= 0) return;
+      const sound = new Audio('/assets/audio/door.mp3');
+      sound.volume = (audio.masterVolume * audio.sfxVolume * 0.7) / 10000;
+      this.doorSounds.add(sound);
+      sound.addEventListener('ended', () => this.doorSounds.delete(sound), { once: true });
+      void sound.play().catch(() => this.doorSounds.delete(sound));
+    });
 
     this.lights = new NightLights(this.scene, model, grid);
 
     // ---- desempenho: mobília fixa vira poucas malhas; matrizes estáticas congeladas ----
     const isProtected = (o: THREE.Object3D) =>
+      Boolean(o.userData.pick) ||
       /_Telhado$|_Nave$|_Solar_\d+$|Antena|_Folha(Inf|Sup)$|_FiltroAr_0[12]$|_Sonda$/.test(
         o.name,
       ) ||
@@ -829,6 +854,44 @@ export class BaseViewer {
     // Contorno: depois do agrupamento de malhas (registra as malhas finais da base)
     this.outline.initBase(model);
     this.outline.addDynamicObject(rover.root, 'vehicle');
+
+    // Coleta antes de adicionar os cascos, que inserem irmãos na árvore de objetos.
+    const interactables: THREE.Object3D[] = [];
+    model.traverse((o) => {
+      if (o.userData.pick) interactables.push(o);
+    });
+    for (const object of interactables) this.interactionOutline.addObject(object);
+    this.interactionOutline.addObject(rover.root, 'vehicle');
+    for (const object of interactables) {
+      const tag = object.userData.pick as { kind: string; index?: number };
+      if (tag.kind === 'crop') continue;
+      // Usa somente a geometria real, sem os cascos auxiliares de contorno.
+      const bounds = new THREE.Box3();
+      const vertex = new THREE.Vector3();
+      object.updateWorldMatrix(true, true);
+      object.traverse((node) => {
+        const mesh = node as THREE.Mesh;
+        if (!mesh.isMesh || mesh.userData.isOutlineHull) return;
+        const positions = mesh.geometry.getAttribute('position');
+        if (!positions) return;
+        for (let i = 0; i < positions.count; i++) {
+          vertex.fromBufferAttribute(positions, i).applyMatrix4(mesh.matrixWorld);
+          bounds.expandByPoint(vertex);
+        }
+      });
+      if (bounds.isEmpty()) continue;
+      const center =
+        tag.kind === 'filter' || tag.kind === 'drill'
+          ? object.getWorldPosition(new THREE.Vector3())
+          : bounds.getCenter(new THREE.Vector3());
+      center.y = bounds.max.y + 0.08;
+      this.taskMarkerPositions.set(`${tag.kind}:${tag.index ?? 0}`, center);
+    }
+    for (const slot of this.crops.slots) {
+      const point = slot.world.clone().add(new THREE.Vector3(0, 1.1, 0));
+      this.taskMarkerPositions.set(`crop:${slot.index}`, point);
+      this.taskMarkerPositions.set(`plant:${slot.index}`, point);
+    }
 
     if (this.disposed) return;
     // shaders e texturas na GPU antes de mostrar (sem engasgo na primeira imagem)
@@ -1035,6 +1098,10 @@ export class BaseViewer {
     room.onGestureInvite = (fromId, gesture) => this.receiveGestureInvite(fromId, gesture);
     room.onGestureStart = (start) => this.startGesture(start);
     room.onGestureDenied = (reason) => this.options?.onMessage?.(reason, 'info');
+    room.onChat = (id, message) => {
+      const player = room.remotes.get(id);
+      if (player) this.options?.onChat?.({ name: player.name, message, local: false });
+    };
     room.onEmote = (id, index) => {
       const actor = this.remoteAstronauts.get(id);
       const emoji = GAME_EMOTES[index];
@@ -1047,21 +1114,25 @@ export class BaseViewer {
       this.options?.onStormChange?.(val > 0, true);
     };
     room.onSolar = (stages) => this.applySolarStages(stages);
-    // cuidados: sem histórico (mundo novo), os canteiros que já vêm plantados contam como
-    // cuidados no dia da chegada (o minigame passa a ser exigido a partir do Sol seguinte);
-    // o filtro fica pendente desde o primeiro dia
+    // Plantas de um mundo novo precisam ser irrigadas antes da primeira colheita.
     const startSol = room.clock().sol;
     const known = room.world.care;
-    if (known) this.care = { crops: [...known.crops], filter: known.filter };
+    if (known)
+      this.care = {
+        crops: [...known.crops],
+        filter: known.filter,
+        needsCare: [...(known.needsCare ?? [])],
+      };
     else {
       this.care = {
         crops: (this.crops?.slots ?? []).map(() => startSol),
         filter: startSol - 1,
+        needsCare: (this.crops?.slots ?? []).map((slot) => slot.stage > 0),
       };
       if (room.isCoordinator) room.sendCare(this.care);
     }
     room.onCare = (c) => {
-      this.care = { crops: [...c.crops], filter: c.filter };
+      this.care = { crops: [...c.crops], filter: c.filter, needsCare: [...(c.needsCare ?? [])] };
     };
     room.onMissionEvent = (ev) => {
       this.applyMissionEffects(ev, false);
@@ -1342,7 +1413,37 @@ export class BaseViewer {
       } else {
         // teclado: só atualiza quando muda (cancela o caminho do clique uma vez)
         local.setInput(local.isRevealed ? dir : null);
+        const previousX = local.position.x;
+        const previousZ = local.position.z;
         local.update(moveDt * this.playerSpeedScale, ctx, animate);
+        const distance = Math.hypot(local.position.x - previousX, local.position.z - previousZ);
+        if (local.isRevealed && distance > 0 && local.motion === 'walk') {
+          this.footstepDistance += distance;
+          if (this.footstepDistance >= 1.5) {
+            this.footstepDistance %= 1.5;
+            const { audio } = useGameSettings.getState();
+            if (!audio.muted && audio.masterVolume > 0 && audio.sfxVolume > 0) {
+              this.footstepAudio ??= [
+                new Audio('/assets/audio/footstep-sand.mp3'),
+                new Audio('/assets/audio/footstep-sand-2.mp3'),
+              ];
+              const onMetal = this.grid?.isInsideBase(local.position.x, local.position.z) ?? false;
+              if (onMetal) {
+                this.metalFootstepAudio ??= [
+                  new Audio('/assets/audio/footstep-metal.mp3'),
+                  new Audio('/assets/audio/footstep-metal-2.mp3'),
+                ];
+              }
+              const step = (onMetal ? this.metalFootstepAudio! : this.footstepAudio)[
+                this.nextFootstep
+              ]!;
+              this.nextFootstep = 1 - this.nextFootstep;
+              step.volume = (audio.masterVolume * audio.sfxVolume) / 10000;
+              step.currentTime = 0;
+              void step.play().catch(() => {});
+            }
+          }
+        }
         this.handleRepath(local);
         this.handlePending(local);
       }
@@ -1558,10 +1659,17 @@ export class BaseViewer {
       local.startTask('plant', p.face, () => {
         this.crops?.setStage(p.index, 1);
         this.room?.sendCrops(this.crops?.stages() ?? []);
-        // plantar conta como o cuidado de hoje: o minigame volta a ser exigido amanhã
-        this.markCropCared(p.index);
-        this.notify('🌱 Muda plantada! Amanhã ela vai precisar de água e luz.', 'ok');
+        const crops = [...this.care.crops];
+        const needsCare = [...(this.care.needsCare ?? [])];
+        crops[p.index] = this.currentSol;
+        needsCare[p.index] = true;
+        this.setCare({ ...this.care, crops, needsCare });
+        this.notify('🌱 Muda plantada! Regue antes da colheita.', 'ok');
+        if (this.crops?.slots.every((crop) => crop.stage > 0)) this.playTaskCompleteSound();
       });
+    } else if (this.care.needsCare?.[p.index]) {
+      local.face(p.face);
+      this.options?.onMinigame?.({ kind: 'greenhouse', index: p.index });
     } else if (slot.stage === 3) {
       local.startTask('harvest', p.face, () => {
         // a planta rebrota (volta à muda) em vez de sumir: o canteiro nunca fica "invisível"
@@ -1582,9 +1690,10 @@ export class BaseViewer {
           `🧺 Colheita feita: ${label} frescas para a base! O canteiro já rebrotou.`,
           'ok',
         );
+        this.playTaskCompleteSound();
       });
     } else if (caredToday(this.care.crops[p.index] ?? 0, this.currentSol)) {
-      this.notify('🌿 Este canteiro já foi cuidado hoje. Volte amanhã.', 'info');
+      this.notify('🌿 Este canteiro já foi irrigado hoje. Volte amanhã.', 'info');
     } else if (
       useMission.getState().state.resources.supplies.value < (GARDEN_CARE_COST.supplies ?? 0)
     ) {
@@ -1597,6 +1706,14 @@ export class BaseViewer {
 
   private notify(msg: string, kind: 'ok' | 'error' | 'info') {
     this.options?.onMessage?.(msg, kind);
+  }
+
+  private playTaskCompleteSound() {
+    const { audio } = useGameSettings.getState();
+    if (audio.muted || audio.masterVolume <= 0 || audio.sfxVolume <= 0) return;
+    const sound = new Audio('/assets/audio/task-success.wav');
+    sound.volume = (audio.masterVolume * audio.sfxVolume * 0.35) / 10000;
+    void sound.play().catch(() => {});
   }
 
   // ---------------------------------------------------------------- rover
@@ -1712,6 +1829,14 @@ export class BaseViewer {
   }
 
   /** Mostra um emoji do painel sobre o jogador local (balão com fade) e avisa a sala. */
+  sendChat(message: string): boolean {
+    const text = message.trim().slice(0, 240);
+    if (!text || !this.localAstronaut?.isRevealed) return false;
+    this.room?.sendChat(text);
+    this.options?.onChat?.({ name: this.localAstronaut.name, message: text, local: true });
+    return true;
+  }
+
   sendEmote(index: number): boolean {
     const emoji = GAME_EMOTES[index];
     const local = this.localAstronaut;
@@ -2224,6 +2349,7 @@ export class BaseViewer {
       cropStages: crops.map((c) => c.stage),
       cropNames: crops.map((c) => c.kind),
       cropCare: crops.map((c) => this.care.crops[c.index] ?? 0),
+      cropNeedsCare: crops.map((c) => this.care.needsCare?.[c.index] === true),
       filterSol: this.care.filter,
       filterClogged: clogged,
       drillDoneSol: this.missionDone('drill') ? this.currentSol : 0,
@@ -2235,11 +2361,19 @@ export class BaseViewer {
       blackout: this.blackout,
       oxygenProducing: producing,
     });
+    this.taskMarkers.sync(
+      tasksFrom(useBaseOps.getState()),
+      (kind, index) => this.taskMarkerPositions.get(`${kind}:${index}`) ?? null,
+    );
   }
 
   /** Cuidados mudaram aqui: guarda e avisa a sala. */
   private setCare(next: GameCareState) {
-    this.care = { crops: [...next.crops], filter: next.filter };
+    this.care = {
+      crops: [...next.crops],
+      filter: next.filter,
+      needsCare: [...(next.needsCare ?? [])],
+    };
     this.room?.sendCare(this.care);
   }
 
@@ -2247,7 +2381,9 @@ export class BaseViewer {
     const crops = [...this.care.crops];
     while (crops.length <= index) crops.push(0);
     crops[index] = this.currentSol;
-    this.setCare({ ...this.care, crops });
+    const needsCare = [...(this.care.needsCare ?? [])];
+    needsCare[index] = false;
+    this.setCare({ ...this.care, crops, needsCare });
     this.checkGarden();
   }
 
@@ -3084,7 +3220,7 @@ export class BaseViewer {
         deltas: { supplies: -cost },
       });
       this.notify(
-        `🌿 Canteiro ${req.index + 1} cuidado hoje: ${litres} L de água (-${cost} 🍞 do estoque).`,
+        `💧 Canteiro ${req.index + 1} irrigado: ${litres} L de água (-${cost} 🍞 do estoque).`,
         'ok',
       );
     } else if (req.kind === 'oxygen') {
@@ -3113,6 +3249,7 @@ export class BaseViewer {
     } else if (req.kind === 'soil') {
       this.finishSoilSampling(result.quality ?? 0.5);
     }
+    this.playTaskCompleteSound();
     this.publishOperations(
       !filterClogged(this.care.filter, sol) && !this.blackout,
       filterClogged(this.care.filter, sol),
@@ -3282,6 +3419,7 @@ export class BaseViewer {
         if (t && !tag) tag = t;
         if (!o.visible) visible = false;
       }
+      if (!visible) continue; // teto escondido, plantas de outros estágios…
       // máquinas vencem paredes translúcidas (só uma parede OPACA esconde a máquina)
       if (tag?.kind === 'solar') return { type: 'solar', index: tag.index ?? 0 };
       if (tag?.kind === 'crop') return { type: 'crop', index: tag.index ?? 0 };
@@ -3381,7 +3519,22 @@ export class BaseViewer {
     const local = this.localAstronaut;
     if (!local?.isRevealed || !this.grid) return;
     this.setRay(clientX, clientY);
+    const markerTask = this.taskMarkers.pick(this.raycaster);
+    if (markerTask) {
+      this.hideDestinationRing();
+      this.goToTask(markerTask.kind, markerTask.index);
+      return;
+    }
     let pick = this.pickScene();
+    if (
+      pick.type === 'solar' ||
+      pick.type === 'crop' ||
+      pick.type === 'filter' ||
+      pick.type === 'drill' ||
+      pick.type === 'vehicle'
+    ) {
+      this.hideDestinationRing();
+    }
 
     // ---- passageiro: só desce (o motorista é quem manda o rover) ----
     if (this.roverRider) {
@@ -3574,8 +3727,14 @@ export class BaseViewer {
     this.repathCount = 0;
     this.pending = task;
     local.setPath(path, path[path.length - 1]);
-    this.flashRing(path[path.length - 1]!, true);
+    if (task && task.kind !== 'goto') this.hideDestinationRing();
+    else this.flashRing(path[path.length - 1]!, true);
     return true;
+  }
+
+  private hideDestinationRing() {
+    this.ringFade = 0;
+    (this.destinationRing.material as THREE.MeshBasicMaterial).opacity = 0;
   }
 
   // ====================================================================== API para a interface
@@ -3787,11 +3946,25 @@ export class BaseViewer {
       this.shadowDirty = false;
     }
 
+    this.interactionOutline.update();
+    const player = this.localAstronaut;
+    this.taskMarkers.update(
+      dt,
+      Boolean(player && this.grid?.isInsideBase(player.position.x, player.position.z)),
+      Boolean(player?.isRevealed && this.grid),
+      (x, z) => this.grid?.isInsideBase(x, z) ?? true,
+    );
     this.renderer.render(this.scene, this.camera);
     this.outline.render();
   }
 
   dispose() {
+    for (const sound of this.doorSounds) sound.pause();
+    this.doorSounds.clear();
+    this.metalFootstepAudio?.forEach((step) => step.pause());
+    this.metalFootstepAudio = null;
+    this.footstepAudio?.forEach((step) => step.pause());
+    this.footstepAudio = null;
     if (this.disposed) return;
     this.disposed = true;
     if (this.duoInvite) window.clearTimeout(this.duoInvite.timer);
@@ -3824,6 +3997,8 @@ export class BaseViewer {
     (this.groundSkirt.material as THREE.Material).dispose();
     this.localAstronaut?.dispose();
     for (const a of this.remoteAstronauts.values()) a.dispose();
+    this.taskMarkers.dispose();
+    this.interactionOutline.dispose();
     this.outline.dispose();
     if (BaseViewer.clockOwner === null) {
       resetOps();

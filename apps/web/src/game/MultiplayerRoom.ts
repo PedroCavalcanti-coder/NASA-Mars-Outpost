@@ -78,6 +78,7 @@ export class MultiplayerRoom {
   onGestureStart?: (start: GestureStart) => void;
   /** o servidor recusou o convite/aceite (longe demais, no rover...) */
   onGestureDenied?: (reason: string) => void;
+  onChat?: (id: string, message: string) => void;
   onVehicle?: (v: GameVehicleState) => void;
   /** cuidados diários (horta/filtro) mudaram por outro jogador */
   onCare?: (c: GameCareState) => void;
@@ -196,6 +197,7 @@ export class MultiplayerRoom {
       socket.on('gesture:invite', (fromId, gesture) => this.onGestureInvite?.(fromId, gesture));
       socket.on('gesture:start', (start) => this.onGestureStart?.(start));
       socket.on('gesture:denied', (reason) => this.onGestureDenied?.(reason));
+      socket.on('player:chat', (id, message) => this.onChat?.(id, message));
       socket.on('world:crops', (stages) => {
         this.world.crops = stages;
         this.onCrops?.(stages);
@@ -325,6 +327,9 @@ export class MultiplayerRoom {
           this.world.storm = m.v;
           this.onStorm?.(m.v);
           break;
+        case 'chat':
+          if (typeof m.message === 'string') this.onChat?.(m.from, m.message.slice(0, 240));
+          break;
         case 'emote':
           this.onEmote?.(m.from, m.i);
           break;
@@ -437,6 +442,12 @@ export class MultiplayerRoom {
         resolve(r.ok ? { ok: true } : { ok: false, error: r.error });
       });
     });
+  }
+
+  sendChat(message: string) {
+    if (this.disposed) return;
+    if (this.mode === 'online') this.socket?.emit('player:chat', message);
+    else this.post({ t: 'chat', from: this.self.id, message });
   }
 
   sendEmote(emote: number) {
@@ -567,6 +578,7 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
+  | { t: 'chat'; from: string; message: string }
   | { t: 'vehicle'; from: string; v: GameVehicleState }
   | { t: 'time'; from: string; time: GameTimeState }
   | { t: 'care'; from: string; care: GameCareState }

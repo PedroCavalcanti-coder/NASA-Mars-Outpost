@@ -6,11 +6,15 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useGameSettings } from '../../../lib/gameSettings';
 
 export function useOxygenCleaning() {
   const [removed, setRemoved] = useState<ReadonlySet<number>>(new Set());
   const [selected, setSelected] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const audioContext = useRef<AudioContext | null>(null);
+  const buffers = useRef<AudioBuffer[]>([]);
+  const nextDebrisSound = useRef(0);
   const target = useRef<HTMLButtonElement>(null);
   const ghost = useRef<HTMLDivElement>(null);
   const active = useRef<{
@@ -34,6 +38,36 @@ export function useOxygenCleaning() {
     if (target.current) delete target.current.dataset.over;
   }, []);
   function discard(id: number) {
+    const { audio } = useGameSettings.getState();
+    const context = audioContext.current;
+    const index = nextDebrisSound.current;
+    nextDebrisSound.current = (index + 1) % 3;
+    if (
+      context?.state === 'running' &&
+      !audio.muted &&
+      audio.masterVolume > 0 &&
+      audio.sfxVolume > 0
+    ) {
+      const volume = (audio.masterVolume * audio.sfxVolume) / 10000;
+      const start = context.currentTime;
+      for (const [buffer, gainValue] of [
+        [buffers.current[index], volume],
+        [buffers.current[3], volume * 0.12],
+      ] as const) {
+        if (!buffer) continue;
+        const source = context.createBufferSource();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        gain.gain.value = gainValue;
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.onended = () => {
+          source.disconnect();
+          gain.disconnect();
+        };
+        source.start(start);
+      }
+    }
     setRemoved((previous) => new Set([...previous, id]));
     cancel();
   }
@@ -53,6 +87,7 @@ export function useOxygenCleaning() {
   function down(event: PointerEvent<SVGGElement>, id: number) {
     if (!event.isPrimary || event.button !== 0 || active.current) return;
     event.preventDefault();
+    void audioContext.current?.resume().catch(() => {});
     const rect = event.currentTarget.getBoundingClientRect();
     const x = rect.x + rect.width / 2;
     const y = rect.y + rect.height / 2;
@@ -83,6 +118,7 @@ export function useOxygenCleaning() {
   function select(event: KeyboardEvent<SVGGElement>, id: number) {
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
+    void audioContext.current?.resume().catch(() => {});
     setSelected(id);
     // Once selected, the discard control is the next keyboard destination.
   }
@@ -107,6 +143,35 @@ export function useOxygenCleaning() {
         drag.element.releasePointerCapture(drag.pointer);
     };
   }, [cancel]);
+  useEffect(() => {
+    let disposed = false;
+    let context: AudioContext;
+    try {
+      context = new AudioContext();
+      audioContext.current = context;
+    } catch {
+      return;
+    }
+    const urls = [1, 2, 3].map((i) => `/assets/audio/oxygen-debris-${i}.wav`);
+    urls.push('/assets/audio/oxygen-metal-clang.wav');
+    void Promise.all(
+      urls.map(async (url) => {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Audio unavailable');
+        return context.decodeAudioData(await response.arrayBuffer());
+      }),
+    )
+      .then((decoded) => {
+        if (!disposed) buffers.current = decoded;
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      buffers.current = [];
+      audioContext.current = null;
+      void context.close().catch(() => {});
+    };
+  }, []);
   function reset() {
     cancel();
     setRemoved(new Set());

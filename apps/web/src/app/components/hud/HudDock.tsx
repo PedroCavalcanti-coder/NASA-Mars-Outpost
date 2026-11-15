@@ -28,7 +28,8 @@ export function HudDock({
   const dockPanels = useMemo(() => {
     return panels
       .filter((p) => {
-        if (p.group === 'essencial') return false;
+        if (p.group === 'essencial' || p.id === 'sistema' || p.id === 'recursos' || p.id === 'chat')
+          return false;
         if (p.group === 'dev' && !isDevMode) return false;
         return true;
       })
