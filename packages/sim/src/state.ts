@@ -27,6 +27,7 @@ export function createMission(seed: number = Date.now()): MissionState {
     solarEfficiency: 1,
     morale: INITIAL.morale,
     research: 0,
+    secured: 0,
     status: 'playing',
     lossReason: null,
     log: [],
@@ -36,8 +37,12 @@ export function createMission(seed: number = Date.now()): MissionState {
 
 /** Salvamentos antigos não têm blindagem: completa com o valor inicial. */
 export function ensureShielding(s: MissionState): MissionState {
-  if (s.resources.shielding) return s;
-  return { ...s, resources: { ...s.resources, shielding: { ...INITIAL.resources.shielding } } };
+  const withSecured = typeof s.secured === 'number' ? s : { ...s, secured: 0 };
+  if (withSecured.resources.shielding) return withSecured;
+  return {
+    ...withSecured,
+    resources: { ...withSecured.resources, shielding: { ...INITIAL.resources.shielding } },
+  };
 }
 
 /** Cópia profunda (a simulação nunca altera o estado recebido). */
@@ -65,7 +70,9 @@ function read(s: MissionState, key: DeltaKey): number {
 }
 
 function write(s: MissionState, key: DeltaKey, value: number) {
-  if (key === 'research') s.research = clamp(value, 0, RESEARCH_GOAL);
+  // dados já enviados à Terra nunca se perdem: a pesquisa não cai abaixo do que está protegido
+  if (key === 'research')
+    s.research = clamp(value, Math.min(s.secured ?? 0, RESEARCH_GOAL), RESEARCH_GOAL);
   else if (key === 'morale') s.morale = clamp(value, 0, 100);
   else s.resources[key].value = clamp(value, 0, s.resources[key].max);
 }

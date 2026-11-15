@@ -40,6 +40,8 @@ export type Command =
   | { type: 'end_sol'; realtime?: boolean }
   /** reavalia vitória/derrota sem alterar nada (o oxigênio da base zera fora de um comando) */
   | { type: 'check' }
+  /** o envio de dados à Terra terminou: tudo o que estava na base fica protegido */
+  | { type: 'upload' }
   /** recompensa/custo vindo de uma tarefa do mundo (minigame, colheita, sondagem) */
   | { type: 'reward'; tone: LogEntry['tone']; title: string; text: string; deltas: Deltas };
 
@@ -70,6 +72,8 @@ export interface MissionState {
   morale: number;
   /** dados científicos coletados: 0..RESEARCH_GOAL */
   research: number;
+  /** parte dos dados já enviada à Terra: está protegida e nunca se perde (research >= secured) */
+  secured: number;
   status: MissionStatus;
   lossReason: LossReason | null;
   /** registro mais recente primeiro */

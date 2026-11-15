@@ -11,7 +11,9 @@
 
 import { seeded } from '../tasks/rules';
 
-export const EVENT_FIRST_SOL = 4;
+/** eventos fáceis começam no 2º Sol; os difíceis (grandes), a partir do 4º */
+export const EVENT_FIRST_SOL = 2;
+export const MAJOR_FIRST_SOL = 4;
 /** chance de um evento grande no dia, além do fácil */
 export const MAJOR_EVENT_CHANCE = 0.45;
 
@@ -104,7 +106,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A equipe coletou flocos de CO₂ para análise. Dados raros!',
-          deltas: { research: 10, energy: -6 },
+          deltas: { research: 3, energy: -6 },
         },
         risk: {
           chance: 0.3,
@@ -168,7 +170,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'O sismógrafo gravou os impactos de perto. Ótimos dados!',
-          deltas: { research: 14, energy: -5 },
+          deltas: { research: 4, energy: -5 },
         },
         risk: {
           chance: 0.4,
@@ -224,14 +226,14 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Dados raros da radiação em Marte chegaram à Terra!',
-          deltas: { research: 14 },
+          deltas: { research: 4 },
         },
         risk: {
           chance: 0.45,
           outcome: {
             tone: 'bad',
             text: 'A radiação queimou sensores e corrompeu dados.',
-            deltas: { shielding: -15, research: -8, oxygen: -8 },
+            deltas: { shielding: -15, research: -3, oxygen: -8 },
           },
         },
       },
@@ -280,7 +282,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Imagens raras do redemoinho de perto!',
-          deltas: { research: 8, energy: -4 },
+          deltas: { research: 3, energy: -4 },
         },
         risk: {
           chance: 0.35,
@@ -335,7 +337,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Fotos lindas enviadas à Terra.',
-          deltas: { research: 6 },
+          deltas: { research: 2 },
         },
       },
       {
@@ -345,7 +347,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A análise confirmou cristais de CO₂.',
-          deltas: { research: 10, energy: -5 },
+          deltas: { research: 3, energy: -5 },
         },
       },
       {
@@ -423,7 +425,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Os sensores registraram a frente de poeira de perto. Ótimos dados!',
-          deltas: { research: 8, energy: -8 },
+          deltas: { research: 3, energy: -8 },
           effects: [
             { type: 'storm', strength: 0.7 },
             { type: 'dust', amount: 0.3 },
@@ -554,7 +556,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A análise rendeu um bom estudo sobre cultivo em Marte.',
-          deltas: { research: 7 },
+          deltas: { research: 2 },
           effects: [{ type: 'wilt_crop' }],
         },
       },
@@ -575,7 +577,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Amostras de camadas raras coletadas e catalogadas.',
-          deltas: { research: 12, energy: -7 },
+          deltas: { research: 4, energy: -7 },
         },
       },
       {
@@ -585,7 +587,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'As fotos agradaram aos cientistas na Terra.',
-          deltas: { research: 6 },
+          deltas: { research: 2 },
         },
       },
       {
@@ -595,7 +597,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A equipe extraiu bons minerais, mas deixou a área revirada.',
-          deltas: { materials: 14, research: 2, energy: -5 },
+          deltas: { materials: 14, research: 1, energy: -5 },
         },
       },
     ],
@@ -617,7 +619,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'A resposta viralizou entre os alunos. A divulgação científica agradece!',
-          deltas: { research: 3, energy: -2 },
+          deltas: { research: 1, energy: -2 },
         },
       },
       {
@@ -711,7 +713,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Resultado interessante: mais um dado para a Terra.',
-          deltas: { research: 4, energy: -2 },
+          deltas: { research: 1, energy: -2 },
         },
       },
       {
@@ -777,7 +779,7 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
         outcome: {
           tone: 'good',
           text: 'Local anotado para os cientistas.',
-          deltas: { research: 2 },
+          deltas: { research: 1 },
         },
       },
     ],
@@ -811,7 +813,7 @@ function pickWeighted(
 export function eventsForSol(seed: number, sol: number): GameEventDef[] {
   if (sol < EVENT_FIRST_SOL) return [];
   const list: GameEventDef[] = [];
-  if (seeded(seed, sol, 701) < MAJOR_EVENT_CHANCE) {
+  if (sol >= MAJOR_FIRST_SOL && seeded(seed, sol, 701) < MAJOR_EVENT_CHANCE) {
     list.push(
       pickWeighted(
         GAME_EVENTS.filter((e) => e.kind === 'major'),

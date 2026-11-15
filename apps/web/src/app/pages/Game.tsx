@@ -77,6 +77,7 @@ const OxygenFilterPreview = lazy(() => import('../minigames/oxygen-filter/Oxygen
 const GreenhousePreview = lazy(() => import('../minigames/greenhouse/GreenhousePreview'));
 const DrillingMinigame = lazy(() => import('../minigames/drilling/DrillingMinigame'));
 const StationConsoleGame = lazy(() => import('../minigames/missions/StationConsoleGame'));
+const DataUploadGame = lazy(() => import('../minigames/missions/DataUploadGame'));
 const SoilSamplingGame = lazy(() => import('../minigames/missions/SoilSamplingGame'));
 
 /**
@@ -228,14 +229,19 @@ function ReadyGame() {
   );
   const [error, setError] = useState<string | null>(null);
   const [minigame, setMinigame] = useState<MinigameRequest | null>(null);
+  const uploadDone = useRef(false);
   const closeMinigame = useCallback(() => {
     // fechar a coleta de solo sem terminar faz o rover voltar sem amostras
     if (minigame?.kind === 'soil') viewer.current?.abortSoilRun();
+    // fechar o envio de dados no meio corrompe os arquivos (a conclusão já chamou o onComplete)
+    if (minigame?.kind === 'upload' && !uploadDone.current) viewer.current?.abortUpload();
+    uploadDone.current = false;
     setMinigame(null);
   }, [minigame]);
   /** o minigame foi concluído: o viewer aplica o efeito no mundo (painel limpo, canteiro cuidado…) */
   const finishMinigame = useCallback(
     (result?: MinigameResult) => {
+      if (minigame?.kind === 'upload') uploadDone.current = true;
       if (minigame) viewer.current?.completeMinigame(minigame, result);
     },
     [minigame],
@@ -751,6 +757,7 @@ function ReadyGame() {
           ['Filtro de ar', { kind: 'oxygen', index: 0 }],
           ['Horta (estufa)', { kind: 'greenhouse', index: 0 }],
           ['Coleta de solo (rover)', { kind: 'soil' }],
+          ['Envio de dados à Terra', { kind: 'upload' }],
         ] as Array<[string, MinigameRequest]>
       ).map(([label, req]) =>
         registerDevAction({
@@ -812,6 +819,8 @@ function ReadyGame() {
                 onClose={closeMinigame}
                 onComplete={finishMinigame}
               />
+            ) : minigame.kind === 'upload' ? (
+              <DataUploadGame onClose={closeMinigame} onComplete={finishMinigame} />
             ) : minigame.kind === 'soil' ? (
               <SoilSamplingGame
                 coop={minigame.coop}

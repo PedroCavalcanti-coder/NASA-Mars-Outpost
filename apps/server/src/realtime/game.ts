@@ -512,6 +512,13 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('soil:msg', socket.id, kind, eid, quality);
     });
 
+    /** Voto para pular a noite: repassa a todos (cada cliente confere se todos apertaram). */
+    socket.on('sleep:msg', (ready) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2) || typeof ready !== 'boolean') return;
+      socket.to(room.code).emit('sleep:msg', socket.id, ready);
+    });
+
     socket.on('player:emote', (raw) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room) return;

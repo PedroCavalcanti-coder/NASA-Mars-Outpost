@@ -275,6 +275,7 @@ export function runCommand(prev: MissionState, cmd: Command): CommandResult {
   const s = cloneState(prev);
   if (cmd.type === 'action') performAction(s, cmd.action);
   else if (cmd.type === 'reward') applyReward(s, cmd);
+  else if (cmd.type === 'upload') s.secured = s.research;
   else if (cmd.type === 'end_sol') endSol(s, cmd.realtime === true);
   // `check`: só reavalia o desfecho abaixo
   checkOutcome(s);

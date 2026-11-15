@@ -178,3 +178,52 @@ describe('blindagem', () => {
     expect(r.state.resources.shielding.value).toBe(0);
   });
 });
+
+describe('envio de dados à Terra', () => {
+  it('dados enviados ficam protegidos: perdas de pesquisa não passam do que foi enviado', () => {
+    let s = createMission(1);
+    s = runCommand(s, {
+      type: 'reward',
+      tone: 'good',
+      title: 'a',
+      text: 'a',
+      deltas: { research: 14 },
+    }).state;
+    s = runCommand(s, { type: 'upload' }).state;
+    expect(s.secured).toBe(14);
+    s = runCommand(s, {
+      type: 'reward',
+      tone: 'good',
+      title: 'b',
+      text: 'b',
+      deltas: { research: 6 },
+    }).state;
+    s = runCommand(s, {
+      type: 'reward',
+      tone: 'bad',
+      title: 'c',
+      text: 'c',
+      deltas: { research: -30 },
+    }).state;
+    expect(s.research).toBe(14);
+  });
+
+  it('sem envio, os dados da base podem ser perdidos', () => {
+    let s = createMission(1);
+    s = runCommand(s, {
+      type: 'reward',
+      tone: 'good',
+      title: 'a',
+      text: 'a',
+      deltas: { research: 10 },
+    }).state;
+    s = runCommand(s, {
+      type: 'reward',
+      tone: 'bad',
+      title: 'c',
+      text: 'c',
+      deltas: { research: -4 },
+    }).state;
+    expect(s.research).toBe(6);
+  });
+});

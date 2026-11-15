@@ -215,10 +215,7 @@ export class OxygenSystem implements GameSystem {
     adjustBaseOxygen(-OXYGEN_SETTINGS.FAINT_BASE_OXYGEN_COST);
 
     // 5. Notifica o jogador
-    toast(
-      'Você desmaiou sem oxigênio e foi socorrido na enfermaria (-5 de O₂ da base).',
-      'error',
-    );
+    toast('Você desmaiou sem oxigênio e foi socorrido na enfermaria (-5 de O₂ da base).', 'error');
 
     // 6. Clareia a tela de volta após o socorro
     setTimeout(() => {

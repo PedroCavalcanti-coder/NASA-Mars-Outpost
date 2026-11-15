@@ -153,3 +153,27 @@
     transition: none;
   }
 }
+
+/* pesquisa: a parte já enviada à Terra (protegida) fica cheia; o resto, listrado */
+.hud-research__track {
+  position: relative;
+}
+
+.hud-research__fill--pending {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: repeating-linear-gradient(135deg, #b6a2ef 0 6px, #8d78d4 6px 12px);
+  opacity: 0.8;
+}
+
+.hud-research__fill--secured {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #6ee7b7;
+}
+
+.hud-research__pending {
+  color: #cdbcf7;
+  font-size: 10.5px;
+  font-weight: 700;
+}

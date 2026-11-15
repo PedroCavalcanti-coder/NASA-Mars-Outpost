@@ -35,7 +35,17 @@ describe('blindagem', () => {
 
   it('com blindagem zerada, perdas de energia, mantimentos e oxigênio dobram', () => {
     expect(
-      scaleDamage({ energy: -10, supplies: -4, oxygen: -6, materials: -8, research: 5, shielding: -5 }, 0),
-    ).toEqual({ energy: -20, supplies: -8, oxygen: -12, materials: -8, research: 5, shielding: -5 });
+      scaleDamage(
+        { energy: -10, supplies: -4, oxygen: -6, materials: -8, research: 5, shielding: -5 },
+        0,
+      ),
+    ).toEqual({
+      energy: -20,
+      supplies: -8,
+      oxygen: -12,
+      materials: -8,
+      research: 5,
+      shielding: -5,
+    });
   });
 });

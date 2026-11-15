@@ -194,3 +194,187 @@
   font-size: 12px;
   line-height: 1.4;
 }
+
+/* ---------- Enlace com a Terra (envio de dados) ---------- */
+.msn-up {
+  width: min(760px, calc(100vw - 20px));
+  max-height: calc(100dvh - 20px);
+  overflow-y: auto;
+}
+
+.msn-up__cols {
+  display: grid;
+  grid-template-columns: 1.3fr 54px 1fr;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.msn-up__pane {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid rgba(120, 172, 225, 0.4);
+  border-radius: 12px;
+  background: rgba(8, 18, 40, 0.6);
+  min-height: 190px;
+}
+
+.msn-up__pane h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #8fbbe9;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.msn-up__folders,
+.msn-up__files,
+.msn-up__received {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.msn-up__files {
+  margin: 4px 0 4px 14px;
+}
+
+.msn-up__folder,
+.msn-up__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid rgba(120, 172, 225, 0.3);
+  border-radius: 10px;
+  background: rgba(30, 58, 110, 0.4);
+  color: #e7f1ff;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.msn-up__folder span {
+  display: grid;
+}
+
+.msn-up__folder small,
+.msn-up__file small {
+  color: #8fbbe9;
+  font-size: 10.5px;
+}
+
+.msn-up__file span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msn-up__folder.is-open {
+  border-color: #5fe0e6;
+}
+
+.msn-up__file:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.msn-up__link {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #8fbbe9;
+  font-size: 9.5px;
+  text-align: center;
+}
+
+.msn-up__packets {
+  display: grid;
+  gap: 8px;
+}
+
+.msn-up__packets i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(120, 172, 225, 0.35);
+}
+
+.msn-up__packets i.is-on {
+  background: #5fe0e6;
+  animation: msn-up-packet 1.2s ease-in-out infinite;
+}
+
+@keyframes msn-up-packet {
+  50% {
+    transform: translateX(10px) scale(1.3);
+    opacity: 0.4;
+  }
+}
+
+.msn-up__received li {
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(110, 231, 183, 0.1);
+  color: #9be8c7;
+  font-size: 11.5px;
+  word-break: break-all;
+}
+
+.msn-up__received li.is-live {
+  background: rgba(95, 224, 230, 0.14);
+  color: #7ff0f4;
+}
+
+.msn-up__received li.is-empty {
+  background: transparent;
+  color: #6f8aab;
+}
+
+.msn-up__status {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  color: #cfe0f3;
+  font-size: 12.5px;
+}
+
+.msn-up__bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.msn-up__bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #4fd8ff, #6ee7b7);
+  transition: width 0.1s linear;
+}
+
+.msn-up__error {
+  margin: 6px 0 0;
+  color: #ff9b9b;
+  font-size: 12.5px;
+}
+
+@media (max-width: 640px) {
+  .msn-up__cols {
+    grid-template-columns: 1fr;
+  }
+  .msn-up__link {
+    display: none;
+  }
+}

@@ -3,6 +3,8 @@ import type { ActionId, Crisis, FacilityId, ResourceId } from './types';
 /** Todos os números do balanceamento ficam aqui: mexa só neste arquivo para ajustar o jogo. */
 
 export const RESEARCH_GOAL = 100;
+/** pontos de pesquisa ainda não enviados necessários para liberar o envio à Terra */
+export const UPLOAD_THRESHOLD = 10;
 export const MAX_SOLS = 15;
 export const ACTIONS_PER_SOL = 3;
 /** o diário guarda tudo o que aconteceu no mundo (mais recente primeiro) */

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { EVENT_FIRST_SOL, eventsForSol, GAME_EVENTS, resolveChoice } from './events';
 
 describe('eventos da base', () => {
-  it('nenhum evento acontece nos 3 primeiros sóis', () => {
+  it('no 1º Sol não há evento; no 2º e 3º só os fáceis; os difíceis começam no 4º', () => {
     for (const seed of [1, 7, 12345, 99999]) {
-      for (let sol = 1; sol < EVENT_FIRST_SOL; sol++) {
-        expect(eventsForSol(seed, sol)).toEqual([]);
+      expect(eventsForSol(seed, 1)).toEqual([]);
+      for (const sol of [2, 3]) {
+        const list = eventsForSol(seed, sol);
+        expect(list.length).toBe(1);
+        expect(list.every((e) => e.kind === 'easy')).toBe(true);
       }
     }
   });

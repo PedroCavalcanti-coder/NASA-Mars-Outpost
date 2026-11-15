@@ -80,7 +80,10 @@ export function ResourceSlot({ kind }: { kind: 'supplies' | 'materials' }) {
 
 export function ResearchSlot() {
   const research = useMission((m) => m.state.research);
+  const secured = useMission((m) => m.state.secured ?? 0);
   const pct = Math.max(0, Math.min(100, (research / RESEARCH_GOAL) * 100));
+  const securedPct = Math.max(0, Math.min(100, (secured / RESEARCH_GOAL) * 100));
+  const pending = Math.max(0, research - secured);
   return (
     <div className="hud-research" aria-label="Progresso da pesquisa">
       <div className="hud-research__heading">
@@ -89,6 +92,12 @@ export function ResearchSlot() {
         </span>
         <span>
           {research} / {RESEARCH_GOAL}
+        </span>
+        <span
+          className="hud-research__pending"
+          title="Pontos ainda na base: envie à Terra no computador para protegê-los"
+        >
+          {pending >= 10 ? '📡 enviar' : `${pending} na base`}
         </span>
       </div>
       <div
@@ -99,7 +108,14 @@ export function ResearchSlot() {
         aria-valuemax={RESEARCH_GOAL}
         aria-valuenow={research}
       >
-        <div className="hud-research__fill" style={{ width: `${pct}%` }} />
+        <div
+          className="hud-research__fill hud-research__fill--pending"
+          style={{ width: `${pct}%` }}
+        />
+        <div
+          className="hud-research__fill hud-research__fill--secured"
+          style={{ width: `${securedPct}%` }}
+        />
       </div>
     </div>
   );

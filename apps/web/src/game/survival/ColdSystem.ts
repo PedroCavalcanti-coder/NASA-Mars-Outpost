@@ -150,10 +150,7 @@ export class ColdSystem implements GameSystem {
     this.isSlowed = false;
 
     // 5. Notifica o jogador
-    toast(
-      'Hipotermia severa: você desmaiou de frio e foi socorrido na enfermaria.',
-      'error',
-    );
+    toast('Hipotermia severa: você desmaiou de frio e foi socorrido na enfermaria.', 'error');
 
     // 6. Clareia a tela de volta
     setTimeout(() => {

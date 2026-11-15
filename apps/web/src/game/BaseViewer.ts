@@ -15,6 +15,7 @@ import {
   type GestureStart,
   normalizeTimeScale,
 } from '@mars/shared';
+import { UPLOAD_THRESHOLD } from '@mars/sim';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { VideoSettings } from '../app/components/SettingsModal';
@@ -215,7 +216,8 @@ export type MinigameRequest =
   | { kind: 'oxygen'; index: number }
   | { kind: 'drill'; baseId: string; target: string; sol: number }
   | { kind: 'station'; mission: MissionId; title: string; hint: string }
-  | { kind: 'soil'; coop?: boolean; role?: 'driver' | 'passenger' };
+  | { kind: 'soil'; coop?: boolean; role?: 'driver' | 'passenger' }
+  | { kind: 'upload' };
 
 /** Resultado de um minigame concluído. */
 export type MinigameResult = {
@@ -466,6 +468,8 @@ export class BaseViewer {
   /** ponto de coleta de solo: é preciso dirigir até lá, dentro do rover */
   private soilSite: THREE.Vector3 | null = null;
   private soilBlockWarned = false;
+  /** quem já apertou para pular a noite (todos os presentes precisam apertar) */
+  private sleepReady = new Set<string>();
   /** a coleta que gerou as amostras carregadas foi em dupla (custo ×2, pontos ×3)? */
   private soilCoopRun = false;
   /** só abre de novo depois de se afastar do ponto (evita reabrir ao cancelar) */
@@ -619,6 +623,7 @@ export class BaseViewer {
       return;
     }
     this.started = true;
+    useNap.getState().setGate(() => this.requestSleep());
     this.container = container;
     this.options = options;
     this.currentHour = options?.initialHour ?? 9;
@@ -1118,6 +1123,7 @@ export class BaseViewer {
     room.onGestureInvite = (fromId, gesture) => this.receiveGestureInvite(fromId, gesture);
     room.onGestureStart = (start) => this.startGesture(start);
     room.onGestureDenied = (reason) => this.options?.onMessage?.(reason, 'info');
+    room.onSleep = (id, ready) => this.onSleepVote(id, ready);
     room.onSoil = (kind, eid, q) =>
       kind === 'start' ? this.onSoilStart(eid) : this.onSoilDone(eid, q);
     room.onEventVote = (id, eid, choice) => this.options?.onEventVote?.(id, eid, choice);
@@ -1213,6 +1219,8 @@ export class BaseViewer {
   private sleepUntil(hour: number): number {
     const hours = (((hour - this.currentHour) % 24) + 24) % 24;
     if (hours < 0.25) return 0;
+    // numa sala só o coordenador mexe no relógio; os outros dormem junto (todos já concordaram)
+    if (this.room && !GameClock.canControl() && this.presentIds().length > 1) return hours;
     return this.skipHours(hours) ? hours : 0;
   }
 
@@ -2281,7 +2289,7 @@ export class BaseViewer {
       this.notify('🫁 O filtro de ar entupiu: a base parou de produzir oxigênio.', 'error');
     this.refreshMissions();
     this.announceMissions(sol);
-    // eventos do dia (tablet): só a partir do Sol 4, iguais para todos os jogadores da sala
+    // eventos do dia (tablet): fáceis a partir do Sol 2 e difíceis a partir do 4, iguais para a sala
     const events = eventsForSol(this.opsSeed, sol);
     if (events.length) {
       useGameEvents.getState().push(events);
@@ -2551,7 +2559,7 @@ export class BaseViewer {
     this.scene.add(markers.group);
     const taken: number[] = [];
     const perRoom = new Map<number, number>();
-    for (const site of ['lab', 'comms', 'power', 'medical'] as StationSite[]) {
+    for (const site of ['lab', 'comms', 'power', 'medical', 'upload', 'rest'] as StationSite[]) {
       if (!rooms.length) break;
       const idx = stationRoomIndex(rooms, site, taken);
       taken.push(idx);
@@ -2601,6 +2609,7 @@ export class BaseViewer {
     if (!this.started) return;
     this.stationMarkers?.update(dt);
     this.checkSoilArrival();
+    this.updateUtilityMarkers();
     this.missionTimer += dt;
     if (this.missionTimer < 0.5) return;
     this.missionTimer = 0;
@@ -2823,7 +2832,7 @@ export class BaseViewer {
         'garden',
         'Horta em dia',
         'Todos os canteiros cuidados: a estufa devolveu oxigênio à base.',
-        { oxygen: GARDEN_OXYGEN_BONUS, research: 2 },
+        { oxygen: GARDEN_OXYGEN_BONUS, research: 1 },
       ),
     );
   }
@@ -2974,11 +2983,11 @@ export class BaseViewer {
         tone: 'good',
         title: 'Amostra de rocha',
         text: science ? 'Rocha com minerais raros.' : 'Fragmentos úteis para a bancada.',
-        deltas: science ? { research: 3 } : { materials: 5 },
+        deltas: science ? { research: 1 } : { materials: 5 },
       });
       this.notify(
         science
-          ? '🪨 Rocha rara coletada: +3 🔬 de pesquisa.'
+          ? '🪨 Rocha rara coletada: +1 🔬 de pesquisa.'
           : '🪨 Amostra coletada: +5 🔩 materiais.',
         'ok',
       );
@@ -3019,8 +3028,116 @@ export class BaseViewer {
     }
   }
 
+  // ------------------------------------------------------------------ dormir em grupo e enviar dados
+
+  /** Todos os astronautas presentes na sala (eu incluído). */
+  private presentIds(): string[] {
+    return this.eventParticipants().players.map((p) => p.id);
+  }
+
+  /**
+   * Pular a noite: sozinho, dorme na hora; numa sala, TODOS precisam apertar (o ícone do dormitório,
+   * a cama, o botão Sono ou a tecla Z). Apertar de novo desiste.
+   */
+  requestSleep() {
+    const nap = useNap.getState();
+    if (!nap.canNap) {
+      nap.forceStart(); // só para mostrar o motivo do bloqueio
+      return;
+    }
+    const ids = this.presentIds();
+    if (ids.length <= 1) {
+      this.sleepReady.clear();
+      nap.forceStart();
+      return;
+    }
+    const me = ids[0] ?? 'local';
+    const ready = !this.sleepReady.has(me);
+    if (ready) this.sleepReady.add(me);
+    else this.sleepReady.delete(me);
+    this.room?.sendSleep(ready);
+    this.notify(
+      ready
+        ? `😴 Você quer dormir (${this.sleepReady.size}/${ids.length}). Todos precisam apertar.`
+        : '😴 Você desistiu de dormir.',
+      'info',
+    );
+    this.checkSleepConsensus();
+  }
+
+  private onSleepVote(id: string, ready: boolean) {
+    if (ready) this.sleepReady.add(id);
+    else this.sleepReady.delete(id);
+    const ids = this.presentIds();
+    if (ready) {
+      const who = this.remoteAstronauts.get(id)?.name ?? 'Um astronauta';
+      this.notify(`😴 ${who} quer dormir (${this.sleepReady.size}/${ids.length}).`, 'info');
+    }
+    this.checkSleepConsensus();
+  }
+
+  private checkSleepConsensus() {
+    const ids = this.presentIds();
+    this.sleepReady = new Set([...this.sleepReady].filter((id) => ids.includes(id)));
+    if (ids.length > 1 && ids.every((id) => this.sleepReady.has(id))) {
+      this.sleepReady.clear();
+      this.notify('🌙 Todos querem dormir: a noite vai passar.', 'ok');
+      useNap.getState().forceStart();
+    }
+  }
+
+  /** Dados da base ainda não enviados à Terra. */
+  private pendingResearch(): number {
+    const s = useMission.getState().state;
+    return Math.max(0, s.research - (s.secured ?? 0));
+  }
+
+  /** No computador de envio: abre o minigame se há dados suficientes. */
+  private openUpload() {
+    const pending = this.pendingResearch();
+    if (pending < UPLOAD_THRESHOLD) {
+      this.notify(
+        `📡 Ainda não há dados para enviar: ${pending}/${UPLOAD_THRESHOLD} pontos de pesquisa novos.`,
+        'info',
+      );
+      return;
+    }
+    this.options?.onMinigame?.({ kind: 'upload' });
+  }
+
+  /** O envio foi interrompido no meio: o arquivo corrompe e é preciso recomeçar do início. */
+  abortUpload() {
+    this.notify(
+      '⚠️ Envio interrompido: os arquivos corromperam. Recomece o envio do início.',
+      'error',
+    );
+    this.journal(
+      'Envio à Terra interrompido',
+      'Os arquivos corromperam no meio da transmissão.',
+      'bad',
+    );
+  }
+
+  /** Atualiza os ícones do dormitório (à noite) e do computador (com 10 pontos novos). */
+  private updateUtilityMarkers() {
+    const markers = this.stationMarkers;
+    if (!markers) return;
+    const night = this.nightFactor > 0.45 && !useNap.getState().isSleeping;
+    markers.set('rest', night ? 'ready' : 'hidden', this.beaconsOn);
+    const pending = this.pendingResearch();
+    markers.set('upload', pending >= UPLOAD_THRESHOLD ? 'ready' : 'hidden', this.beaconsOn);
+  }
+
   /** Chegou ao holograma: entrega amostras ou abre o console da missão do cômodo. */
   private activateStation(site: StationSite) {
+    if (site === 'rest') {
+      this.requestSleep();
+      return;
+    }
+    if (site === 'upload') {
+      this.openUpload();
+      return;
+    }
     if (this.soilCarry > 0 && (site === 'lab' || site === 'comms')) {
       this.deliverSoil();
       return;
@@ -3342,7 +3459,8 @@ export class BaseViewer {
       );
     } else if (req.kind === 'drill') {
       if (this.missionDone('drill')) return;
-      const research = Math.max(0, Math.min(20, Math.round(result.research ?? 0)));
+      // a sondagem rende 0 a 2 pontos (o minigame devolve 0..20)
+      const research = Math.max(0, Math.min(2, Math.round((result.research ?? 0) / 8)));
       this.completeMission('drill', {
         research,
         title: result.hit ? 'Sondagem: amostra no alvo' : 'Sondagem: amostra fora do alvo',
@@ -3351,11 +3469,20 @@ export class BaseViewer {
     } else if (req.kind === 'station') {
       const quality = Math.max(0, Math.min(1, result.quality ?? 0.5));
       this.completeMission(req.mission, {
-        research: MISSIONS[req.mission].research + Math.round(quality * 2),
+        research: MISSIONS[req.mission].research + Math.round(quality),
         text: `${req.title} concluída.`,
       });
     } else if (req.kind === 'soil') {
       this.finishSoilSampling(result.quality ?? 0.5);
+    } else if (req.kind === 'upload') {
+      const sent = this.pendingResearch();
+      useMission.getState().run({ type: 'upload' });
+      this.journal(
+        'Dados enviados à Terra',
+        `${sent} pontos de pesquisa chegaram e estão protegidos.`,
+        'good',
+      );
+      this.notify(`📡 Envio concluído! ${sent} pontos de pesquisa protegidos na Terra.`, 'ok');
     }
     this.playTaskCompleteSound();
     this.publishOperations(
@@ -4076,6 +4203,7 @@ export class BaseViewer {
       this.fadeOverlay = null;
     }
     this.systems.dispose();
+    useNap.getState().setGate(null);
     this.rockGeo.dispose();
     this.rockMat.dispose();
     this.rockProxyGeo.dispose();

@@ -21,10 +21,22 @@ export type MissionId =
   | 'medical_checkup';
 
 /** Onde a missão acontece no mundo. */
-export type MissionSite = 'rover' | 'soil' | 'drill' | 'lab' | 'comms' | 'power' | 'medical';
+export type MissionSite =
+  | 'rover'
+  | 'soil'
+  | 'drill'
+  | 'lab'
+  | 'comms'
+  | 'power'
+  | 'medical'
+  | 'rest'
+  | 'upload';
 
 /** Pontos fixos com holograma na base (o rover e a sonda já são objetos do cenário). */
-export type StationSite = Extract<MissionSite, 'lab' | 'comms' | 'power' | 'medical'>;
+export type StationSite = Extract<
+  MissionSite,
+  'lab' | 'comms' | 'power' | 'medical' | 'rest' | 'upload'
+>;
 
 export interface MissionDef {
   id: MissionId;
@@ -51,7 +63,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
       'Entre no rover, dirija até o ponto marcado e colha as amostras num minigame. Depois leve-as a um computador da base. Em dupla (motorista e passageiro) custa o dobro, rende o triplo de pontos e o minigame é dos dois.',
     site: 'soil',
     cost: { energy: 20, supplies: 10, oxygen: 14 },
-    research: 30,
+    research: 2,
     morale: 3,
     daytimeOnly: true,
     weight: 3,
@@ -63,7 +75,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Use a sonda de perfuração para coletar a camada que a ciência pediu.',
     site: 'drill',
     cost: { energy: 6, supplies: 2 },
-    research: 8,
+    research: 2,
     daytimeOnly: false,
     weight: 3,
   },
@@ -73,7 +85,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Rode as amostras da base na bancada do laboratório e registre os resultados.',
     site: 'lab',
     cost: { energy: 8, supplies: 3 },
-    research: 10,
+    research: 2,
     daytimeOnly: false,
     weight: 2,
   },
@@ -83,7 +95,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'No console de comunicações, alinhe a antena e envie o pacote de dados à Terra.',
     site: 'comms',
     cost: { energy: 10 },
-    research: 10,
+    research: 2,
     daytimeOnly: false,
     weight: 2,
   },
@@ -93,7 +105,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Confira o painel elétrico, troque fusíveis e registre o consumo da base.',
     site: 'power',
     cost: { energy: 3, materials: 4 },
-    research: 7,
+    research: 1,
     daytimeOnly: false,
     weight: 2,
   },
@@ -103,7 +115,7 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     summary: 'Na enfermaria, faça exames de rotina: ajuda a moral e gera dados de saúde em Marte.',
     site: 'medical',
     cost: { supplies: 5 },
-    research: 7,
+    research: 1,
     morale: 4,
     daytimeOnly: false,
     weight: 2,
@@ -216,7 +228,7 @@ export const GARDEN_OXYGEN_BONUS = 10;
 
 /** Pontos da coleta de solo conforme o desempenho no minigame (0..1). */
 export const soilReward = (quality: number) =>
-  MISSIONS.soil_robot.research + Math.round(Math.max(0, Math.min(1, quality)) * 6);
+  MISSIONS.soil_robot.research + Math.round(Math.max(0, Math.min(1, quality)) * 1);
 
 /** Quantas amostras de solo o minigame rende (3 a 5). */
 export const soilSamples = (quality: number) =>
@@ -248,11 +260,17 @@ export const STATION_ROOMS: Record<StationSite, string[]> = {
   comms: ['comunicacoes', 'pesquisa', 'laboratorio'],
   power: ['centralenergia', 'suportevida', 'armazem'],
   medical: ['medicina', 'habitacao', 'refeitorio'],
+  /** dormitório / enfermaria: onde todos apertam para pular a noite */
+  rest: ['habitacao', 'medicina', 'refeitorio'],
+  /** computador de envio dos dados à Terra */
+  upload: ['comunicacoes', 'pesquisa', 'laboratorio'],
 };
 
 export const STATION_LABEL: Record<MissionSite, string> = {
   rover: 'Garagem do rover',
   soil: 'Ponto de coleta de solo',
+  rest: 'Dormitório',
+  upload: 'Enlace com a Terra',
   drill: 'Sonda de perfuração',
   lab: 'Laboratório',
   comms: 'Comunicações',

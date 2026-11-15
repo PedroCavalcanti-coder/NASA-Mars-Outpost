@@ -74,6 +74,7 @@ export class MultiplayerRoom {
   onEmote?: (id: string, emote: number) => void;
   onEventVote?: (id: string, eid: string, choice: number) => void;
   onSoil?: (kind: 'start' | 'done', eid: string, quality: number) => void;
+  onSleep?: (id: string, ready: boolean) => void;
   onEventResult?: (eid: string, choice: number, roll: number) => void;
   /** outro jogador convidou para um gesto em dupla */
   onGestureInvite?: (fromId: string, gesture: DuoGestureId) => void;
@@ -197,6 +198,7 @@ export class MultiplayerRoom {
         this.onStorm?.(v);
       });
       socket.on('player:emote', (id, emote) => this.onEmote?.(id, emote));
+      socket.on('sleep:msg', (id, ready) => this.onSleep?.(id, ready));
       socket.on('soil:msg', (_id, kind, eid, q) => this.onSoil?.(kind, eid, q));
       socket.on('event:vote', (id, eid, choice) => this.onEventVote?.(id, eid, choice));
       socket.on('event:result', (eid, choice, roll) => this.onEventResult?.(eid, choice, roll));
@@ -339,6 +341,9 @@ export class MultiplayerRoom {
         case 'emote':
           this.onEmote?.(m.from, m.i);
           break;
+        case 'sleep':
+          this.onSleep?.(m.from, m.ready);
+          break;
         case 'soil':
           this.onSoil?.(m.kind, m.eid, m.q);
           break;
@@ -463,6 +468,12 @@ export class MultiplayerRoom {
     if (this.disposed) return;
     if (this.mode === 'online') this.socket?.emit('player:chat', message);
     else this.post({ t: 'chat', from: this.self.id, message });
+  }
+
+  sendSleep(ready: boolean) {
+    if (this.disposed) return;
+    if (this.mode === 'online') this.socket?.emit('sleep:msg', ready);
+    else this.post({ t: 'sleep', from: this.self.id, ready });
   }
 
   sendSoil(kind: 'start' | 'done', eid: string, quality: number) {
@@ -611,6 +622,7 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
+  | { t: 'sleep'; from: string; ready: boolean }
   | { t: 'soil'; from: string; kind: 'start' | 'done'; eid: string; q: number }
   | { t: 'event_vote'; from: string; eid: string; choice: number }
   | { t: 'event_result'; from: string; eid: string; choice: number; roll: number }

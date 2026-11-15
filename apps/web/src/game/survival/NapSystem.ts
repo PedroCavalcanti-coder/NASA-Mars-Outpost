@@ -17,10 +17,15 @@ export interface NapState {
   startNap: () => boolean;
   /** Dorme agora, se permitido (acordar é automático ao amanhecer) */
   toggleNap: () => void;
+  /** dorme já, sem pedir o consenso da sala (usado quando todos apertaram) */
+  forceStart: () => boolean;
+  /** a sala exige que todos apertem para dormir: quem registra a porta cuida disso */
+  setGate: (gate: (() => void) | null) => void;
 }
 
 // Referência ao sistema ativo para comandos disparados pela interface React ou atalhos
 let activeNapSystem: NapSystem | null = null;
+let sleepGate: (() => void) | null = null;
 
 export const useNap = create<NapState>(() => ({
   isSleeping: false,
@@ -29,6 +34,10 @@ export const useNap = create<NapState>(() => ({
   startNap: () => activeNapSystem?.requestStartNap() ?? false,
   toggleNap: () => {
     activeNapSystem?.requestStartNap();
+  },
+  forceStart: () => activeNapSystem?.startNow() ?? false,
+  setGate: (gate) => {
+    sleepGate = gate;
   },
 }));
 
@@ -69,7 +78,17 @@ export class NapSystem implements GameSystem {
     return this.reasonBlockedCurrent;
   }
 
+  /** Pedido de dormir (botão, tecla Z, cama, ícone): se há porta de consenso, ela decide. */
   requestStartNap(): boolean {
+    if (this.isSleeping) return true;
+    if (sleepGate && this.canNapCurrent) {
+      sleepGate();
+      return true;
+    }
+    return this.startNow();
+  }
+
+  startNow(): boolean {
     if (this.isSleeping) return true;
     const ctx = this.lastContext;
     if (!this.canNapCurrent || !ctx) {
