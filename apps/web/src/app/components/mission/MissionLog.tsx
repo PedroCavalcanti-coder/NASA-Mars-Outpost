@@ -11,22 +11,28 @@ const LABEL: Record<DeltaKey, string> = {
   morale: 'moral',
 };
 
-/** Diário da missão: ações, fim de sol, eventos e crises (mais recente primeiro). */
+const TONE_ICON = { good: '✅', bad: '⚠️', info: '📝' } as const;
+
+/**
+ * Diário da missão: tudo o que foi feito no mundo (tarefas, missões, eventos, colheitas, sono,
+ * crises), do mais recente para o mais antigo, agrupado por Sol.
+ */
 export function MissionLog() {
   const log = useMission((m) => m.state.log);
   if (!log.length) {
     return (
       <div className="mission-log mission-log--empty">
-        Sol 1: escolha até 3 ações e depois encerre o sol. Junte 100% de dados para vencer.
+        Nada registrado ainda. Tudo o que você e a tripulação fizerem na base aparece aqui.
       </div>
     );
   }
   return (
     <ol className="mission-log" aria-label="Diário da missão" aria-live="polite">
-      {log.slice(0, 6).map((e) => (
+      {log.map((e, i) => (
         <li key={e.id} className={`mission-log__item is-${e.tone}`}>
+          {log[i - 1]?.sol !== e.sol && <h4 className="mission-log__day">Sol {e.sol}</h4>}
           <div className="mission-log__head">
-            <span className="mission-log__sol">S{e.sol}</span>
+            <span aria-hidden="true">{TONE_ICON[e.tone]}</span>
             <strong>{e.title}</strong>
           </div>
           <p>{e.text}</p>

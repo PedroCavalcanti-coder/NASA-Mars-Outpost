@@ -42,8 +42,8 @@ import { DustStorm, DustStormOverlay } from './DustStorm';
 import { type EventOutcome, eventsForSol, type WorldEffect } from './events/events';
 import { SHIELD_REPAIR } from './events/shielding';
 import { useGameEvents } from './events/store';
-import { useLore } from './lore/store';
 import { InteriorFader } from './InteriorFader';
+import { useLore } from './lore/store';
 import {
   MultiplayerRoom,
   type RemotePlayer,
@@ -51,6 +51,8 @@ import {
   RoomRejectedError,
 } from './MultiplayerRoom';
 import {
+  COOP_COST_MULT,
+  COOP_POINTS_MULT,
   costText,
   cropGraceDays,
   describeDirection,
@@ -72,6 +74,7 @@ import {
   stationRoomIndex,
 } from './missions/rules';
 import { StationMarkers } from './missions/StationMarkers';
+import { useSoilCoop } from './missions/soilCoop';
 import { publishMissionBoard, resetMissionBoard, type SoilPhase } from './missions/store';
 import { NightLights } from './NightLights';
 import { Propulsion } from './Propulsion';
@@ -212,7 +215,7 @@ export type MinigameRequest =
   | { kind: 'oxygen'; index: number }
   | { kind: 'drill'; baseId: string; target: string; sol: number }
   | { kind: 'station'; mission: MissionId; title: string; hint: string }
-  | { kind: 'soil' };
+  | { kind: 'soil'; coop?: boolean; role?: 'driver' | 'passenger' };
 
 /** Resultado de um minigame concluído. */
 export type MinigameResult = {
@@ -452,14 +455,21 @@ export class BaseViewer {
   /** amostras de solo que o jogador carrega até o computador */
   private soilCarry = 0;
   private soilQuality = 0;
+  /** coleta de solo aberta (minigame no ponto marcado) */
   private soil: {
-    phase: 'out' | 'sampling' | 'back';
-    t: number;
-    far: THREE.Vector3 | null;
-    /** sem caminho livre até a poeira: o rover só some no véu, sem sair do lugar */
-    virtual: boolean;
-    quality: number;
+    eid: string;
+    coop: boolean;
+    /** minha nota (0..1) e a do parceiro */
+    mine: number | null;
+    partner: number | null;
   } | null = null;
+  /** ponto de coleta de solo: é preciso dirigir até lá, dentro do rover */
+  private soilSite: THREE.Vector3 | null = null;
+  private soilBlockWarned = false;
+  /** a coleta que gerou as amostras carregadas foi em dupla (custo ×2, pontos ×3)? */
+  private soilCoopRun = false;
+  /** só abre de novo depois de se afastar do ponto (evita reabrir ao cancelar) */
+  private soilArmed = true;
 
   // Nave: pouso -> desembarque -> decolagem, uma chegada por vez
   private ship: THREE.Object3D | null = null;
@@ -1108,6 +1118,8 @@ export class BaseViewer {
     room.onGestureInvite = (fromId, gesture) => this.receiveGestureInvite(fromId, gesture);
     room.onGestureStart = (start) => this.startGesture(start);
     room.onGestureDenied = (reason) => this.options?.onMessage?.(reason, 'info');
+    room.onSoil = (kind, eid, q) =>
+      kind === 'start' ? this.onSoilStart(eid) : this.onSoilDone(eid, q);
     room.onEventVote = (id, eid, choice) => this.options?.onEventVote?.(id, eid, choice);
     room.onEventResult = (eid, choice, roll) => this.options?.onEventResult?.(eid, choice, roll);
     room.onChat = (id, message) => {
@@ -1518,8 +1530,8 @@ export class BaseViewer {
   ) {
     const rover = this.rover!;
     // missão do rover: ele anda sozinho, o teclado fica de fora
-    const input = this.soil ? null : dir;
-    const keys = this.soil ? null : manual;
+    const input = dir;
+    const keys = manual;
     if (input || keys) rover.stopPath();
     rover.drive(dt, { dir: input, manual: keys }, this.grid);
     if (rover.needsRepath && rover.destination && this.grid) {
@@ -1607,7 +1619,7 @@ export class BaseViewer {
       return;
     }
     if (p.kind === 'soilstart') {
-      if (d <= ENTER_REACH + 0.8) this.startSoilRun();
+      if (d <= ENTER_REACH + 0.8) this.enterRover();
       else this.notify('Não consegui chegar ao rover.', 'error');
       return;
     }
@@ -1676,6 +1688,7 @@ export class BaseViewer {
         crops[p.index] = this.currentSol;
         needsCare[p.index] = true;
         this.setCare({ ...this.care, crops, needsCare });
+        this.journal('Muda plantada', `${slot.kind} plantada no canteiro ${p.index + 1}.`);
         this.notify('🌱 Muda plantada! Regue antes da colheita.', 'ok');
         if (this.crops?.slots.every((crop) => crop.stage > 0)) this.playTaskCompleteSound();
       });
@@ -1811,10 +1824,6 @@ export class BaseViewer {
       return;
     }
     if (this.roverDriver !== 'local' || !local || !rover) return;
-    if (this.soil) {
-      this.notify('O rover está numa missão automática: aguarde a volta.', 'info');
-      return;
-    }
     const at = this.footPointNear(rover.position, rover.heading) ?? rover.position.clone();
     rover.stopPath();
     rover.speed = 0;
@@ -2302,6 +2311,11 @@ export class BaseViewer {
     this.room?.sendEventResult(eid, choice, roll);
   }
 
+  /** Anota no diário da missão algo que aconteceu no mundo (sem custo nem ganho). */
+  private journal(title: string, text: string, tone: 'good' | 'bad' | 'info' = 'info') {
+    useMission.getState().run({ type: 'reward', tone, title, text, deltas: {} });
+  }
+
   /** Efeitos no mundo das escolhas dos eventos (tempestade, poeira, filtro, canteiros). */
   applyEventEffects(outcome: EventOutcome) {
     for (const fx of outcome.effects ?? []) this.applyWorldEffect(fx);
@@ -2494,6 +2508,11 @@ export class BaseViewer {
         ? { label: STATION_LABEL.rover, x: this.roverPark.x, z: this.roverPark.z }
         : null;
     }
+    if (site === 'soil') {
+      return this.soilSite
+        ? { label: STATION_LABEL.soil, x: this.soilSite.x, z: this.soilSite.z }
+        : null;
+    }
     if (site === 'drill') {
       return this.drillSpot
         ? { label: STATION_LABEL.drill, x: this.drillSpot.x, z: this.drillSpot.z }
@@ -2553,6 +2572,11 @@ export class BaseViewer {
     if (this.rover) {
       const { x, z } = this.roverPark;
       markers.add('rover', new THREE.Vector3(x, grid.groundY(x, z), z), false);
+      this.soilSite = this.findSoilSite();
+      if (this.soilSite) {
+        const { x: sx, z: sz } = this.soilSite;
+        markers.add('soil', new THREE.Vector3(sx, grid.groundY(sx, sz), sz), false);
+      }
     }
     if (this.drillSpot) {
       const d = this.drillSpot;
@@ -2576,7 +2600,7 @@ export class BaseViewer {
   private updateMissions(dt: number) {
     if (!this.started) return;
     this.stationMarkers?.update(dt);
-    if (this.soil) this.updateSoilRun(dt);
+    this.checkSoilArrival();
     this.missionTimer += dt;
     if (this.missionTimer < 0.5) return;
     this.missionTimer = 0;
@@ -2587,7 +2611,12 @@ export class BaseViewer {
   /** Perto de um objeto com história real? Pede a janela de curiosidade (uma vez por navegador). */
   private checkLoreProximity() {
     const local = this.localAstronaut;
-    if (!local?.isRevealed || this.playerSleeping || this.roverDriver === 'local' || this.roverRider) {
+    if (
+      !local?.isRevealed ||
+      this.playerSleeping ||
+      this.roverDriver === 'local' ||
+      this.roverRider
+    ) {
       return;
     }
     const { x, z } = local.position;
@@ -2600,6 +2629,9 @@ export class BaseViewer {
     else if (this.filterSpots.some((p) => near(p, 5))) lore.request('oxygen');
     else if (near(this.drillSpot, 6)) lore.request('drill');
     else if (near(this.stationInfo.get('comms')?.pos, 5)) lore.request('antenna');
+    else if (near(this.stationInfo.get('lab')?.pos, 5)) lore.request('lab');
+    else if (near(this.stationInfo.get('medical')?.pos, 5)) lore.request('medical');
+    else if (near(this.stationInfo.get('power')?.pos, 5)) lore.request('power');
   }
 
   private publishMissions() {
@@ -2610,7 +2642,15 @@ export class BaseViewer {
     const done = board && board.sol === this.currentSol ? [...board.done] : [];
     const r1 = (n: number) => Math.round(n * 10) / 10;
     const sites: Partial<Record<MissionSite, { label: string; x: number; z: number }>> = {};
-    for (const site of ['rover', 'drill', 'lab', 'comms', 'power', 'medical'] as MissionSite[]) {
+    for (const site of [
+      'rover',
+      'soil',
+      'drill',
+      'lab',
+      'comms',
+      'power',
+      'medical',
+    ] as MissionSite[]) {
       const s = this.siteSpot(site);
       if (s) sites[site] = { label: s.label, x: r1(s.x), z: r1(s.z) };
     }
@@ -2627,7 +2667,7 @@ export class BaseViewer {
       sites,
       player: { x: r1(here?.x ?? 0), z: r1(here?.z ?? 0) },
       carrying: this.soilCarry,
-      soilPhase: this.soil ? this.soil.phase : this.soilCarry > 0 ? 'deliver' : 'idle',
+      soilPhase: this.soil ? 'sampling' : this.soilCarry > 0 ? 'deliver' : 'idle',
       garden: {
         planted: planted.length,
         cared: planted.filter((c) => (this.care.crops[c.index] ?? 0) >= this.currentSol).length,
@@ -2640,7 +2680,15 @@ export class BaseViewer {
     const markers = this.stationMarkers;
     if (!markers) return;
     const delivery = this.soilCarry > 0 ? this.deliveryStation() : null;
-    for (const site of ['rover', 'drill', 'lab', 'comms', 'power', 'medical'] as MissionSite[]) {
+    for (const site of [
+      'rover',
+      'soil',
+      'drill',
+      'lab',
+      'comms',
+      'power',
+      'medical',
+    ] as MissionSite[]) {
       let state: 'hidden' | 'ready' | 'blocked' = 'hidden';
       for (const id of this.missionIds) {
         const def = MISSIONS[id];
@@ -2648,7 +2696,7 @@ export class BaseViewer {
         state = missionBlock(def, ctx) ? 'blocked' : 'ready';
         break;
       }
-      if (site === 'rover' && (this.soil || this.soilCarry > 0)) state = 'hidden';
+      if (site === 'soil' && (this.soil || this.soilCarry > 0)) state = 'hidden';
       if (site === delivery) state = 'ready';
       markers.set(site, state, this.beaconsOn);
     }
@@ -2746,11 +2794,12 @@ export class BaseViewer {
   private completeMission(
     id: MissionId,
     o: { research?: number; title?: string; text: string },
+    costMul = 1,
   ): boolean {
     const def = MISSIONS[id];
     const deltas: Record<string, number> = {};
     for (const k of Object.keys(def.cost) as (keyof typeof def.cost)[]) {
-      deltas[k] = -(def.cost[k] ?? 0);
+      deltas[k] = -(def.cost[k] ?? 0) * costMul;
     }
     deltas.research = o.research ?? def.research;
     if (def.morale) deltas.morale = def.morale;
@@ -2869,7 +2918,10 @@ export class BaseViewer {
           return;
         }
         if (res.materials.value < SHIELD_REPAIR.materials) {
-          this.notify(`🔩 Faltam materiais: o reparo da blindagem custa ${SHIELD_REPAIR.materials}.`, 'error');
+          this.notify(
+            `🔩 Faltam materiais: o reparo da blindagem custa ${SHIELD_REPAIR.materials}.`,
+            'error',
+          );
           return;
         }
         this.benchUse.repairs++;
@@ -2881,7 +2933,10 @@ export class BaseViewer {
             text: 'Placas novas reforçaram a blindagem da base.',
             deltas: { materials: -SHIELD_REPAIR.materials, shielding: SHIELD_REPAIR.gain },
           });
-          this.notify(`🛡️ Blindagem reparada: +${SHIELD_REPAIR.gain} (-${SHIELD_REPAIR.materials} 🔩).`, 'ok');
+          this.notify(
+            `🛡️ Blindagem reparada: +${SHIELD_REPAIR.gain} (-${SHIELD_REPAIR.materials} 🔩).`,
+            'ok',
+          );
         });
         return;
       }
@@ -3019,7 +3074,10 @@ export class BaseViewer {
       const rover = this.rover;
       if (!rover || !this.grid) return;
       if (this.roverDriver) {
-        this.notify('O rover está sendo usado por outro astronauta.', 'error');
+        this.notify(
+          'O rover já tem motorista. Toque nele para entrar como passageiro (coleta em dupla).',
+          'info',
+        );
         return;
       }
       const rp = rover.position;
@@ -3031,7 +3089,10 @@ export class BaseViewer {
         rp.z + (dz / dl) * 2.3,
         10,
       );
-      if (spot) this.walkTo(spot, { kind: 'soilstart', face: rp.clone() });
+      if (spot) {
+        this.walkTo(spot, { kind: 'soilstart', face: rp.clone() });
+        this.notify('🚙 Entre no rover e dirija até o ponto marcado para colher o solo.', 'info');
+      }
       return;
     }
     if (def.site === 'drill') {
@@ -3043,189 +3104,142 @@ export class BaseViewer {
 
   // ------------------------------------------------------------------ coleta de solo (rover)
 
-  /** Para onde o rover vai sozinho: bem longe da base, onde a poeira esconde ele. */
-  private findSoilRoute(): { far: THREE.Vector3; path: THREE.Vector3[] } | null {
+  /**
+   * Ponto de coleta de solo: longe da base, num lugar que o rover alcança. Fica marcado com um
+   * feixe de luz; é preciso DIRIGIR até lá (dentro do rover) para a coleta começar.
+   */
+  private findSoilSite(): THREE.Vector3 | null {
     const grid = this.grid;
     const rover = this.rover;
     if (!grid || !rover) return null;
     const a0 = Math.atan2(rover.position.z, rover.position.x); // para longe do centro da base
-    for (const dist of [60, 44]) {
-      for (const off of [0, 0.6, -0.6, 1.2, -1.2]) {
+    for (const dist of [38, 32, 44]) {
+      for (const off of [0, 0.5, -0.5, 1, -1]) {
         const x = Math.cos(a0 + off) * dist;
         const z = Math.sin(a0 + off) * dist;
         const far = grid.nearestWalkablePoint(x, z, 6, 'vehicle');
-        if (!far || Math.hypot(far.x, far.z) < 28) continue;
-        const { path } = grid.findPath(
-          rover.position,
-          far,
-          this.stormCurrent > 0.25,
-          undefined,
-          'vehicle',
-        );
+        if (!far || Math.hypot(far.x, far.z) < 26) continue;
+        const { path } = grid.findPath(rover.position, far, false, undefined, 'vehicle');
         const end = path[path.length - 1];
-        if (end && end.distanceTo(far) < 4) return { far: far.clone(), path };
+        if (end && end.distanceTo(far) < 4) return far.clone();
       }
     }
     return null;
   }
 
-  private startSoilRun() {
-    const local = this.localAstronaut;
+  /** Alguém (além do motorista) está dentro do rover? Então a coleta é em dupla. */
+  private soilCoop(): boolean {
+    if (this.roverDriver !== 'local') return false;
+    return this.remoteList.some((a) => a.inVehicle && a.id !== this.roverDriver);
+  }
+
+  /** O motorista chegou ao ponto de coleta, parado: a missão começa (sozinho ou em dupla). */
+  private checkSoilArrival() {
     const rover = this.rover;
-    if (!local?.isRevealed || !rover || this.soil || this.roverDriver) return;
-    if (!this.missionIds.includes('soil_robot')) {
-      this.notify('A coleta de solo não está entre as missões de hoje.', 'info');
+    const site = this.soilSite;
+    if (!rover || !site || this.soil || this.roverDriver !== 'local') return;
+    if (!this.soilArmed) {
+      if (Math.hypot(rover.position.x - site.x, rover.position.z - site.z) > 9)
+        this.soilArmed = true;
       return;
     }
-    if (this.missionDone('soil_robot')) {
-      this.notify('A coleta de solo de hoje já foi feita. ✨', 'info');
-      return;
-    }
-    const block = missionBlock(MISSIONS.soil_robot, this.missionContext());
+    if (!this.missionIds.includes('soil_robot') || this.missionDone('soil_robot')) return;
+    if (this.soilCarry > 0) return;
+    const d = Math.hypot(rover.position.x - site.x, rover.position.z - site.z);
+    if (d > 5 || Math.abs(rover.speed) > 1.2) return;
+    const coop = this.soilCoop();
+    const block = missionBlock(
+      MISSIONS.soil_robot,
+      this.missionContext(),
+      coop ? COOP_COST_MULT : 1,
+    );
     if (block) {
-      this.notify(block, 'error');
+      if (!this.soilBlockWarned) this.notify(block, 'error');
+      this.soilBlockWarned = true;
       return;
     }
-    if (this.soilCarry > 0) {
-      this.notify('Você já tem amostras: leve-as a um computador da base.', 'info');
-      return;
-    }
-    this.enterRover();
-    if (this.roverDriver !== 'local') return;
-    const route = this.findSoilRoute();
-    this.soil = {
-      phase: 'out',
-      t: 0,
-      far: route?.far ?? null,
-      virtual: !route,
-      quality: 0,
-    };
-    if (route) {
-      this.repathCount = 0;
-      rover.setPath(route.path, route.far);
-    }
-    publishMissionBoard({ soilPhase: 'out', veil: 0 });
-    this.notify('🚙 O rover segue sozinho para dentro da poeira…', 'ok');
-  }
-
-  private setVeil(v: number) {
-    publishMissionBoard({ veil: Math.round(Math.max(0, Math.min(1, v)) * 50) / 50 });
-  }
-
-  private updateSoilRun(dt: number) {
-    const s = this.soil;
-    const rover = this.rover;
-    if (!s || !rover) return;
-    s.t += dt;
-    const d = Math.hypot(rover.position.x - this.roverPark.x, rover.position.z - this.roverPark.z);
-    if (s.phase === 'out') {
-      const veil = s.virtual ? s.t / 4 : (d - 12) / 20;
-      this.setVeil(veil);
-      if (veil >= 1 || s.t > 45) this.beginSampling();
-    } else if (s.phase === 'back') {
-      const veil = s.virtual ? 1 - s.t / 4 : (d - 6) / 20;
-      this.setVeil(veil);
-      const arrived = s.virtual ? s.t >= 4 : d < 3.5 || s.t > 70 || (!rover.hasPath && s.t > 3);
-      if (arrived) this.finishSoilReturn(d);
-    }
-  }
-
-  /** O rover sumiu na poeira: abre o minigame de coleta. */
-  private beginSampling() {
-    const s = this.soil;
-    const rover = this.rover;
-    if (!s || !rover) return;
-    s.phase = 'sampling';
+    this.soilBlockWarned = false;
     rover.stopPath();
     rover.speed = 0;
-    rover.root.visible = false;
-    publishMissionBoard({ soilPhase: 'sampling', veil: 1 });
-    this.options?.onMinigame?.({ kind: 'soil' });
+    const eid = `${this.currentSol}:${Date.now().toString(36)}`;
+    this.soilArmed = false;
+    this.soil = { eid, coop, mine: null, partner: null };
+    useSoilCoop.getState().reset(coop);
+    if (coop) this.room?.sendSoil('start', eid, 0);
+    publishMissionBoard({ soilPhase: 'sampling' });
+    this.notify(
+      coop
+        ? '🤝 Coleta em dupla! Cada um colhe a sua parte: custa o dobro e rende o triplo de pontos.'
+        : '⛏ Chegou ao ponto de coleta. Colha as amostras!',
+      'ok',
+    );
+    this.options?.onMinigame?.({ kind: 'soil', coop, role: 'driver' });
   }
 
+  /** O parceiro (dentro do rover) mandou abrir a coleta em dupla. */
+  private onSoilStart(eid: string) {
+    if (!this.roverRider || this.soil) return;
+    this.soil = { eid, coop: true, mine: null, partner: null };
+    useSoilCoop.getState().reset(true);
+    this.options?.onMinigame?.({ kind: 'soil', coop: true, role: 'passenger' });
+  }
+
+  /** O parceiro terminou a parte dele (ou cancelou, com nota 0). */
+  private onSoilDone(eid: string, quality: number) {
+    const s = this.soil;
+    if (!s || s.eid !== eid) return;
+    s.partner = Math.max(0, Math.min(1, quality));
+    useSoilCoop.getState().setPartnerDone(true);
+  }
+
+  /** Terminei a minha parte das amostras: avisa o parceiro (o minigame segue aberto até os dois). */
+  soilPartReady(quality: number) {
+    const s = this.soil;
+    if (!s) return;
+    s.mine = Math.max(0, Math.min(1, quality));
+    if (s.coop) this.room?.sendSoil('done', s.eid, s.mine);
+  }
+
+  /** Fecha a coleta com sucesso: o motorista leva as amostras; o passageiro só encerra. */
   private finishSoilSampling(quality: number) {
     const s = this.soil;
-    if (!s || s.phase !== 'sampling') return;
-    s.quality = Math.max(0, Math.min(1, quality));
-    this.soilGoBack();
-  }
-
-  /** O jogador fechou o minigame sem terminar: o rover volta sem amostras. */
-  abortSoilRun() {
-    const s = this.soil;
-    if (!s || s.phase === 'back') return;
-    s.quality = -1;
-    this.soilGoBack();
-  }
-
-  private soilGoBack() {
-    const s = this.soil;
-    const rover = this.rover;
-    const grid = this.grid;
-    if (!s || !rover || !grid) return;
-    const wasHidden = !rover.root.visible;
-    s.phase = 'back';
-    s.t = 0;
-    if (wasHidden && s.far && !s.virtual) {
-      const h = Math.atan2(this.roverPark.x - s.far.x, this.roverPark.z - s.far.z);
-      rover.place(s.far.x, s.far.z, h, GROUND_Y);
-    }
-    rover.root.visible = true;
-    if (!s.virtual) {
-      const park = new THREE.Vector3(this.roverPark.x, 0, this.roverPark.z);
-      const { path } = grid.findPath(
-        rover.position,
-        park,
-        this.stormCurrent > 0.25,
-        undefined,
-        'vehicle',
-      );
-      if (path.length) {
-        this.repathCount = 0;
-        rover.setPath(path, path[path.length - 1]);
-      } else s.virtual = true;
-    }
-    publishMissionBoard({ soilPhase: 'back' });
-  }
-
-  /** O rover chegou: o astronauta desce sozinho com as amostras. */
-  private finishSoilReturn(distToPark: number) {
-    const s = this.soil;
-    const rover = this.rover;
-    if (!s || !rover) return;
-    const quality = s.quality;
+    if (!s) return;
+    const mine = s.mine ?? quality;
     this.soil = null;
-    rover.stopPath();
-    rover.root.visible = true;
-    if (!s.virtual && distToPark >= 3.5) {
-      rover.place(this.roverPark.x, this.roverPark.z, this.roverPark.h, GROUND_Y);
+    useSoilCoop.getState().reset(false);
+    if (this.roverRider) {
+      publishMissionBoard({ soilPhase: 'idle' });
+      this.notify('🤝 Coleta em dupla concluída. O motorista leva as amostras.', 'ok');
+      return;
     }
-    this.exitRover();
-    this.setVeil(0);
-    if (quality >= 0) {
-      this.soilCarry = soilSamples(quality);
-      this.soilQuality = quality;
-      this.notify(
-        `📦 ${this.soilCarry} amostras de solo! Leve-as a um computador (${this.stationInfo.get(this.deliveryStation())?.label ?? 'laboratório'}).`,
-        'ok',
-      );
-    } else {
-      this.notify('O rover voltou sem amostras: a coleta foi cancelada (nada foi gasto).', 'info');
-    }
+    const q = s.coop && s.partner !== null ? (mine + s.partner) / 2 : mine;
+    this.soilCarry = soilSamples(q) * (s.coop ? 2 : 1);
+    this.soilQuality = q;
+    this.soilCoopRun = s.coop;
+    publishMissionBoard({ soilPhase: 'deliver' });
+    this.notify(
+      `📦 ${this.soilCarry} amostras de solo! Volte à base, saia do rover e leve-as a um computador (${this.stationInfo.get(this.deliveryStation())?.label ?? 'laboratório'}).`,
+      'ok',
+    );
     this.publishMissions();
   }
 
-  /** Teletransporte (respawn) no meio da missão: tira o rover do piloto automático. */
+  /** O jogador fechou a coleta sem terminar: nada foi gasto e dá para tentar de novo. */
+  abortSoilRun() {
+    const s = this.soil;
+    if (!s) return;
+    this.soil = null;
+    if (s.coop) this.room?.sendSoil('done', s.eid, 0);
+    useSoilCoop.getState().reset(false);
+    publishMissionBoard({ soilPhase: 'idle' });
+    this.notify('Coleta cancelada: nada foi gasto. Dirija ao ponto de novo para tentar.', 'info');
+  }
+
+  /** Teletransporte (respawn) no meio da coleta: encerra sem gastar nada. */
   private cancelSoilNow() {
     if (!this.soil) return;
-    const rover = this.rover;
     this.soil = null;
-    if (rover) {
-      rover.stopPath();
-      rover.root.visible = true;
-      rover.place(this.roverPark.x, this.roverPark.z, this.roverPark.h, GROUND_Y);
-    }
-    this.setVeil(0);
+    useSoilCoop.getState().reset(false);
     publishMissionBoard({ soilPhase: 'idle' });
   }
 
@@ -3233,11 +3247,17 @@ export class BaseViewer {
   private deliverSoil() {
     if (this.soilCarry <= 0) return;
     const samples = this.soilCarry;
-    const ok = this.completeMission('soil_robot', {
-      research: soilReward(this.soilQuality),
-      title: 'Coleta de solo concluída',
-      text: `${samples} amostras de solo analisadas no computador da base.`,
-    });
+    const coop = this.soilCoopRun;
+    const ok = this.completeMission(
+      'soil_robot',
+      {
+        research: soilReward(this.soilQuality) * (coop ? COOP_POINTS_MULT : 1),
+        title: coop ? 'Coleta de solo em dupla concluída' : 'Coleta de solo concluída',
+        text: `${samples} amostras de solo analisadas no computador da base${coop ? ' (custo ×2, pontos ×3)' : ''}.`,
+      },
+      coop ? COOP_COST_MULT : 1,
+    );
+    this.soilCoopRun = false;
     this.soilCarry = 0;
     this.soilQuality = 0;
     if (!ok) this.notify('As amostras foram arquivadas sem pontos extras.', 'info');
@@ -3280,6 +3300,11 @@ export class BaseViewer {
       if (!this.panelsCleanedToday.includes(req.index))
         this.panelsCleanedToday = [...this.panelsCleanedToday, req.index];
       this.options?.onSolarCleaned?.();
+      this.journal(
+        'Painel solar limpo',
+        `Painel ${req.index + 1} limpo: voltou a gerar 100% da energia.`,
+        'good',
+      );
     } else if (req.kind === 'greenhouse') {
       this.markCropCared(req.index);
       // a água do cultivo sai do estoque da base: quanto mais se rega, mais se gasta
@@ -3302,6 +3327,13 @@ export class BaseViewer {
     } else if (req.kind === 'oxygen') {
       const wasClogged = filterClogged(this.care.filter, sol);
       this.setCare({ ...this.care, filter: sol });
+      this.journal(
+        'Filtro de ar trocado',
+        wasClogged
+          ? 'O filtro estava entupido: a base voltou a produzir oxigênio.'
+          : 'Troca diária do filtro de ar.',
+        'good',
+      );
       this.notify(
         wasClogged
           ? '🫁 Filtro trocado: a base voltou a produzir oxigênio.'
@@ -3618,10 +3650,6 @@ export class BaseViewer {
         return;
       }
       this.lastRoverClick = 0;
-      if (this.soil) {
-        this.notify('O rover está numa missão automática: aguarde.', 'info');
-        return;
-      }
       let spot: THREE.Vector3 | null = null;
       if (pick.type === 'floor') spot = this.floorTarget(pick.point.x, pick.point.z, 'vehicle');
       else if (pick.type === 'surface' && pick.normal.y > 0.7) {

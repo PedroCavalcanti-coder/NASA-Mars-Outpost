@@ -501,6 +501,17 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       socket.to(room.code).emit('event:result', eid, choice, roll);
     });
 
+    /** Coleta de solo em dupla: repassa o início e as notas aos outros da sala. */
+    socket.on('soil:msg', (kind, eid, quality) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2)) return;
+      if (kind !== 'start' && kind !== 'done') return;
+      if (typeof eid !== 'string' || eid.length > 40) return;
+      if (typeof quality !== 'number' || !Number.isFinite(quality) || quality < 0 || quality > 1)
+        return;
+      socket.to(room.code).emit('soil:msg', socket.id, kind, eid, quality);
+    });
+
     socket.on('player:emote', (raw) => {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room) return;

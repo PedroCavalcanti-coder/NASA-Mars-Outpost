@@ -37,6 +37,7 @@ import { useHudContext } from '../HudContext';
 
 const SITE_ICON: Record<MissionSite, ReactNode> = {
   rover: <Truck size={16} />,
+  soil: <Truck size={16} />,
   drill: <Drill size={16} />,
   lab: <FlaskConical size={16} />,
   comms: <Radio size={16} />,
@@ -50,8 +51,7 @@ function MissionRow({ id }: { id: MissionId }) {
   const board = useMissionBoard();
   const res = useMission((s) => s.state.resources);
   const done = board.done.includes(id);
-  const soilBusy =
-    id === 'soil_robot' && board.soilPhase !== 'idle' && board.soilPhase !== 'deliver';
+  const soilBusy = id === 'soil_robot' && board.soilPhase === 'sampling';
   const delivering = id === 'soil_robot' && board.soilPhase === 'deliver';
   const block = done
     ? null
@@ -67,7 +67,8 @@ function MissionRow({ id }: { id: MissionId }) {
   const where = site ? describeDirection(board.player.x, board.player.z, site.x, site.z) : null;
   const angle = site ? bearingTo(board.player.x, board.player.z, site.x, site.z) : 0;
   const canGo = !done && !soilBusy && (delivering || !block);
-  const reward = id === 'soil_robot' ? `+${soilReward(0)} a ${soilReward(1)}` : `+${def.research}`;
+  const reward =
+    id === 'soil_robot' ? `+${soilReward(0)} a ${soilReward(1)} (×3 em dupla)` : `+${def.research}`;
 
   return (
     <li className={`hud-task hud-mission ${done ? 'is-done' : ''} ${block ? 'is-blocked' : ''}`}>
@@ -86,7 +87,7 @@ function MissionRow({ id }: { id: MissionId }) {
           {delivering
             ? `Leve as ${board.carrying} amostras de solo a um computador da base (laboratório).`
             : soilBusy
-              ? 'O rover está em missão: aguarde a volta.'
+              ? 'Coleta em andamento…'
               : def.summary}
         </span>
         {site && !done && (
@@ -127,7 +128,11 @@ function MissionRow({ id }: { id: MissionId }) {
           disabled={!canGo}
           onClick={() => viewer?.goToMission(id)}
           title={
-            block && !delivering ? block : 'O astronauta vai até lá e a missão começa ao chegar'
+            block && !delivering
+              ? block
+              : id === 'soil_robot'
+                ? 'O astronauta vai ao rover e entra; dirija até o ponto marcado'
+                : 'O astronauta vai até lá e a missão começa ao chegar'
           }
         >
           <Footprints size={14} />

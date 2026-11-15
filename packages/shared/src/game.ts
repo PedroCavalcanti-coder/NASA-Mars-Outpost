@@ -391,6 +391,8 @@ export interface GameServerToClient {
   'event:vote': (id: string, eid: string, choice: number) => void;
   /** decisão final de um evento (todos aplicam a mesma opção e o mesmo sorteio de risco) */
   'event:result': (eid: string, choice: number, roll: number) => void;
+  /** coleta de solo em dupla: o motorista abriu (`start`) ou alguém terminou a sua parte (`done`, nota 0..1) */
+  'soil:msg': (id: string, kind: 'start' | 'done', eid: string, quality: number) => void;
   /** convite para um gesto em dupla, vindo de outro jogador (validado pelo servidor) */
   'gesture:invite': (fromId: string, gesture: DuoGestureId) => void;
   /** os dois jogadores executam o gesto agora */
@@ -414,6 +416,7 @@ export interface GameClientToServer {
   'player:emote': (emote: number) => void;
   'event:vote': (eid: string, choice: number) => void;
   'event:result': (eid: string, choice: number, roll: number) => void;
+  'soil:msg': (kind: 'start' | 'done', eid: string, quality: number) => void;
   'gesture:invite': (gesture: DuoGestureId, targetId: string) => void;
   'gesture:accept': (fromId: string) => void;
   'player:chat': (message: string) => void;

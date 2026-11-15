@@ -1,10 +1,15 @@
 import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSoilCoop } from '../../../game/missions/soilCoop';
 import { usePreviewClose } from '../usePreviewClose';
 import { soilQuality } from './scoring';
 import './missions.css';
 
 const SAMPLES = 6;
+/** em dupla cada jogador colhe a sua metade */
+const COOP_SAMPLES = 4;
+/** sem notícia do parceiro por tanto tempo (s), dá para concluir sozinho */
+const WAIT_PARTNER_S = 20;
 
 /**
  * Coleta de solo fora da base: seis pontos aparecem, um de cada vez, no terreno em volta do
@@ -12,27 +17,50 @@ const SAMPLES = 6;
  * que os outros minigames, mas fácil: sem tempo limite nem como errar, só rende mais se for rápido.
  */
 export default function SoilSamplingGame({
+  coop = false,
+  role = 'driver',
+  onReady,
   onClose,
   onComplete,
 }: {
+  /** coleta em dupla: os dois jogadores abrem o minigame juntos e cada um colhe a sua parte */
+  coop?: boolean;
+  role?: 'driver' | 'passenger';
+  /** minha parte terminou (a nota vai para o parceiro) */
+  onReady?: (quality: number) => void;
   onClose?: () => void;
   onComplete?: (r: { quality: number }) => void;
 }) {
+  const total = coop ? COOP_SAMPLES : SAMPLES;
+  const partnerDone = useSoilCoop((c) => c.partnerDone);
+  const [waited, setWaited] = useState(0);
   const { close, closeButton } = usePreviewClose(onClose);
   const spots = useMemo(
     () =>
-      Array.from({ length: SAMPLES }, () => ({
+      Array.from({ length: total }, () => ({
         x: 12 + Math.random() * 76,
         y: 14 + Math.random() * 72,
       })),
-    [],
+    [total],
   );
   const [got, setGot] = useState(0);
   const times = useRef<number[]>([]);
   const shownAt = useRef(performance.now());
   const spot = useRef<HTMLButtonElement>(null);
   const reported = useRef(false);
-  const done = got >= SAMPLES;
+  const done = got >= total;
+  const quality = done ? soilQuality(times.current) : 0;
+
+  // terminei a minha parte: avisa o parceiro e começa a contar a espera
+  useEffect(() => {
+    if (!done) return;
+    onReady?.(quality);
+    if (!coop) return;
+    const id = window.setInterval(() => setWaited((w) => w + 1), 1000);
+    return () => window.clearInterval(id);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: avisa uma única vez
+  }, [done]);
+  const canFinish = !coop || partnerDone || waited >= WAIT_PARTNER_S;
 
   // foco no ponto atual: Espaço/Enter também coletam
   // biome-ignore lint/correctness/useExhaustiveDependencies: refaz o foco a cada amostra
@@ -53,10 +81,11 @@ export default function SoilSamplingGame({
       <section className="msn-mg__card">
         <div className="msn-mg__head">
           <div>
-            <h2>Coleta de solo</h2>
+            <h2>{coop ? 'Coleta de solo em dupla' : 'Coleta de solo'}</h2>
             <p>
-              O rover parou em meio à poeira. Colha as {SAMPLES} amostras tocando em cada ponto
-              marcado.
+              {coop
+                ? `Vocês chegaram ao ponto. ${role === 'driver' ? 'Você é o motorista' : 'Você é o passageiro'}: colha as ${total} amostras da sua parte tocando em cada ponto. A nota final é a média dos dois.`
+                : `Você chegou ao ponto de coleta. Colha as ${total} amostras tocando em cada ponto marcado.`}
             </p>
           </div>
           <button
@@ -74,28 +103,35 @@ export default function SoilSamplingGame({
           className="msn-tube"
           role="progressbar"
           aria-valuemin={0}
-          aria-valuemax={SAMPLES}
+          aria-valuemax={total}
           aria-valuenow={got}
           aria-label="Tubo de amostras"
         >
-          <div className="msn-tube__fill" style={{ width: `${(got / SAMPLES) * 100}%` }} />
+          <div className="msn-tube__fill" style={{ width: `${(got / total) * 100}%` }} />
         </div>
 
         {done ? (
           <div className="msn-mg__result">
             <strong>Amostras lacradas!</strong>
-            <span>O rover vai voltar à base com o material.</span>
+            <span>
+              {coop
+                ? partnerDone
+                  ? 'Seu parceiro também terminou!'
+                  : `Aguardando seu parceiro terminar… (${Math.max(0, WAIT_PARTNER_S - waited)} s para concluir sem ele)`
+                : 'Volte dirigindo à base com o material.'}
+            </span>
             <button
               type="button"
               className="msn-mg__btn"
+              disabled={!canFinish}
               onClick={() => {
                 if (reported.current) return;
                 reported.current = true;
-                onComplete?.({ quality: soilQuality(times.current) });
+                onComplete?.({ quality });
                 close();
               }}
             >
-              Voltar para a base
+              {role === 'passenger' ? 'Concluir' : 'Levar as amostras'}
             </button>
           </div>
         ) : (
@@ -109,7 +145,7 @@ export default function SoilSamplingGame({
                 className="msn-spot"
                 style={{ left: `${current.x}%`, top: `${current.y}%` }}
                 onClick={collect}
-                aria-label={`Colher amostra ${got + 1} de ${SAMPLES}`}
+                aria-label={`Colher amostra ${got + 1} de ${total}`}
               >
                 ⛏
               </button>

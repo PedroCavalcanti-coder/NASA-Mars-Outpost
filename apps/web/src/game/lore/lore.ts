@@ -22,7 +22,16 @@ export interface LoreDef {
   links: LoreLink[];
 }
 
-export type LoreId = 'rover' | 'garden' | 'solar' | 'oxygen' | 'drill' | 'antenna';
+export type LoreId =
+  | 'rover'
+  | 'garden'
+  | 'solar'
+  | 'oxygen'
+  | 'drill'
+  | 'antenna'
+  | 'lab'
+  | 'medical'
+  | 'power';
 
 export const LORE: Record<LoreId, LoreDef> = {
   rover: {
@@ -123,6 +132,50 @@ export const LORE: Record<LoreId, LoreDef> = {
         label: 'Canberra e a Voyager 2',
         url: 'https://photojournal.jpl.nasa.gov/catalog/PIA23682',
       },
+    ],
+  },
+  lab: {
+    id: 'lab',
+    title: 'Um laboratório dentro do rover',
+    icon: '🔬',
+    image: '/assets/lore/lab.jpg',
+    credit: 'NASA/JPL-Caltech · instrumento SAM · PIA15100',
+    body: 'O Curiosity carrega um laboratório inteiro: o SAM (Sample Analysis at Mars) estuda a química de rochas, solo e ar de Marte. Na sua base, o laboratório faz o mesmo com as amostras que você traz.',
+    fact: 'Em 2014 o SAM detectou compostos orgânicos em um pó de rocha coletado pela broca do Curiosity, numa rocha chamada "Cumberland".',
+    links: [
+      {
+        label: 'O instrumento SAM (NASA)',
+        url: 'https://photojournal.jpl.nasa.gov/catalog/PIA15100',
+      },
+      {
+        label: 'Orgânicos detectados em "Cumberland"',
+        url: 'https://photojournal.jpl.nasa.gov/catalog/PIA19089',
+      },
+    ],
+  },
+  medical: {
+    id: 'medical',
+    title: 'Saúde dos astronautas',
+    icon: '🩺',
+    image: '/assets/lore/medical.jpg',
+    credit: 'NASA · Sandra Magnus na esteira da ISS · iss018e030101',
+    body: 'Sem a gravidade da Terra, o corpo muda no espaço. Por isso os astronautas da Estação Espacial Internacional se exercitam todo dia, por exemplo na esteira presa por um cinto elástico (a TVIS, na foto, de 2009).',
+    fact: 'O experimento Sprint, na ISS, mediu a eficácia de treinos curtos e intensos de exercício para astronautas.',
+    links: [
+      { label: 'Foto no acervo da NASA', url: 'https://images.nasa.gov/details/iss018e030101' },
+      { label: 'Experimento Sprint (NASA)', url: 'https://images.nasa.gov/details/iss040e123262' },
+    ],
+  },
+  power: {
+    id: 'power',
+    title: 'Energia longe do Sol',
+    icon: '⚡',
+    image: '/assets/lore/power.jpg',
+    credit: 'NASA/KSC · gerador do Curiosity · KSC-2011-6694',
+    body: 'O rover Curiosity não usa painéis solares: ele tem um gerador termoelétrico de radioisótopos (MMRTG), mostrado na foto sendo posicionado no Centro Espacial Kennedy em 2011. Na sua base, a energia vem dos painéis e da bateria, e à noite o consumo sobe.',
+    fact: 'Os rovers Spirit e Opportunity, ao contrário, dependiam de painéis solares, e o vento marciano já limpou a poeira deles.',
+    links: [
+      { label: 'Foto no acervo da NASA', url: 'https://images.nasa.gov/details/KSC-2011-6694' },
     ],
   },
 };

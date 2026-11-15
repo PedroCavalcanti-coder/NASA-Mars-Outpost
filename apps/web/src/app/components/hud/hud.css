@@ -597,6 +597,14 @@
   margin-top: 8px;
 }
 
+/* o diário ocupa o painel e rola: antes a altura máxima da tela cheia zerava o conteúdo */
+.hud-root .hud-panel-container .mission-log {
+  max-height: none;
+  overflow: visible;
+  display: grid;
+  gap: 8px;
+}
+
 /* Botões utilitários */
 .hud-btn {
   display: inline-flex;

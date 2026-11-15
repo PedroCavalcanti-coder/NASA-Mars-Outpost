@@ -1319,3 +1319,12 @@
   color: #5fe0e6;
   font-weight: 700;
 }
+
+.mission-log__day {
+  margin: 4px 0 2px;
+  color: #8fbbe9;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}

@@ -523,7 +523,7 @@ function ReadyGame() {
   /** Mission sem o histórico longo: cabe no limite do salvamento. */
   function missionSnapshot() {
     const m = useMission.getState().state;
-    return { ...m, log: m.log.slice(-30) };
+    return { ...m, log: m.log.slice(0, 25) };
   }
 
   async function saveWorld(silent = false) {
@@ -588,15 +588,14 @@ function ReadyGame() {
     const shielding = useMission.getState().state.resources.shielding?.value ?? 100;
     const deltas = scaleDamage(outcome.deltas, shielding);
     const final: EventOutcome = deltas ? { ...outcome, deltas } : outcome;
-    if (deltas && Object.values(deltas).some((v) => v)) {
-      useMission.getState().run({
-        type: 'reward',
-        tone: final.tone,
-        title: event.title,
-        text: final.text,
-        deltas,
-      });
-    }
+    // o evento sempre entra no diário, mesmo quando não custa nem rende nada
+    useMission.getState().run({
+      type: 'reward',
+      tone: final.tone,
+      title: event.title,
+      text: final.text,
+      deltas: deltas ?? {},
+    });
     viewer.current?.applyEventEffects(final);
     return final;
   }
@@ -814,7 +813,13 @@ function ReadyGame() {
                 onComplete={finishMinigame}
               />
             ) : minigame.kind === 'soil' ? (
-              <SoilSamplingGame onClose={closeMinigame} onComplete={finishMinigame} />
+              <SoilSamplingGame
+                coop={minigame.coop}
+                role={minigame.role}
+                onReady={(q) => viewer.current?.soilPartReady(q)}
+                onClose={closeMinigame}
+                onComplete={finishMinigame}
+              />
             ) : (
               <DrillingMinigame
                 baseId={minigame.baseId}

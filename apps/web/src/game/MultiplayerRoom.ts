@@ -73,6 +73,7 @@ export class MultiplayerRoom {
   onCrops?: (stages: number[]) => void;
   onEmote?: (id: string, emote: number) => void;
   onEventVote?: (id: string, eid: string, choice: number) => void;
+  onSoil?: (kind: 'start' | 'done', eid: string, quality: number) => void;
   onEventResult?: (eid: string, choice: number, roll: number) => void;
   /** outro jogador convidou para um gesto em dupla */
   onGestureInvite?: (fromId: string, gesture: DuoGestureId) => void;
@@ -196,6 +197,7 @@ export class MultiplayerRoom {
         this.onStorm?.(v);
       });
       socket.on('player:emote', (id, emote) => this.onEmote?.(id, emote));
+      socket.on('soil:msg', (_id, kind, eid, q) => this.onSoil?.(kind, eid, q));
       socket.on('event:vote', (id, eid, choice) => this.onEventVote?.(id, eid, choice));
       socket.on('event:result', (eid, choice, roll) => this.onEventResult?.(eid, choice, roll));
       socket.on('gesture:invite', (fromId, gesture) => this.onGestureInvite?.(fromId, gesture));
@@ -337,6 +339,9 @@ export class MultiplayerRoom {
         case 'emote':
           this.onEmote?.(m.from, m.i);
           break;
+        case 'soil':
+          this.onSoil?.(m.kind, m.eid, m.q);
+          break;
         case 'event_vote':
           this.onEventVote?.(m.from, m.eid, m.choice);
           break;
@@ -458,6 +463,12 @@ export class MultiplayerRoom {
     if (this.disposed) return;
     if (this.mode === 'online') this.socket?.emit('player:chat', message);
     else this.post({ t: 'chat', from: this.self.id, message });
+  }
+
+  sendSoil(kind: 'start' | 'done', eid: string, quality: number) {
+    if (this.disposed) return;
+    if (this.mode === 'online') this.socket?.emit('soil:msg', kind, eid, quality);
+    else this.post({ t: 'soil', from: this.self.id, kind, eid, q: quality });
   }
 
   sendEventVote(eid: string, choice: number) {
@@ -600,6 +611,7 @@ type LocalMessage =
   | { t: 'solar'; from: string; stages: number[] }
   | { t: 'crops'; from: string; stages: number[] }
   | { t: 'emote'; from: string; i: number }
+  | { t: 'soil'; from: string; kind: 'start' | 'done'; eid: string; q: number }
   | { t: 'event_vote'; from: string; eid: string; choice: number }
   | { t: 'event_result'; from: string; eid: string; choice: number; roll: number }
   | { t: 'chat'; from: string; message: string }

@@ -21,7 +21,7 @@ export type MissionId =
   | 'medical_checkup';
 
 /** Onde a missão acontece no mundo. */
-export type MissionSite = 'rover' | 'drill' | 'lab' | 'comms' | 'power' | 'medical';
+export type MissionSite = 'rover' | 'soil' | 'drill' | 'lab' | 'comms' | 'power' | 'medical';
 
 /** Pontos fixos com holograma na base (o rover e a sonda já são objetos do cenário). */
 export type StationSite = Extract<MissionSite, 'lab' | 'comms' | 'power' | 'medical'>;
@@ -48,8 +48,8 @@ export const MISSIONS: Record<MissionId, MissionDef> = {
     id: 'soil_robot',
     title: 'Coleta de solo com o rover',
     summary:
-      'O rover leva você para dentro da poeira, você colhe amostras num minigame e ele volta. Leve as amostras a um computador da base.',
-    site: 'rover',
+      'Entre no rover, dirija até o ponto marcado e colha as amostras num minigame. Depois leve-as a um computador da base. Em dupla (motorista e passageiro) custa o dobro, rende o triplo de pontos e o minigame é dos dois.',
+    site: 'soil',
     cost: { energy: 20, supplies: 10, oxygen: 14 },
     research: 30,
     morale: 3,
@@ -179,13 +179,17 @@ const ICONS: Record<CostKey, string> = {
 export const NIGHT_LIMIT = 0.55;
 
 /** Motivo que impede a missão agora, ou `null` se pode começar. */
-export function missionBlock(def: MissionDef, ctx: MissionContext): string | null {
+/** Coleta de solo em dupla (motorista e passageiro no rover): custa o dobro e rende o triplo. */
+export const COOP_COST_MULT = 2;
+export const COOP_POINTS_MULT = 3;
+
+export function missionBlock(def: MissionDef, ctx: MissionContext, costMul = 1): string | null {
   if (def.daytimeOnly && ctx.night > NIGHT_LIMIT) {
     return 'Só de dia: à noite o frio e a falta de luz tornam a missão perigosa.';
   }
   if (ctx.blackout && def.cost.energy) return 'Apagão: sem energia na base.';
   for (const key of Object.keys(def.cost) as CostKey[]) {
-    const need = def.cost[key] ?? 0;
+    const need = (def.cost[key] ?? 0) * costMul;
     if (ctx[key] < need) {
       return `Faltam recursos: precisa de ${need} de ${NAMES[key]} (há ${Math.floor(ctx[key])}).`;
     }
@@ -248,6 +252,7 @@ export const STATION_ROOMS: Record<StationSite, string[]> = {
 
 export const STATION_LABEL: Record<MissionSite, string> = {
   rover: 'Garagem do rover',
+  soil: 'Ponto de coleta de solo',
   drill: 'Sonda de perfuração',
   lab: 'Laboratório',
   comms: 'Comunicações',
