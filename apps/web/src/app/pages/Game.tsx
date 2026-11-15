@@ -63,7 +63,7 @@ import { toast } from '../../ui/toast';
 import { BitGuide } from '../components/bit/BitGuide';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionVeil } from '../components/hud/MissionVeil';
-import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
+import { TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
 import { EventFx } from '../components/mission/EventFx';
 import { EventTablet } from '../components/mission/EventTablet';
 import { LoreCard } from '../components/mission/LoreCard';
@@ -809,7 +809,6 @@ function ReadyGame() {
 
   return (
     <main className={`game ${touch ? 'game--touch' : ''}`}>
-      <RotateGate />
       {!loading && !error && (
         <BitGuide
           key={`${user?.id ?? name}:${baseId}`}

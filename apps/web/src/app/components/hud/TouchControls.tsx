@@ -1,11 +1,11 @@
 /**
- * Controles de toque do jogo: joystick virtual (andar / dirigir) e aviso para jogar na horizontal.
+ * Controles de toque do jogo: joystick virtual (andar / dirigir).
+ * O aviso para jogar na horizontal fica em components/RotateGate (vale para o site todo).
  *
  * O resto do jogo já funciona só com toque: tocar num objeto leva o astronauta até ele e usa,
  * tocar no chão anda, arrastar gira a câmera e o "pinch" dá zoom.
  */
 
-import { RotateCw } from 'lucide-react';
 import { type PointerEvent, useEffect, useRef, useState } from 'react';
 import type { BaseViewer } from '../../../game/BaseViewer';
 
@@ -82,42 +82,6 @@ export function TouchJoystick({ viewer }: { viewer: BaseViewer | null }) {
         className="touch-joystick__knob"
         style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }}
       />
-    </div>
-  );
-}
-
-/** No celular em pé o jogo pede para girar a tela (o jogo é na horizontal; a Home aceita as duas). */
-export function RotateGate() {
-  const touch = useIsTouch();
-  const [portrait, setPortrait] = useState(
-    () => typeof window !== 'undefined' && window.innerHeight > window.innerWidth,
-  );
-
-  useEffect(() => {
-    const update = () => setPortrait(window.innerHeight > window.innerWidth);
-    window.addEventListener('resize', update);
-    window.addEventListener('orientationchange', update);
-    return () => {
-      window.removeEventListener('resize', update);
-      window.removeEventListener('orientationchange', update);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!touch) return;
-    // onde o navegador deixa (tela cheia / app instalado), já trava na horizontal
-    const o = screen.orientation as ScreenOrientation & {
-      lock?: (o: string) => Promise<void>;
-    };
-    void o?.lock?.('landscape')?.catch(() => {});
-  }, [touch]);
-
-  if (!touch || !portrait) return null;
-  return (
-    <div className="rotate-gate" role="alertdialog" aria-label="Gire o aparelho">
-      <RotateCw size={54} aria-hidden="true" />
-      <h2>Gire o celular</h2>
-      <p>O jogo é na horizontal. Deite o aparelho para continuar a missão.</p>
     </div>
   );
 }

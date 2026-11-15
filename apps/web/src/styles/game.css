@@ -995,48 +995,6 @@
   touch-action: none;
 }
 
-.rotate-gate {
-  position: fixed;
-  z-index: 2000;
-  inset: 0;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-  gap: 10px;
-  padding: 24px;
-  background: rgba(4, 10, 24, 0.96);
-  color: #e7f1ff;
-  text-align: center;
-}
-
-.rotate-gate svg {
-  color: #ffb511;
-  animation: rotate-gate-spin 2.4s ease-in-out infinite;
-}
-
-.rotate-gate h2 {
-  margin: 0;
-  font-size: 22px;
-}
-
-.rotate-gate p {
-  margin: 0;
-  max-width: 320px;
-  color: #b9d0ee;
-  line-height: 1.5;
-}
-
-@keyframes rotate-gate-spin {
-  0%,
-  20% {
-    transform: rotate(0deg);
-  }
-  60%,
-  100% {
-    transform: rotate(-90deg);
-  }
-}
-
 /* telas baixas (celular deitado): o tablet de eventos e os painéis ganham folga */
 @media (pointer: coarse) {
   .game button,

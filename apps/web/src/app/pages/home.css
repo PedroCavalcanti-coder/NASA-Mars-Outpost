@@ -968,7 +968,6 @@
   }
   .launch-nav-button {
     min-height: 36px;
-    padding: 0 14px;
     font-size: 13px;
   }
   .launch-copy {
@@ -1016,5 +1015,13 @@
   .launch-footer-nav > a,
   .launch-footer-nav > button {
     padding: 6px 0;
+  }
+}
+
+/* celular deitado largo: botões do menu com texto, só mais baixos. Abaixo de 760px eles
+   continuam ícones redondos (39px), e um padding lateral aqui espremeria o ícone */
+@media (max-height: 500px) and (orientation: landscape) and (min-width: 760px) {
+  .launch-nav-button {
+    padding: 0 14px;
   }
 }

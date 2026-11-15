@@ -55,9 +55,65 @@
   color: #172c43 !important;
 }
 
-@media (max-width: 640px) {
+/* celular (em pé ou deitado): faixa compacta no rodapé, com letra e botões menores */
+@media (max-width: 640px), (max-height: 500px) {
+  .cookie-consent {
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .cookie-consent__icon {
+    width: 18px;
+    height: 18px;
+  }
+  .cookie-consent__actions {
+    gap: 6px;
+  }
+  .cookie-consent button {
+    padding: 7px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+/* celular em pé: o texto inteiro ocupa várias linhas, então o aviso fica no alto, logo abaixo
+   do menu (só há céu ali), e não cobre o "Jogar Agora" lá embaixo */
+@media (max-width: 640px) and (min-height: 501px) {
+  .cookie-consent {
+    top: calc(76px + env(safe-area-inset-top, 0px));
+    bottom: auto;
+  }
+}
+
+/* celular em pé estreito ou deitado bem pequeno: botões numa linha logo abaixo do texto */
+@media (max-width: 480px), (max-height: 500px) {
   .cookie-consent {
     flex-wrap: wrap;
+  }
+  .cookie-consent p {
+    flex-basis: calc(100% - 28px);
+  }
+  .cookie-consent__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* celular deitado: embaixo à direita, na metade livre da tela (o texto e o botão ficam à esquerda) */
+@media (max-height: 500px) and (min-width: 641px) {
+  .cookie-consent {
+    left: auto;
+    flex-wrap: wrap;
+    width: min(560px, calc(50vw - 36px));
+  }
+  .cookie-consent p {
+    flex-basis: calc(100% - 28px);
   }
   .cookie-consent__actions {
     width: 100%;
