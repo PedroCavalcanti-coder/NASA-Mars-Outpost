@@ -48,3 +48,31 @@ describe('dificuldade', () => {
     expect(back.difficulty).toBe('hard');
   });
 });
+
+describe('meta de pesquisa por dificuldade', () => {
+  it('no difícil a meta e o prazo são 3x; nos outros, 100 pontos e 15 sóis', async () => {
+    const { applyDifficulty } = await import('./world');
+    const hard = createGameplay(7, 'g'), normal = createGameplay(7, 'g');
+    applyDifficulty(hard, 'hard');
+    applyDifficulty(normal, 'normal');
+    expect(hard.mission.researchGoal).toBe(300);
+    expect(hard.mission.maxSols).toBe(45);
+    expect(normal.mission.researchGoal).toBe(100);
+    expect(normal.mission.maxSols).toBe(15);
+  });
+  it('100 pontos não vencem o difícil, mas 300 vencem; a meta sobrevive ao save', async () => {
+    const { applyDifficulty } = await import('./world');
+    const { checkOutcome } = await import('./engine');
+    const s = createGameplay(7, 'g');
+    applyDifficulty(s, 'hard');
+    s.mission.research = 100;
+    checkOutcome(s.mission);
+    expect(s.mission.status).toBe('playing');
+    s.mission.research = 300;
+    checkOutcome(s.mission);
+    expect(s.mission.status).toBe('won');
+    const back = migrateWorldSave(createWorldSave(s), 1, 'g').state;
+    expect(back.mission.researchGoal).toBe(300);
+    expect(back.mission.research).toBe(300);
+  });
+});

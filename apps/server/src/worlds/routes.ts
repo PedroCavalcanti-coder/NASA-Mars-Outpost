@@ -1,4 +1,4 @@
-import { GAME_ROOM_CODE_RE, NICKNAME_MAX, NICKNAME_MIN } from '@mars/shared';
+import { GAME_ROOM_CODE_RE, hasProfanity, NICKNAME_MAX, NICKNAME_MIN, PROFANITY_NICK_MESSAGE } from '@mars/shared';
 import type { FastifyInstance } from 'fastify';
 import { config } from '../config';
 import { isNicknameTaken, roomBase } from '../realtime/game';
@@ -75,6 +75,7 @@ export async function worldRoutes(app: FastifyInstance) {
           error: `O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`,
         };
       }
+      if (hasProfanity(name)) return { ok: false, error: PROFANITY_NICK_MESSAGE };
       if (!GAME_ROOM_CODE_RE.test(code)) return { ok: false, error: 'Código de sala inválido' };
       if (isNicknameTaken(code, name, owner)) {
         return {

@@ -30,6 +30,8 @@ import {
   leakRate,
   normalizeTimeScale,
   REPAIR_OUTSIDE,
+  hasProfanity,
+  PROFANITY_MESSAGE,
   type RepairIntent,
 } from '@mars/shared';
 import {
@@ -65,7 +67,6 @@ import {
   STORM_SAFE_RADIUS,
 } from './BaseGrid';
 import { applyBoundaryFog, setEdgeFog } from './boundaryFog';
-import { chime } from '../lib/chime';
 import { ExpeditionController } from './expedition/ExpeditionController';
 import { CropSystem } from './Crops';
 import { DoorSystem } from './Doors';
@@ -2237,6 +2238,10 @@ export class BaseViewer {
   sendChat(message: string): boolean {
     const text = message.trim().slice(0, 240);
     if (!text || !this.localAstronaut?.isRevealed) return false;
+    if (hasProfanity(text)) {
+      this.options?.onMessage?.(PROFANITY_MESSAGE, 'error');
+      return false;
+    }
     this.room?.sendChat(text);
     this.options?.onChat?.({ name: this.localAstronaut.name, message: text, local: true });
     return true;

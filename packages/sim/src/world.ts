@@ -1,5 +1,6 @@
+import { MAX_SOLS, RESEARCH_GOAL } from './balance';
 import {
-  armorValue, flareFactor, rulesFor, flareFor, GAMEPLAY_TARGETS, RADIATION, GAMEPLAY_VERSION, GAME_SOL_SECONDS, GAME_START_HOUR, leakRate,
+  armorValue, flareFactor, rulesFor, type Difficulty, flareFor, GAMEPLAY_TARGETS, RADIATION, GAMEPLAY_VERSION, GAME_SOL_SECONDS, GAME_START_HOUR, leakRate,
   newIntegrity, repairIntent, tickIntegrity,
   type ActivityAction, type ExpeditionState, type ActivityAttempt, type ActivityKind, type GameConfirmation,
   type GameErrorCode, type GamePayload, type GameplayMovement, type GameplayState,
@@ -335,7 +336,7 @@ function finish(s: GameplayState, a: ActivityAttempt, base = 'jezero'): GameErro
     if (s.mission.resources.armor.value <= 0) return 'UNAVAILABLE';
     const def = MISSIONS[mission as MissionId];
     // só missões de pesquisa dão pesquisa; as de manutenção devolvem recursos à base
-    const research = def.research <= 0 ? 0 : a.kind === 'drill' ? a.quality! : def.research + Math.round(r ? r.quality : stationQuality(a.marks.filter(Boolean).length,3));
+    const research = def.research <= 0 ? 0 : a.kind === 'drill' ? def.research + Math.min(1, a.quality!) : def.research + Math.round(r ? r.quality : stationQuality(a.marks.filter(Boolean).length,3));
     const deltas: Record<string, number> = {};
     for (const [key,value] of Object.entries(def.cost)) deltas[key] = -value;
     for (const [key,value] of Object.entries(def.reward ?? {})) deltas[key] = (deltas[key] ?? 0) + Math.round(value * (r ? 0.7 + 0.3 * r.quality : 1));
@@ -495,6 +496,14 @@ export function applyGameplayCommand(previous: GameplayState, actor: string, pay
   }
   outcome(s); updateRestrictions(s,movement); s.revision++;
   return {state:s,attempt};
+}
+
+/** Define a dificuldade do mundo: meta de pesquisa e prazo (o difícil pede 3x os pontos e dá 3x os sóis). */
+export function applyDifficulty(s: GameplayState, d: Difficulty) {
+  s.difficulty = d;
+  const rules = rulesFor(d);
+  s.mission.researchGoal = Math.round(RESEARCH_GOAL * rules.researchGoal);
+  s.mission.maxSols = Math.round(MAX_SOLS * rules.maxSols);
 }
 
 /** Duração da expedição (tempo real, ms) e quantas pedras achar. */

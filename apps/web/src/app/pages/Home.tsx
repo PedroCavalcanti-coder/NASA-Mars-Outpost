@@ -9,6 +9,7 @@ import {
   subscribeExpedition,
 } from '../../game/runtime/expedition';
 import { clearPlaySession, setPendingDifficulty } from '../../lib/gameSession';
+import { openAlbum, StickerLayer } from '../components/stickers/StickerAlbum';
 import { DifficultyModal } from '../components/DifficultyModal';
 import { useGameSettings } from '../../lib/gameSettings';
 import { getGuestName } from '../../lib/guest';
@@ -182,6 +183,15 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
       releaseSession?.();
     };
   }, [arrivalOnly]);
+
+  // `session.ready` é um campo comum (o React não percebe quando vira true): sem isto o botão
+  // "Personalizar astronauta" podia ficar travado mesmo com o mundo pronto
+  const [, repaint] = useState(0);
+  useEffect(() => {
+    if (phase !== 'complete' || session?.ready) return;
+    const id = window.setInterval(() => repaint((n) => n + 1), 250);
+    return () => window.clearInterval(id);
+  }, [phase, session, session?.ready]);
 
   useEffect(() => {
     if (phase !== 'complete' || !session?.ready) return;
@@ -371,6 +381,17 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
           <button
             className="launch-nav-button"
             type="button"
+            aria-label={L('Conquistas e figurinhas', 'Achievements and stickers')}
+            onClick={openAlbum}
+            title={L('Seu álbum de figurinhas e a missão da semana', 'Your sticker album and the mission of the week')}
+          >
+            <span aria-hidden="true" style={{ fontSize: 18 }}>🏅</span>
+            <span>{L('Conquistas', 'Achievements')}</span>
+          </button>
+
+          <button
+            className="launch-nav-button"
+            type="button"
             aria-label={L('Ver meus mundos salvos', 'See my saved worlds')}
             onClick={() => {
               setJoinTab('recent');
@@ -528,6 +549,7 @@ export default function Home({ arrivalOnly = false }: { arrivalOnly?: boolean })
 
       <CookieConsent />
 
+      <StickerLayer />
       <DifficultyModal
         open={difficultyOpen}
         onClose={() => setDifficultyOpen(false)}

@@ -169,7 +169,7 @@ function endSol(s: MissionState, realtime = false) {
 
 export function checkOutcome(s: MissionState) {
   if (s.status !== 'playing') return;
-  if (s.research >= RESEARCH_GOAL && isOperational(s)) {
+  if (s.research >= (s.researchGoal ?? RESEARCH_GOAL) && isOperational(s)) {
     s.status = 'won';
     pushLog(s, {
       tone: 'good',
@@ -195,14 +195,14 @@ export function checkOutcome(s: MissionState) {
       text: 'A moral da tripulação chegou a zero e a missão foi abortada.',
       deltas: {},
     });
-  } else if (s.sol > MAX_SOLS) {
+  } else if (s.sol > (s.maxSols ?? MAX_SOLS)) {
     s.status = 'lost';
     s.lossReason = 'deadline';
     s.sol = MAX_SOLS;
     pushLog(s, {
       tone: 'bad',
       title: 'Janela de retorno',
-      text: `Os ${MAX_SOLS} sóis da campanha acabaram antes de a pesquisa ser concluída.`,
+      text: `Os ${s.maxSols ?? MAX_SOLS} sóis da campanha acabaram antes de a pesquisa ser concluída.`,
       deltas: {},
     });
   }

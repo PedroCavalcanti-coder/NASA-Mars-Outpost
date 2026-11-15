@@ -1,4 +1,4 @@
-import { createWorldSave } from '@mars/sim';
+import { applyDifficulty, createWorldSave } from '@mars/sim';
 import { GAMEPLAY_VERSION, GAME_STEP_MS, GAME_PUBLISH_MS, type GameConfirmation } from '@mars/shared';
 import { RoomSimulation } from './simulation';
 import { MOVEMENT_VERSION, NAVIGATION_HASH, MOVEMENT_DT } from '@mars/shared';
@@ -28,6 +28,9 @@ import {
   normalizeSuit,
   normalizeTimeScale,
   REPAIR_ANCHORS,
+  hasProfanity,
+  PROFANITY_MESSAGE,
+  PROFANITY_NICK_MESSAGE,
   isDifficulty,
   type Difficulty,
   repairIntent,
@@ -212,7 +215,7 @@ async function getRoom(
       const movement = new RoomMovement(saved?.baseId ?? baseId, saved?.save.vehicle);
       const simulation = new RoomSimulation(saved?.baseId ?? baseId, code, movement, saved?.save);
       // a dificuldade escolhida vale só para mundos novos; mundo salvo guarda a sua
-      if (!saved && difficulty) simulation.state.difficulty = difficulty;
+      if (!saved && difficulty) applyDifficulty(simulation.state, difficulty);
       const room: Room = {
         simulation,
         code,
@@ -453,6 +456,8 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
           error: `O apelido precisa ter de ${NICKNAME_MIN} a ${NICKNAME_MAX} caracteres.`,
         });
       }
+
+      if (hasProfanity(name)) return reply({ ok: false, error: PROFANITY_NICK_MESSAGE });
 
       if (!rooms.has(code) && rooms.size >= MAX_ROOMS) {
         return reply({ ok: false, error: 'Servidor cheio' });
@@ -711,6 +716,7 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
       if (!room || !takeToken(socket.data, 2) || typeof raw !== 'string') return;
       const message = raw.trim().slice(0, 240);
+      if (message && hasProfanity(message)) return void socket.emit('gesture:denied', PROFANITY_MESSAGE);
       if (message) socket.to(room.code).emit('player:chat', socket.id, message);
     });
 

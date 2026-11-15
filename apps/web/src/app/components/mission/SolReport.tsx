@@ -20,6 +20,7 @@ interface Report {
   /** missões do dia que ficaram feitas e o total */
   missions: { done: number; total: number };
   research: number;
+  goal: number;
   /** o que mais pesou no dia (entradas do diário com perdas) */
   causes: { title: string; text: string }[];
   /** lições de causa e efeito do dia */
@@ -77,6 +78,7 @@ export function SolReport({ hidden }: { hidden: boolean }) {
         dose: dose - prev.dose,
         missions: prev.missions,
         research: prev.research,
+        goal: state.mission.researchGoal ?? 100,
         causes: entries
           .filter((e) => Object.values(e.deltas ?? {}).some((v) => (v ?? 0) < 0) || e.tone === 'bad')
           .slice(0, 4)
@@ -110,7 +112,7 @@ export function SolReport({ hidden }: { hidden: boolean }) {
               </li>
             ))}
             <li className={report.missions.done >= report.missions.total ? 'is-up' : 'is-down'}>📋 {L('Missões', 'Missions')} {report.missions.done}/{report.missions.total}</li>
-            <li className="is-up">🔬 {L('Pesquisa', 'Research')} {report.research}/100</li>
+            <li className="is-up">🔬 {L('Pesquisa', 'Research')} {report.research}/{report.goal}</li>
             <li className="is-down">☢ {L('Radiação', 'Radiation')} +{report.dose.toFixed(1)} mSv</li>
           </ul>
           {report.causes.length > 0 && (

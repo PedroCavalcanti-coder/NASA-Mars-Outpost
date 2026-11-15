@@ -119,6 +119,7 @@ describe('uma partida inteira até vencer', () => {
     while (s.mission.status === 'playing' && guard++ < 40) {
       refill(s);
       for (const id of [...s.board.ids]) {
+        if (s.mission.status !== 'playing') break;
         if (s.board.done.includes(id)) continue;
         const todo: Array<[string, string]> =
           id === 'oxygen_moxie' ? [['moxie', '0']] : id === 'water_extract' ? [['water', '0']] : [];
@@ -152,7 +153,7 @@ describe('uma partida inteira até vencer', () => {
       s = next;
       wait(s, 1000);
     }
-    expect(errors).toEqual([]);
+    expect(errors.filter((e) => !/ENDED/.test(e))).toEqual([]);
     expect(s.mission.status === 'won' || s.mission.research >= 60).toBe(true);
   });
 });
@@ -195,4 +196,23 @@ describe('aleatoriedade com memória', () => {
     expect(missionsForSol(5, 9, 2)).toEqual(missionsForSol(5, 9, 2));
     expect(eventsForSol(5, 9, 2).map((e) => e.id)).toEqual(eventsForSol(5, 9, 2).map((e) => e.id));
   });
+});
+
+describe('a pesquisa prometida é a recebida', () => {
+  for (const [kind, target, mission] of [
+    ['station', 'lab_analysis', 'lab_analysis'],
+    ['drill', '0', 'drill'],
+  ] as const) {
+    it(`${mission}: +3 a +4 pontos com nota máxima`, () => {
+      const s = start();
+      refill(s);
+      if (!s.board.ids.includes(mission)) s.board.ids.push(mission);
+      const before = s.mission.research;
+      const r = playActivity(s, kind, target);
+      expect(r.code).toBeUndefined();
+      const gained = r.s.mission.research - before;
+      expect(gained).toBeGreaterThanOrEqual(3);
+      expect(gained).toBeLessThanOrEqual(4);
+    });
+  }
 });

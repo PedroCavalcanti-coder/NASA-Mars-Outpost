@@ -1,6 +1,7 @@
 import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { L } from '../../../lib/i18n';
+import { narrationSupported, speak, speakNow, stopSpeaking } from '../../../lib/narration';
 import { BitCharacter } from '../bit/BitCharacter';
 import './intro.css';
 
@@ -243,6 +244,12 @@ export function IntroTutorial({ onClose, canSkip }: { onClose: () => void; canSk
   // biome-ignore lint/correctness/useExhaustiveDependencies: refoca a cada painel
   useEffect(() => next.current?.focus(), [index]);
 
+  // narração: lê o painel atual (título e frases)
+  useEffect(() => {
+    speak([L(slide.title[0], slide.title[1]), ...slide.lines.map((l) => L(l[0], l[1]))].join('. '));
+    return () => stopSpeaking();
+  }, [slide]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'ArrowRight' || event.key === 'Enter') {
@@ -280,6 +287,15 @@ export function IntroTutorial({ onClose, canSkip }: { onClose: () => void; canSk
           ))}
         </div>
         <div className="intro__actions">
+          {narrationSupported() && (
+            <button
+              type="button"
+              className="intro__btn intro__btn--listen"
+              onClick={() => speakNow([L(slide.title[0], slide.title[1]), ...slide.lines.map((l) => L(l[0], l[1]))].join('. '))}
+            >
+              🔊 {L('Ouvir', 'Listen')}
+            </button>
+          )}
           {index > 0 && (
             <button type="button" className="intro__btn" onClick={() => setIndex((n) => n - 1)}>
               ◀ {L('Voltar', 'Back')}

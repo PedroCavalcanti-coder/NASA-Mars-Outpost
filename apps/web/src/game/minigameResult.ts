@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { bump } from './stickers';
 
 export interface MinigameOutcome {
   key: number;
@@ -26,4 +27,6 @@ export function showMinigameResult(kind: string, quality: number) {
   const f = FACTS[kind] ?? FACTS.station!;
   const stars = quality >= 0.85 ? 3 : quality >= 0.5 ? 2 : 1;
   useMinigameResult.setState({ result: { key: ++n, stars, ...f } });
+  bump('minigame');
+  if (stars === 3) bump('three_stars');
 }

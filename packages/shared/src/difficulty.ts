@@ -21,12 +21,16 @@ export interface DifficultyRules {
   expeditionMs: number;
   /** multiplica o oxigênio gasto no traje fora da base */
   suitDrain: number;
+  /** multiplica os pontos de pesquisa necessários para vencer (os pontos ganhos não mudam) */
+  researchGoal: number;
+  /** multiplica o número de sóis até o prazo acabar (senão a meta maior seria impossível) */
+  maxSols: number;
 }
 
 export const DIFFICULTY_RULES: Record<Difficulty, DifficultyRules> = {
-  easy: { use: 0.7, harm: 0.6, majorBonus: -0.15, radiationHours: 0.7, dose: 0.6, expeditionMs: 300000, suitDrain: 0.7 },
-  normal: { use: 1, harm: 1, majorBonus: 0, radiationHours: 1, dose: 1, expeditionMs: 240000, suitDrain: 1 },
-  hard: { use: 1.3, harm: 1.4, majorBonus: 0.15, radiationHours: 1.4, dose: 1.5, expeditionMs: 180000, suitDrain: 1.3 },
+  easy: { use: 0.7, harm: 0.6, majorBonus: -0.15, radiationHours: 0.7, dose: 0.6, expeditionMs: 300000, suitDrain: 0.7, researchGoal: 1, maxSols: 1 },
+  normal: { use: 1, harm: 1, majorBonus: 0, radiationHours: 1, dose: 1, expeditionMs: 240000, suitDrain: 1, researchGoal: 1, maxSols: 1 },
+  hard: { use: 1.3, harm: 1.4, majorBonus: 0.15, radiationHours: 1.4, dose: 1.5, expeditionMs: 180000, suitDrain: 1.3, researchGoal: 3, maxSols: 3 },
 };
 
 export const isDifficulty = (v: unknown): v is Difficulty => typeof v === 'string' && (DIFFICULTIES as readonly string[]).includes(v);

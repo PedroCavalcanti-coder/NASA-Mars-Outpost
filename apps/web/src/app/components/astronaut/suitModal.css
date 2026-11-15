@@ -540,3 +540,57 @@
     gap: 4px;
   }
 }
+
+/* celular deitado (pouca altura): painel estreito à esquerda, boneco à direita e botões sempre à vista */
+@media (max-height: 520px) {
+  .suit-screen-header {
+    top: 6px;
+    left: 8px;
+  }
+  .suit-back-btn {
+    padding: 4px 10px;
+    font-size: 14px;
+    border-width: 2px;
+  }
+  .suit-modal-form {
+    inset: 44px auto 6px max(8px, env(safe-area-inset-left));
+    width: min(52vw, 440px);
+    max-width: none;
+  }
+  .suit-hud {
+    padding: 8px 10px 0;
+    font-size: 13px;
+  }
+  .suit-hud-heading {
+    display: none;
+  }
+  .suit-hud > * {
+    margin-bottom: 6px;
+  }
+  .suit-arrow,
+  .suit-part-btn,
+  .suit-random-btn,
+  .suit-cancel-btn,
+  .suit-launch-btn {
+    min-height: 36px;
+    padding-block: 4px;
+    font-size: 13px;
+  }
+  .suit-palette-grid {
+    grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+    gap: 5px;
+  }
+  .suit-color-swatch {
+    min-height: 30px;
+  }
+  .suit-field-label {
+    font-size: 11px;
+  }
+  .suit-modal-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    padding: 6px 0;
+    background: linear-gradient(0deg, #505958 70%, transparent);
+  }
+}

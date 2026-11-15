@@ -1,6 +1,6 @@
 import { armorValue, isDifficulty, restoreIntegrity, WORLD_SAVE_MAX_BYTES, type GameplayState, type WorldSaveV3 } from '@mars/shared';
 import { INITIAL, LOG_LIMIT, RESEARCH_GOAL } from './balance';
-import { cloneGameplay, createGameplay, simulationClock } from './world';
+import { applyDifficulty, cloneGameplay, createGameplay, simulationClock } from './world';
 import { MISSIONS, missionsForSol } from './missions';
 import { GAME_EVENTS } from './eventRules';
 
@@ -13,8 +13,8 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
   const oldMission = object(r.v === 3 ? source.mission : r.mission);
   const state = createGameplay(number(oldMission.seed,seed,0,4294967295),generation,defaults.solar,defaults.crops);
   const corrections: string[]=[];
-  state.elapsedMs = number(source.elapsedMs,0,0,600000*15);
-  if (isDifficulty(source.difficulty)) state.difficulty = source.difficulty;
+  state.elapsedMs = number(source.elapsedMs,0,0,600000*60);
+  if (isDifficulty(source.difficulty)) applyDifficulty(state, source.difficulty);
   const sol = simulationClock(state.elapsedMs).sol;
   const mission = state.mission;
   mission.sol=sol;
@@ -26,7 +26,7 @@ export function migrateWorldSave(raw: unknown, seed: number, generation: string,
     mission.resources[id]={value:number(saved.value,fallback,0,INITIAL.resources[id].max),max:INITIAL.resources[id].max};
     if (saved.value !== undefined && saved.value !== mission.resources[id].value) corrections.push(`resources.${id}`);
   }
-  mission.research=number(oldMission.research,0,0,RESEARCH_GOAL);
+  mission.research=number(oldMission.research,0,0,mission.researchGoal ?? RESEARCH_GOAL);
   mission.secured=number(oldMission.secured,0,0,mission.research);
   mission.morale=number(oldMission.morale,80,0,100);
   mission.actionsLeft=Math.floor(number(oldMission.actionsLeft,3,0,3));

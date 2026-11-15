@@ -12,10 +12,14 @@ export interface A11y {
   bigTargets: boolean;
   /** texto mais forte e com mais espaço entre as letras */
   readable: boolean;
+  /** lê em voz alta (voz do navegador) falas do B.I.T., tutorial, avisos e eventos */
+  narrate: boolean;
+  /** voz mais devagar */
+  narrateSlow: boolean;
 }
 
 const KEY = 'mo_a11y';
-const DEFAULT: A11y = { colorMode: 'none', contrast: false, calm: false, bigTargets: false, readable: false };
+const DEFAULT: A11y = { colorMode: 'none', contrast: false, calm: false, bigTargets: false, readable: false, narrate: false, narrateSlow: false };
 
 function read(): A11y {
   try {
@@ -26,6 +30,8 @@ function read(): A11y {
       calm: v.calm === true,
       bigTargets: v.bigTargets === true,
       readable: v.readable === true,
+      narrate: v.narrate === true,
+      narrateSlow: v.narrateSlow === true,
     };
   } catch {
     return DEFAULT;

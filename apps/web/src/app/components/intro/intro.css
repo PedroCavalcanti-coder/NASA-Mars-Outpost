@@ -357,3 +357,10 @@
     display: none;
   }
 }
+
+.intro__btn--listen {
+  background: linear-gradient(180deg, #7be0a0, #2f9e58);
+  color: #06220f;
+  margin-right: auto;
+  font-size: clamp(15px, 2.6vmin, 20px);
+}

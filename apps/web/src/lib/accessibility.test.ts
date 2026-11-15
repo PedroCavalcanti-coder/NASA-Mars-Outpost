@@ -12,13 +12,13 @@ describe('acessibilidade', () => {
     }
   });
   it('liga e desliga os atributos no html', () => {
-    applyA11y({ colorMode: 'deutan', contrast: true, calm: true, bigTargets: false, readable: false });
+    applyA11y({ colorMode: 'deutan', contrast: true, calm: true, bigTargets: false, readable: false, narrate: false, narrateSlow: false });
     const root = document.documentElement;
     expect(root.getAttribute('data-cb')).toBe('deutan');
     expect(root.hasAttribute('data-contrast')).toBe(true);
     expect(root.hasAttribute('data-calm')).toBe(true);
     expect(document.getElementById('mo-a11y-filters')).not.toBeNull();
-    applyA11y({ colorMode: 'none', contrast: false, calm: false, bigTargets: false, readable: false });
+    applyA11y({ colorMode: 'none', contrast: false, calm: false, bigTargets: false, readable: false, narrate: false, narrateSlow: false });
     expect(root.hasAttribute('data-cb')).toBe(false);
   });
 });

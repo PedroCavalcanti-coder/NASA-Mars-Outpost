@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import { useBaseOps } from '../../../../game/tasks/store';
 import { RADIATION } from '@mars/shared';
+import { openAlbum } from '../../stickers/StickerAlbum';
+import { useStickers, weekProgress } from '../../../../game/stickers';
 import { useGameplay } from '../../../../store/gameplay';
 import { useMission } from '../../../../store/mission';
 import { OxygenOrb } from './OxygenOrb';
@@ -142,13 +144,17 @@ export function DoseSlot() {
 
 export function ResearchSlot() {
   const research = useMission((m) => m.state.research);
+  const goal = useMission((m) => m.state.researchGoal ?? RESEARCH_GOAL);
   const secured = useMission((m) => m.state.secured ?? 0);
-  const pct = Math.max(0, Math.min(100, (research / RESEARCH_GOAL) * 100));
-  const securedPct = Math.max(0, Math.min(100, (secured / RESEARCH_GOAL) * 100));
+  const pct = Math.max(0, Math.min(100, (research / goal) * 100));
+  const securedPct = Math.max(0, Math.min(100, (secured / goal) * 100));
   const pending = Math.max(0, research - secured);
   const board = useGameplay((g) => g.state?.board);
   const missionsLeft = board ? board.ids.filter((id) => !board.done.includes(id)).length : 0;
   const missionsTotal = board?.ids.length ?? 0;
+  const weekNo = useStickers((x) => x.week);
+  const weekCounts = useStickers((x) => x.counts);
+  const wp = weekProgress(weekNo, weekCounts);
   return (
     <div className="hud-research" data-bit-target="research" aria-label={L('Progresso da pesquisa', 'Research progress')}>
       <div className="hud-research__heading">
@@ -156,7 +162,7 @@ export function ResearchSlot() {
           <FlaskConical size={15} aria-hidden="true" /> {L('Pesquisa', 'Research')}
         </span>
         <span>
-          {research} / {RESEARCH_GOAL}
+          {research} / {goal}
         </span>
         <span
           className="hud-research__pending"
@@ -170,7 +176,7 @@ export function ResearchSlot() {
         role="progressbar"
         aria-label={L('Pesquisa', 'Research')}
         aria-valuemin={0}
-        aria-valuemax={RESEARCH_GOAL}
+        aria-valuemax={goal}
         aria-valuenow={research}
       >
         <div
@@ -183,10 +189,18 @@ export function ResearchSlot() {
         />
       </div>
       <div className="hud-research__goals" role="status">
-        <span>🎯 {L(`Faltam ${Math.max(0, RESEARCH_GOAL - research)} pontos`, `${Math.max(0, RESEARCH_GOAL - research)} points to go`)}</span>
+        <span>🎯 {L(`Faltam ${Math.max(0, goal - research)} pontos`, `${Math.max(0, goal - research)} points to go`)}</span>
         <span>
           📋 {L('Missões de hoje', 'Today')}: {missionsTotal - missionsLeft}/{missionsTotal}
         </span>
+        <button
+          type="button"
+          className="hud-research__week"
+          onClick={openAlbum}
+          title={L('Missão da semana e álbum de figurinhas', 'Mission of the week and sticker album')}
+        >
+          {wp.mission.icon} {wp.done}/{wp.total}
+        </button>
       </div>
     </div>
   );

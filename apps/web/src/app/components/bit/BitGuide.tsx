@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { BaseViewer, MinigameRequest } from '../../../game/BaseViewer';
 import { L } from '../../../lib/i18n';
+import { narrationSupported, speak, speakNow, stopSpeaking } from '../../../lib/narration';
+import { useA11y } from '../../../lib/accessibility';
 import { bitLanguage, type Expression, LINES, type LineId, lineText } from '../../../game/guide/catalog';
 import { GuideEngine, readMemory } from '../../../game/guide/engine';
 import { subscribeGuide } from '../../../game/guide/events';
@@ -330,6 +332,11 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
   // biome-ignore lint/correctness/useExhaustiveDependencies: serial and replay deliberately restart the same clip.
   useEffect(() => {
     if (!id || quiet) return;
+    // narração ligada: a voz do navegador lê a fala no idioma do jogo (e a gravação não toca junto)
+    if (useA11y.getState().narrate) {
+      speak(lineText(LINES[id as LineId]));
+      return () => stopSpeaking();
+    }
     // a voz gravada é em inglês: em português o B.I.T. só mostra o texto (sem misturar idiomas)
     if (bitLanguage() !== 'en') return;
     // falas ainda sem gravação: só o texto (sem pedir um áudio que não existe)
@@ -429,6 +436,11 @@ export function BitGuide({ identity, viewer, minigame, suspended, driving }: Pro
               <button type="button" onClick={next}>
                 {isHudLesson ? L('Próximo', 'Next') : L('Entendi', 'Got it')}
               </button>
+              {narrationSupported() && (
+                <button type="button" className="bit-listen" onClick={() => speakNow(lineText(LINES[id]))}>
+                  🔊 {L('Ouvir', 'Listen')}
+                </button>
+              )}
               <button type="button" onClick={() => setReplay((n) => n + 1)}>
                 {L('Repetir', 'Repeat')}
               </button>

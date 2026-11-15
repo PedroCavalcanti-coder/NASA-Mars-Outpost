@@ -7,6 +7,7 @@ import type { EventChoice, EventDeltas, GameEventDef } from '../../../game/event
 import { beginEvent, chooseOption, closeEvent, tickEvent } from '../../../game/events/flow';
 import { useGameEvents } from '../../../game/events/store';
 import { L, t } from '../../../lib/i18n';
+import { narrationSupported, speak, speakNow, stopSpeaking } from '../../../lib/narration';
 
 const ICON: Record<keyof EventDeltas, string> = {
   energy: '⚡',
@@ -68,6 +69,12 @@ export function EventTablet() {
   // novo evento na frente da fila: monta a sessão (pausa o relógio e define quem decide)
   useEffect(() => {
     if (event) beginEvent(event);
+  }, [event]);
+
+  // narração: título e pergunta do evento
+  useEffect(() => {
+    if (event) speak(`${t(event.title)}. ${t(event.body)}`);
+    return () => stopSpeaking();
   }, [event]);
 
   // relógio da votação (e fechamento por tempo)
@@ -150,6 +157,11 @@ function TabletBody({
             </div>
           )}
 
+          {narrationSupported() && (
+            <button type="button" className="event-tablet__listen" onClick={() => speakNow(`${t(event.title)}. ${t(event.body)}`)}>
+              🔊 {L('Ouvir', 'Listen')}
+            </button>
+          )}
           <p className="event-tablet__body">
             {event.orbital ? (
               <>

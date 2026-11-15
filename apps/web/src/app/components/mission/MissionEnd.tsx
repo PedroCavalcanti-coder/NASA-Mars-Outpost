@@ -26,6 +26,8 @@ export function MissionEnd({
   restoreError = '',
 }: Props) {
   const s = useMission((m) => m.state);
+  const goal = s.researchGoal ?? RESEARCH_GOAL;
+  const maxSols = s.maxSols ?? MAX_SOLS;
   const restart = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (s.status !== 'playing') restart.current?.focus();
@@ -47,7 +49,7 @@ export function MissionEnd({
         <span className="mission-end__kicker">{won ? L('MISSÃO CUMPRIDA', 'MISSION ACCOMPLISHED') : L('MISSÃO ENCERRADA', 'MISSION OVER')}</span>
         <h2 id="mission-end-title">
           {won
-            ? L('A pesquisa chegou a 100%!', 'Research reached 100%!')
+            ? L('A pesquisa foi concluída!', 'Research complete!')
             : s.lossReason === 'oxygen'
               ? L('A missão não pode ser concluída', 'The mission cannot be completed')
               : s.lossReason === 'morale'
@@ -56,12 +58,12 @@ export function MissionEnd({
         </h2>
         <p>
           {won
-            ? L(`A base enviou todos os dados científicos à Terra no sol ${s.sol} de ${MAX_SOLS}.`, `The base sent all the science data to Earth on sol ${s.sol} of ${MAX_SOLS}.`)
+            ? L(`A base enviou todos os dados científicos à Terra no sol ${s.sol} de ${maxSols}.`, `The base sent all the science data to Earth on sol ${s.sol} of ${maxSols}.`)
             : s.lossReason === 'oxygen'
               ? L('O oxigênio da base chegou a zero: o suporte à vida falhou. Troque o filtro de ar todo dia e mantenha a energia ligada. Você pode criar um mundo novo ou voltar ao último save.', 'The base oxygen reached zero: life support failed. Change the air filter every day and keep the power on. You can create a new world or go back to the last save.')
               : s.lossReason === 'morale'
                 ? L('Sem moral, a equipe não conseguiu manter a base. Cuide da energia e dos mantimentos.', 'Without morale, the crew could not keep the base running. Take care of power and supplies.')
-                : L(`A janela de retorno chegou com ${s.research} de ${RESEARCH_GOAL} pontos de dados.`, `The return window arrived with ${s.research} of ${RESEARCH_GOAL} data points.`)}
+                : L(`A janela de retorno chegou com ${s.research} de ${goal} pontos de dados.`, `The return window arrived with ${s.research} of ${goal} data points.`)}
         </p>
         {restoreError && (
           <p className="mission-end__error" role="alert">
@@ -72,12 +74,12 @@ export function MissionEnd({
         <dl className="mission-end__stats">
           <div>
             <dt>{L('Dados', 'Data')}</dt>
-            <dd>{Math.round((s.research / RESEARCH_GOAL) * 100)}%</dd>
+            <dd>{Math.round((s.research / goal) * 100)}%</dd>
           </div>
           <div>
             <dt>Sol</dt>
             <dd>
-              {s.sol}/{MAX_SOLS}
+              {s.sol}/{maxSols}
             </dd>
           </div>
           <div>

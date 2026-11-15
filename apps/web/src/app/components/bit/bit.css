@@ -383,3 +383,12 @@ body:has(
     font-size: 13px;
   }
 }
+
+/* botão "Ouvir" bem destacado */
+.bit-dialogue button.bit-listen {
+  background: linear-gradient(180deg, #7be0a0, #2f9e58);
+  border-color: #1d6b3a;
+  color: #06220f;
+  font-weight: 800;
+  box-shadow: 0 3px 0 #1d6b3a;
+}

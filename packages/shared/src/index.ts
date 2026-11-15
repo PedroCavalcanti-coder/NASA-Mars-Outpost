@@ -18,3 +18,4 @@ export * from './gameplayTargets';
 export * from './nasaData';
 export * from './repairOutside';
 export * from './difficulty';
+export * from './profanity';

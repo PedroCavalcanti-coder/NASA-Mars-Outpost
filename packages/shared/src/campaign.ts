@@ -66,6 +66,10 @@ export interface MissionState {
   morale: number;
   /** dados científicos coletados: 0..RESEARCH_GOAL */
   research: number;
+  /** pontos necessários para vencer neste mundo (ausente = 100; o difícil pede 3x) */
+  researchGoal?: number;
+  /** sóis até o prazo acabar neste mundo (ausente = 15; o difícil tem 3x) */
+  maxSols?: number;
   /** parte dos dados já enviada à Terra: está protegida e nunca se perde (research >= secured) */
   secured: number;
   status: MissionStatus;

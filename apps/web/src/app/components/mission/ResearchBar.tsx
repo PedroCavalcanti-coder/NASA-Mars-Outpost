@@ -8,8 +8,10 @@ import { L } from '../../../lib/i18n';
 export function ResearchBar() {
   const research = useMission((m) => m.state.research);
   const sol = useMission((m) => m.state.sol);
+  const goal = useMission((m) => m.state.researchGoal ?? RESEARCH_GOAL);
+  const maxSols = useMission((m) => m.state.maxSols ?? MAX_SOLS);
   const feedback = useMission((m) => m.feedback);
-  const pct = Math.round((research / RESEARCH_GOAL) * 100);
+  const pct = Math.round((research / goal) * 100);
   const change = feedback?.deltas.research ?? 0;
   const pulse = change > 0 ? 'is-gain' : change < 0 ? 'is-loss' : '';
 
@@ -21,7 +23,7 @@ export function ResearchBar() {
         <strong>{pct}%</strong>
         {change !== 0 && feedback && <DeltaChip key={feedback.key} value={change} />}
         <span className="mission-research__sol">
-          Sol {sol}/{MAX_SOLS}
+          Sol {sol}/{maxSols}
         </span>
       </div>
       <div
@@ -30,9 +32,9 @@ export function ResearchBar() {
         role="progressbar"
         aria-label={L('Dados científicos coletados', 'Science data collected')}
         aria-valuemin={0}
-        aria-valuemax={RESEARCH_GOAL}
+        aria-valuemax={goal}
         aria-valuenow={research}
-        aria-valuetext={`${research} de ${RESEARCH_GOAL} pontos de dados`}
+        aria-valuetext={`${research} de ${goal} pontos de dados`}
       >
         <div className="mission-research__fill" style={{ width: `${pct}%` }} />
       </div>

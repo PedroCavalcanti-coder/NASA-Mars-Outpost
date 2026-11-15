@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { GAMEPLAY_VERSION, type GameConfirmation, type GamePayload, type GameplaySnapshot, type GameplayState, type GameplayUpdate } from '@mars/shared';
 import { GAME_EVENTS } from '../game/events/events';
 import { useGameEvents } from '../game/events/store';
+import { trackGameplay } from '../game/stickers';
 import { chime } from '../lib/chime';
 import { startEventFx } from '../game/events/fx';
 import { useMission } from './mission';
@@ -40,6 +41,7 @@ export function projectGameplay(state:GameplayState,selfId:string,entries=state.
     useCold.setState({isNight:p.cold,isExposed:p.cold,exposureTime:p.exposure});
   }
   playEventFx(state.event);
+  trackGameplay(state,fresh);
   const store=useGameEvents.getState();
   const visible=state.event && !store.dismissed.includes(state.event.eid) ? state.event : null;
   const queue=[...(visible?[visible]:[]),...state.eventQueue.filter(q=>q.eid!==visible?.eid)].map(q=>GAME_EVENTS.find(d=>d.id===q.id)).filter((d):d is NonNullable<typeof d>=>!!d);

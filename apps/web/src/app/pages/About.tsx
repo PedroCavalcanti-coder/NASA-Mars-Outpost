@@ -143,6 +143,14 @@ export default function About() {
               </li>
             ))}
           </ul>
+          <h3 style={{ fontSize: 17, margin: '16px 0 6px' }}>🧪 {L('Que dados usamos e por quê', 'Which data we use and why')}</h3>
+          <ul style={{ color: '#c9dcf7', fontSize: 14.5, lineHeight: 1.6 }}>
+            <li>{L('DONKI (explosões solares): decide a força e a duração da radiação nos eventos. Quanto mais forte a explosão real, mais tempo você fica dentro da base.', 'DONKI (solar flares): sets how strong and how long radiation events are. The stronger the real flare, the longer you stay inside the base.')}</li>
+            <li>{L('RAD/Curiosity: a dose de fundo de 0,64 mSv por dia em Marte, que soma na tripulação.', 'RAD/Curiosity: the 0.64 mSv per day background dose on Mars that adds up for the crew.')}</li>
+            <li>{L('Limite de carreira da NASA (600 mSv): mostra por que a dose acumulada importa.', 'NASA career limit (600 mSv): shows why accumulated dose matters.')}</li>
+            <li>{L('Mars Trek e locais reais: as 8 bases ficam em lugares de verdade de Marte.', 'Mars Trek and real sites: the 8 bases sit at real places on Mars.')}</li>
+            <li>{L('Dados curados e embutidos no jogo (não são ao vivo): ainda não usamos o OSDR (saúde de astronautas), um próximo passo.', 'Curated data embedded in the game (not live): we do not use OSDR (astronaut health) yet, a next step.')}</li>
+          </ul>
           <p style={{ color: '#9fb6d8', fontSize: 13, margin: '12px 0 0' }}>
             {L('Também usamos fatos publicados pela NASA sobre MOXIE, Perseverance, Curiosity, a Estação Espacial e a Deep Space Network nos cartões “Você sabia?” e na vida real dos minigames.', 'We also use facts published by NASA about MOXIE, Perseverance, Curiosity, the Space Station and the Deep Space Network in the “Did you know?” cards and the real-life notes of the minigames.')}
           </p>

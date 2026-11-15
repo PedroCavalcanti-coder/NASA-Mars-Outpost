@@ -83,7 +83,7 @@ function MissionRow({ id }: { id: MissionId }) {
     id === 'soil_robot'
       ? `🔬 +${soilReward(0)} a ${soilReward(1)}`
       : def.research > 0
-        ? `🔬 +${def.research}`
+        ? `🔬 +${def.research} a +${def.research + 1}`
         : `+${costText(def.reward ?? {})}`;
 
   return (

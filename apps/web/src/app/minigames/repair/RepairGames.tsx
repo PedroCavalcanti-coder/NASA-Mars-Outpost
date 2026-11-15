@@ -156,7 +156,6 @@ const WELD_SPOTS: Array<[number, number]> = [
   [62, 28],
   [86, 70],
 ];
-const GREEN: [number, number] = [0.55, 0.85];
 /** janela verde da solda: estreita com o estrago e alarga no modo fácil */
 const greenFor = (damage: number, easy: boolean): [number, number] => {
   const half = Math.max(0.08, 0.15 - damage / 400) + (easy ? 0.07 : 0);

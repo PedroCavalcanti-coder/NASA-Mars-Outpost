@@ -73,8 +73,8 @@ import { LoreCard } from '../components/mission/LoreCard';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
 import { IntroTutorial, introSeenBefore } from '../components/intro/IntroTutorial';
+import { StickerLayer } from '../components/stickers/StickerAlbum';
 import { MinigameResult as ResultCard } from '../components/feedback/MinigameResult';
-import { DevPanel } from '../components/DevPanel';
 import { RadiationBanner } from '../components/hud/RadiationBanner';
 import { ExpeditionHud } from '../components/expedition/ExpeditionHud';
 import RepairMinigame from '../minigames/RepairMinigame';
@@ -325,7 +325,6 @@ function ReadyGame() {
 
 
   const [emoteCooling, setEmoteCooling] = useState(false);
-  // força o DevPanel a atualizar rótulos de ações que mudam de estado
   // convite de outro jogador para um gesto em dupla (some em ~5 s)
   const [duoInvite, setDuoInvite] = useState<{
     fromId: string;
@@ -916,8 +915,8 @@ function ReadyGame() {
           onLeaveRoom={() => requestLeave()}
           onReplayTutorial={() => setIntroOpen(true)}
         />
-        {import.meta.env.DEV && <DevPanel />}
         <ResultCard />
+        <StickerLayer />
         {introOpen && (
           <IntroTutorial canSkip={introSeenBefore()} onClose={() => setIntroOpen(false)} />
         )}

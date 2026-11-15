@@ -67,7 +67,10 @@ export function RotateGate() {
     const prevOverflow = html.style.overflow;
     if (root) root.inert = true;
     html.style.overflow = 'hidden';
+    // <dialog> abertos (personalizar astronauta, configurações) ficam na camada de cima: escondidos
+    html.setAttribute('data-portrait-blocked', '');
     return () => {
+      html.removeAttribute('data-portrait-blocked');
       if (root) root.inert = false;
       html.style.overflow = prevOverflow;
     };

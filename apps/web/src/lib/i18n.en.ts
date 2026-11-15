@@ -483,5 +483,7 @@ export const EN: Record<string, string> = {
  "Expedição fracassou": "Expedition failed",
  "O oxigênio de um astronauta acabou! Todos voltaram à base, mas o reconhecimento não pode ser refeito neste Sol.": "An astronaut ran out of oxygen! Everyone is back at the base, but the scouting run cannot be redone this Sol.",
  "A tripulação saiu da missão e voltou à base sem perder nada. Dá para tentar de novo.": "The crew left the mission and returned to the base without losing anything. You can try again.",
- "Acessibilidade": "Accessibility"
+ "Acessibilidade": "Accessibility",
+ "Mensagem não permitida. Vamos manter a conversa educada! 😊": "Message not allowed. Let us keep the chat polite! 😊",
+ "Esse apelido não é permitido. Escolha um apelido educado.": "That nickname is not allowed. Pick a polite nickname."
 };

@@ -1,4 +1,6 @@
 import { type ColorMode, useA11y } from '../../lib/accessibility';
+import { narrationSupported, speak, stopSpeaking } from '../../lib/narration';
+import { openAlbum } from './stickers/StickerAlbum';
 import { useEasyMode } from '../../lib/easyMode';
 import {
   Check,
@@ -241,6 +243,12 @@ export function SettingsModal({
                       <span>{L('Copiar Link de Convite Direto', 'Copy Direct Invite Link')}</span>
                     </button>
                   </div>
+                </div>
+
+                <div className="settings-room-actions">
+                  <button type="button" className="settings-room-link-btn" onClick={() => { onClose(); openAlbum(); }}>
+                    <span>🏅 {L('Álbum de figurinhas e missão da semana', 'Sticker album and mission of the week')}</span>
+                  </button>
                 </div>
 
                 {onReplayTutorial && (
@@ -650,6 +658,33 @@ export function SettingsModal({
                     </span>
                   </label>
                 ))}
+                <label style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0' }}>
+                  <input
+                    type="checkbox"
+                    checked={a11y.narrate}
+                    disabled={!narrationSupported()}
+                    onChange={(e) => {
+                      a11y.update({ narrate: e.target.checked });
+                      if (e.target.checked) speak(L('Narração ligada. Eu vou ler as falas em voz alta.', 'Narration on. I will read the messages out loud.'));
+                      else stopSpeaking();
+                    }}
+                  />
+                  <span>
+                    <strong>🔊 {L('Narração em voz alta', 'Read aloud')}</strong>
+                    <br />
+                    <small>
+                      {narrationSupported()
+                        ? L('A voz do aparelho lê o B.I.T., o tutorial, os avisos e os eventos.', 'Your device voice reads B.I.T., the tutorial, alerts and events.')
+                        : L('Este navegador não tem voz embutida.', 'This browser has no built-in voice.')}
+                    </small>
+                  </span>
+                </label>
+                {a11y.narrate && (
+                  <label style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0 8px 28px' }}>
+                    <input type="checkbox" checked={a11y.narrateSlow} onChange={(e) => a11y.update({ narrateSlow: e.target.checked })} />
+                    <span>{L('Voz mais devagar', 'Slower voice')}</span>
+                  </label>
+                )}
                 <label style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '8px 0' }}>
                   <input type="checkbox" checked={video.reducedMotion} onChange={(e) => onVideoChange({ ...video, reducedMotion: e.target.checked })} />
                   <span>

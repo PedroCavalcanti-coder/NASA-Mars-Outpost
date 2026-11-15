@@ -1,6 +1,6 @@
 .rotate-gate {
   position: fixed;
-  z-index: 2000;
+  z-index: 2147483000;
   inset: 0;
   display: grid;
   align-content: center;
@@ -67,4 +67,11 @@
     animation: none;
     transform: rotate(-90deg);
   }
+}
+
+html[data-portrait-blocked] dialog[open],
+html[data-portrait-blocked] .intro,
+html[data-portrait-blocked] .diff-modal,
+html[data-portrait-blocked] .mg-result {
+  display: none !important;
 }

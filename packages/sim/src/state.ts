@@ -67,7 +67,7 @@ function read(s: MissionState, key: DeltaKey): number {
 function write(s: MissionState, key: DeltaKey, value: number) {
   // dados já enviados à Terra nunca se perdem: a pesquisa não cai abaixo do que está protegido
   if (key === 'research')
-    s.research = clamp(value, Math.min(s.secured ?? 0, RESEARCH_GOAL), RESEARCH_GOAL);
+    s.research = clamp(value, Math.min(s.secured ?? 0, s.researchGoal ?? RESEARCH_GOAL), s.researchGoal ?? RESEARCH_GOAL);
   else if (key === 'morale') s.morale = clamp(value, 0, 100);
   else s.resources[key].value = clamp(value, 0, s.resources[key].max);
 }
