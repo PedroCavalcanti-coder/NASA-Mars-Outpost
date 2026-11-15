@@ -4,7 +4,7 @@ import { GAME_NAME } from '@mars/shared';
 export * from './balance';
 export * from './engine';
 export { EVENTS, triggerEvent } from './events';
-export { createMission, crises, isOperational, RESOURCE_IDS } from './state';
+export { createMission, crises, ensureShielding, isOperational, RESOURCE_IDS } from './state';
 export * from './types';
 
 export const SIM_VERSION = 1;

@@ -27,7 +27,7 @@ export type WorldEffect =
   | { type: 'wilt_crop' };
 
 export type EventDeltas = Partial<
-  Record<'energy' | 'supplies' | 'materials' | 'oxygen' | 'research', number>
+  Record<'energy' | 'supplies' | 'materials' | 'oxygen' | 'shielding' | 'research', number>
 >;
 
 export interface EventOutcome {
@@ -54,12 +54,321 @@ export interface GameEventDef {
   title: string;
   icon: string;
   body: string;
+  /** foto real da NASA (em /assets/events) e seu crédito */
+  image?: string;
+  credit?: string;
+  /** "Detecção orbital": o que o satélite viu */
+  orbital?: string;
+  /** "Você sabia?": o fato histórico por trás do evento */
+  history?: string;
+  sourceUrl?: string;
+  /** efeito visual em tela (ver EventFx) */
+  fx?: 'blizzard' | 'meteor' | 'radiation' | 'dust_devil' | 'ice_clouds';
   weight: number;
   choices: EventChoice[];
 }
 
 export const GAME_EVENTS: readonly GameEventDef[] = [
   // ------------------------------------------------------------------ grandes
+  // ------------------------------------------------------------------ NASA (com foto e fato real)
+  {
+    id: 'co2_blizzard',
+    kind: 'major',
+    title: 'Nevasca de CO₂',
+    icon: '❄️',
+    fx: 'blizzard',
+    image: '/assets/events/co2_blizzard.jpg',
+    credit: 'NASA/JPL-Caltech · PIA16138',
+    sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA16138',
+    orbital:
+      'O satélite detectou uma frente de nuvens de gelo seco sobre a base. A temperatura cai a −125 °C e flocos de CO₂ devem cobrir os painéis e o casco.',
+    history:
+      'Em Marte neva gelo seco: em 2012 a sonda MRO da NASA confirmou neve de dióxido de carbono, com cristais em forma de cubo, caindo perto do polo.',
+    body: 'Uma nevasca de dióxido de carbono se aproxima. Como a base deve se preparar?',
+    weight: 3,
+    choices: [
+      {
+        id: 'heat',
+        label: 'Aquecer a base',
+        hint: 'seguro · gasta energia',
+        outcome: {
+          tone: 'info',
+          text: 'A base aqueceu os módulos e a nevasca passou sem danos.',
+          deltas: { energy: -10 },
+        },
+      },
+      {
+        id: 'collect',
+        label: 'Coletar gelo',
+        hint: 'ciência · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'A equipe coletou flocos de CO₂ para análise. Dados raros!',
+          deltas: { research: 10, energy: -6 },
+        },
+        risk: {
+          chance: 0.3,
+          outcome: {
+            tone: 'bad',
+            text: 'O frio rachou parte da blindagem durante a coleta.',
+            deltas: { shielding: -15, materials: -8 },
+          },
+        },
+      },
+      {
+        id: 'ignore',
+        label: 'Ignorar',
+        hint: 'tática · arriscado',
+        outcome: {
+          tone: 'info',
+          text: 'A nevasca passou. O gelo desgastou um pouco a blindagem.',
+          deltas: { shielding: -5 },
+        },
+        risk: {
+          chance: 0.3,
+          outcome: {
+            tone: 'bad',
+            text: 'O gelo travou os sistemas e rachou o casco.',
+            deltas: { energy: -12, shielding: -20, supplies: -6 },
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: 'meteor_shower',
+    kind: 'major',
+    title: 'Chuva de meteoritos',
+    icon: '☄️',
+    fx: 'meteor',
+    image: '/assets/events/meteor_shower.jpg',
+    credit: 'NASA/JPL-Caltech/UArizona · PIA25583',
+    sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA25583',
+    orbital:
+      'Múltiplos fragmentos de meteoritos em rota de colisão com o setor Norte. Impacto iminente. Todos os sistemas devem ser preparados.',
+    history:
+      'O módulo InSight da NASA detectou impactos de meteoroides em Marte com seu sismógrafo, registrando "martemotos". Um impacto de 2021 abriu uma cratera de 150 m que expôs gelo de água.',
+    body: 'Fragmentos de meteoritos vão atingir a região da base. O que fazer?',
+    weight: 2,
+    choices: [
+      {
+        id: 'shelter',
+        label: 'Abrigo reforçado',
+        hint: 'seguro · gasta energia',
+        outcome: {
+          tone: 'info',
+          text: 'Todos se abrigaram. A blindagem absorveu os impactos menores.',
+          deltas: { shielding: -10, energy: -8 },
+        },
+      },
+      {
+        id: 'record',
+        label: 'Gravar impactos',
+        hint: 'ciência · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'O sismógrafo gravou os impactos de perto. Ótimos dados!',
+          deltas: { research: 14, energy: -5 },
+        },
+        risk: {
+          chance: 0.4,
+          outcome: {
+            tone: 'bad',
+            text: 'Um fragmento atingiu o casco enquanto gravávamos.',
+            deltas: { shielding: -20, materials: -10 },
+          },
+        },
+      },
+      {
+        id: 'reinforce',
+        label: 'Reforçar casco',
+        hint: 'gasta materiais',
+        outcome: {
+          tone: 'good',
+          text: 'Placas extras reforçaram o casco antes do impacto.',
+          deltas: { materials: -14, shielding: 5 },
+        },
+      },
+    ],
+  },
+  {
+    id: 'radiation_storm',
+    kind: 'major',
+    title: 'Tempestade de radiação solar',
+    icon: '☢️',
+    fx: 'radiation',
+    image: '/assets/events/radiation_storm.jpg',
+    credit: 'NASA/JPL-Caltech · PIA26302',
+    sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA26302',
+    orbital:
+      'Uma erupção solar de classe X atinge Marte. Sem campo magnético, a radiação sobe rápido na superfície. Sensores podem saturar.',
+    history:
+      'Em maio de 2024 uma tempestade solar histórica encheu de "neve" (pontos de radiação) as imagens do Curiosity, enquanto a MAVEN registrou auroras globais.',
+    body: 'A radiação solar vai atravessar a atmosfera fina de Marte. Qual a resposta?',
+    weight: 2,
+    choices: [
+      {
+        id: 'module',
+        label: 'Módulo blindado',
+        hint: 'seguro · gasta energia',
+        outcome: {
+          tone: 'info',
+          text: 'A equipe esperou no módulo blindado. A blindagem foi desgastada.',
+          deltas: { shielding: -10, energy: -10 },
+        },
+      },
+      {
+        id: 'sensors',
+        label: 'Manter sensores ligados',
+        hint: 'ciência · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'Dados raros da radiação em Marte chegaram à Terra!',
+          deltas: { research: 14 },
+        },
+        risk: {
+          chance: 0.45,
+          outcome: {
+            tone: 'bad',
+            text: 'A radiação queimou sensores e corrompeu dados.',
+            deltas: { shielding: -15, research: -8, oxygen: -8 },
+          },
+        },
+      },
+      {
+        id: 'panels_off',
+        label: 'Desligar painéis',
+        hint: 'tática · custo certo',
+        outcome: {
+          tone: 'info',
+          text: 'Painéis desligados: nada queimou, mas a base gastou reservas.',
+          deltas: { energy: -15, supplies: -4 },
+        },
+      },
+    ],
+  },
+  {
+    id: 'giant_dust_devil',
+    kind: 'major',
+    title: 'Redemoinho gigante',
+    icon: '🌀',
+    fx: 'dust_devil',
+    image: '/assets/events/giant_dust_devil.jpg',
+    credit: 'NASA/JPL-Caltech/UArizona · PIA15545',
+    sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA15545',
+    orbital:
+      'Um redemoinho de poeira de grande porte cruza o campo solar em direção à base. A poeira pode cobrir ou limpar os painéis.',
+    history:
+      'Redemoinhos de poeira (dust devils) marcianos podem ter quilômetros de altura. Em 2005 o rover Spirit teve os painéis solares limpos por rajadas assim.',
+    body: 'Um redemoinho de poeira vem na direção da base.',
+    weight: 2,
+    choices: [
+      {
+        id: 'protect',
+        label: 'Proteger a base',
+        hint: 'seguro · gasta materiais',
+        outcome: {
+          tone: 'info',
+          text: 'A equipe fechou as entradas. O redemoinho passou sem danos.',
+          deltas: { materials: -6 },
+        },
+      },
+      {
+        id: 'film',
+        label: 'Filmar',
+        hint: 'ciência · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'Imagens raras do redemoinho de perto!',
+          deltas: { research: 8, energy: -4 },
+        },
+        risk: {
+          chance: 0.35,
+          outcome: {
+            tone: 'bad',
+            text: 'A poeira entrou na despensa e estragou mantimentos.',
+            deltas: { supplies: -10 },
+          },
+        },
+      },
+      {
+        id: 'clean',
+        label: 'Limpar painéis',
+        hint: 'tática · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'A rajada varreu a poeira de todos os painéis!',
+          effects: [{ type: 'clean_panels' }],
+        },
+        risk: {
+          chance: 0.35,
+          outcome: {
+            tone: 'bad',
+            text: 'A rajada arrancou placas do casco e trouxe mais poeira.',
+            deltas: { shielding: -10, materials: -8 },
+            effects: [{ type: 'dust', amount: 0.2 }],
+          },
+        },
+      },
+    ],
+  },
+  {
+    id: 'ice_clouds',
+    kind: 'major',
+    title: 'Nuvens de gelo iridescentes',
+    icon: '🌫️',
+    fx: 'ice_clouds',
+    image: '/assets/events/ice_clouds.jpg',
+    credit: 'NASA/JPL-Caltech/MSSS · PIA24662',
+    sourceUrl: 'https://photojournal.jpl.nasa.gov/catalog/PIA24662',
+    orbital:
+      'Nuvens de cristais de CO₂ congelado surgem acima de 60 km de altitude. O céu fica colorido ao pôr do sol.',
+    history:
+      'Em 2021 o Curiosity fotografou nuvens iridescentes ("madrepérola") de gelo de CO₂ sobre a cratera Gale, a mais de 60 km de altura.',
+    body: 'Nuvens iridescentes cobrem o céu. Vale estudá-las?',
+    weight: 2,
+    choices: [
+      {
+        id: 'photo',
+        label: 'Fotografar',
+        hint: 'ciência · sem risco',
+        outcome: {
+          tone: 'good',
+          text: 'Fotos lindas enviadas à Terra.',
+          deltas: { research: 6 },
+        },
+      },
+      {
+        id: 'analyze',
+        label: 'Analisar o gelo',
+        hint: 'ciência · gasta energia',
+        outcome: {
+          tone: 'good',
+          text: 'A análise confirmou cristais de CO₂.',
+          deltas: { research: 10, energy: -5 },
+        },
+      },
+      {
+        id: 'expedition',
+        label: 'Expedição ao gelo',
+        hint: 'tática · arriscado',
+        outcome: {
+          tone: 'good',
+          text: 'O rover trouxe gelo derretido: água para a horta.',
+          deltas: { supplies: 10, energy: -3 },
+        },
+        risk: {
+          chance: 0.2,
+          outcome: {
+            tone: 'bad',
+            text: 'O rover atolou e a equipe gastou reservas no resgate.',
+            deltas: { supplies: -4, oxygen: -6, shielding: -5 },
+          },
+        },
+      },
+    ],
+  },
+
   {
     id: 'dust_storm',
     kind: 'major',
@@ -119,109 +428,6 @@ export const GAME_EVENTS: readonly GameEventDef[] = [
             { type: 'storm', strength: 0.7 },
             { type: 'dust', amount: 0.3 },
           ],
-        },
-      },
-    ],
-  },
-  {
-    id: 'micrometeorite',
-    kind: 'major',
-    title: 'Micrometeorito no casco',
-    icon: '☄️',
-    body: 'Um alarme de pressão soa: um micrometeorito perfurou o casco de um módulo. O ar está escapando devagar.',
-    weight: 2,
-    choices: [
-      {
-        id: 'repair',
-        label: 'Reparar agora com placas novas',
-        hint: 'gasta materiais',
-        outcome: {
-          tone: 'info',
-          text: 'O casco foi remendado a tempo. Quase nada de ar se perdeu.',
-          deltas: { materials: -12 },
-        },
-      },
-      {
-        id: 'tape',
-        label: 'Selar com fita de emergência',
-        hint: 'barato · pode falhar',
-        outcome: {
-          tone: 'info',
-          text: 'A fita segurou. Reparo improvisado, mas funcionou.',
-          deltas: { materials: -4 },
-        },
-        risk: {
-          chance: 0.5,
-          outcome: {
-            tone: 'bad',
-            text: 'A fita descolou e parte do ar vazou antes de a equipe consertar de vez.',
-            deltas: { materials: -4, oxygen: -14 },
-          },
-        },
-      },
-      {
-        id: 'ignore',
-        label: 'Esperar e ver se estabiliza',
-        hint: 'perde oxigênio',
-        outcome: {
-          tone: 'bad',
-          text: 'O vazamento continuou até a pressão se estabilizar sozinha.',
-          deltas: { oxygen: -10 },
-        },
-      },
-    ],
-  },
-  {
-    id: 'solar_flare',
-    kind: 'major',
-    title: 'Erupção solar',
-    icon: '☀️',
-    body: 'Uma erupção solar forte vai atingir Marte, que quase não tem campo magnético. A radiação sobe rápido.',
-    weight: 2,
-    choices: [
-      {
-        id: 'bunker',
-        label: 'Abrigar a equipe no módulo blindado',
-        hint: 'seguro · gasta energia',
-        outcome: {
-          tone: 'info',
-          text: 'Todos esperaram no abrigo. Ninguém se feriu.',
-          deltas: { energy: -8 },
-        },
-      },
-      {
-        id: 'record',
-        label: 'Registrar a erupção com os instrumentos',
-        hint: 'ciência · arriscado',
-        outcome: {
-          tone: 'good',
-          text: 'Dados raros da radiação em Marte chegaram à Terra!',
-          deltas: { research: 12 },
-        },
-        risk: {
-          chance: 0.4,
-          outcome: {
-            tone: 'bad',
-            text: 'A radiação corrompeu parte dos sensores e dos dados.',
-            deltas: { research: -6, materials: -6 },
-          },
-        },
-      },
-      {
-        id: 'work',
-        label: 'Seguir trabalhando',
-        hint: 'muito arriscado',
-        outcome: {
-          tone: 'info',
-          text: 'Passou sem grandes danos, desta vez.',
-        },
-        risk: {
-          chance: 0.6,
-          outcome: {
-            tone: 'bad',
-            text: 'A radiação danificou equipamentos e a equipe se abrigou tarde demais.',
-            deltas: { research: -8, supplies: -8 },
-          },
         },
       },
     ],

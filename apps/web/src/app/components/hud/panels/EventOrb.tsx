@@ -1,9 +1,29 @@
-import { Fan, Moon, Snowflake, Sun, Tablet, Wind, ZapOff } from 'lucide-react';
+import {
+  Cloud,
+  Fan,
+  type LucideIcon,
+  Moon,
+  Radiation,
+  Snowflake,
+  Sun,
+  Tablet,
+  Tornado,
+  Wind,
+  ZapOff,
+} from 'lucide-react';
 import { useGameEvents } from '../../../../game/events/store';
 import { useCold } from '../../../../game/survival/ColdSystem';
 import { useBaseOps } from '../../../../game/tasks/store';
 import { useMission } from '../../../../store/mission';
 import './eventOrb.css';
+
+const FX_ICON: Record<string, LucideIcon> = {
+  blizzard: Snowflake,
+  meteor: Wind,
+  radiation: Radiation,
+  dust_devil: Tornado,
+  ice_clouds: Cloud,
+};
 
 /** Evento atual, ao lado da esfera de oxigênio e do ciclo marciano. */
 export function EventOrb({ stormActive, isDay }: { stormActive: boolean; isDay: boolean }) {
@@ -14,7 +34,7 @@ export function EventOrb({ stormActive, isDay }: { stormActive: boolean; isDay: 
   const pending = useGameEvents((s) => s.queue[0]);
 
   const event = pending
-    ? { kind: 'tablet', label: pending.title, Icon: Tablet }
+    ? { kind: 'tablet', label: pending.title, Icon: FX_ICON[pending.fx ?? ''] ?? Tablet }
     : stormActive
       ? { kind: 'storm', label: 'Tempestade de areia', Icon: Wind }
       : extremeCold

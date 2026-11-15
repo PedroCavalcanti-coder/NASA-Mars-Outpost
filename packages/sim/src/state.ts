@@ -1,7 +1,13 @@
 import { ACTIONS_PER_SOL, INITIAL, LOG_LIMIT, RESEARCH_GOAL } from './balance';
 import type { Crisis, DeltaKey, Deltas, LogEntry, MissionState, ResourceId } from './types';
 
-export const RESOURCE_IDS: readonly ResourceId[] = ['energy', 'supplies', 'materials', 'oxygen'];
+export const RESOURCE_IDS: readonly ResourceId[] = [
+  'energy',
+  'supplies',
+  'materials',
+  'oxygen',
+  'shielding',
+];
 
 export function createMission(seed: number = Date.now()): MissionState {
   const s = seed >>> 0;
@@ -15,6 +21,7 @@ export function createMission(seed: number = Date.now()): MissionState {
       energy: { ...INITIAL.resources.energy },
       supplies: { ...INITIAL.resources.supplies },
       materials: { ...INITIAL.resources.materials },
+      shielding: { ...INITIAL.resources.shielding },
     },
     facilities: { ...INITIAL.facilities },
     solarEfficiency: 1,
@@ -27,6 +34,12 @@ export function createMission(seed: number = Date.now()): MissionState {
   };
 }
 
+/** Salvamentos antigos não têm blindagem: completa com o valor inicial. */
+export function ensureShielding(s: MissionState): MissionState {
+  if (s.resources.shielding) return s;
+  return { ...s, resources: { ...s.resources, shielding: { ...INITIAL.resources.shielding } } };
+}
+
 /** Cópia profunda (a simulação nunca altera o estado recebido). */
 export function cloneState(s: MissionState): MissionState {
   return {
@@ -36,6 +49,7 @@ export function cloneState(s: MissionState): MissionState {
       energy: { ...s.resources.energy },
       supplies: { ...s.resources.supplies },
       materials: { ...s.resources.materials },
+      shielding: { ...s.resources.shielding },
     },
     facilities: { ...s.facilities },
     log: [...s.log],

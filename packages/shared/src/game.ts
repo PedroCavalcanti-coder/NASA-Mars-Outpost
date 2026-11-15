@@ -387,6 +387,10 @@ export interface GameServerToClient {
   /** missão de pesquisa concluída por outro jogador (aplicar custo e recompensa) */
   'mission:event': (ev: GameMissionEvent) => void;
   'player:emote': (id: string, emote: number) => void;
+  /** voto de alguém num evento da base */
+  'event:vote': (id: string, eid: string, choice: number) => void;
+  /** decisão final de um evento (todos aplicam a mesma opção e o mesmo sorteio de risco) */
+  'event:result': (eid: string, choice: number, roll: number) => void;
   /** convite para um gesto em dupla, vindo de outro jogador (validado pelo servidor) */
   'gesture:invite': (fromId: string, gesture: DuoGestureId) => void;
   /** os dois jogadores executam o gesto agora */
@@ -408,6 +412,8 @@ export interface GameClientToServer {
   'world:care': (c: GameCareState) => void;
   'mission:event': (ev: GameMissionEvent) => void;
   'player:emote': (emote: number) => void;
+  'event:vote': (eid: string, choice: number) => void;
+  'event:result': (eid: string, choice: number, roll: number) => void;
   'gesture:invite': (gesture: DuoGestureId, targetId: string) => void;
   'gesture:accept': (fromId: string) => void;
   'player:chat': (message: string) => void;

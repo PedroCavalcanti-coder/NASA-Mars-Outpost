@@ -33,6 +33,7 @@ const RESOURCE_NAMES: Record<ResourceId, string> = {
   supplies: 'mantimentos',
   materials: 'materiais',
   oxygen: 'oxigênio',
+  shielding: 'blindagem',
 };
 
 /** A ação pode ser feita agora? Se não, devolve o motivo para a interface mostrar. */

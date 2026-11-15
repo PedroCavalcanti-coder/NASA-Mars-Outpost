@@ -24,6 +24,7 @@ const COST_LABEL: Record<ResourceId, string> = {
   supplies: 'M',
   materials: 'Mt',
   oxygen: 'O₂',
+  shielding: 'Bl',
 };
 
 /** Ações do sol (cada uma gasta 1 das 3 ações). O Sol vira sozinho com o relógio da base. */

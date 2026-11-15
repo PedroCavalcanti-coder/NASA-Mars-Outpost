@@ -40,6 +40,7 @@ import { CropSystem } from './Crops';
 import { DoorSystem } from './Doors';
 import { DustStorm, DustStormOverlay } from './DustStorm';
 import { type EventOutcome, eventsForSol, type WorldEffect } from './events/events';
+import { SHIELD_REPAIR } from './events/shielding';
 import { useGameEvents } from './events/store';
 import { InteriorFader } from './InteriorFader';
 import {
@@ -170,6 +171,10 @@ export interface BaseViewerOptions {
   ) => void;
   /** um emoji foi enviado (por mim ou por outro jogador): alimenta o chat */
   onChat?: (info: { name: string; message: string; local: boolean }) => void;
+  /** alguém da sala votou num evento da base */
+  onEventVote?: (id: string, eid: string, choice: number) => void;
+  /** a decisão final de um evento chegou (todos aplicam igual) */
+  onEventResult?: (eid: string, choice: number, roll: number) => void;
   onEmote?: (info: { name: string; emoji: string; local: boolean }) => void;
   /** a sala recusou a entrada (apelido em uso, sala cheia): a interface deve voltar ao início */
   onRoomRejected?: () => void;
@@ -416,7 +421,7 @@ export class BaseViewer {
   private filterSpots: THREE.Vector3[] = [];
   /** onde ficam as camas e as bancadas (objetos do cenário) */
   private propSpots: Record<'bed' | 'bench', THREE.Vector3[]> = { bed: [], bench: [] };
-  private benchUse = { sol: 0, n: 0 };
+  private benchUse = { sol: 0, n: 0, repairs: 0 };
   /** amostras de rocha do dia, do lado de fora da base */
   private rocks: Array<{ mesh: THREE.Mesh; proxy: THREE.Mesh; taken: boolean }> = [];
   private rocksGroup = new THREE.Group();
@@ -1102,6 +1107,8 @@ export class BaseViewer {
     room.onGestureInvite = (fromId, gesture) => this.receiveGestureInvite(fromId, gesture);
     room.onGestureStart = (start) => this.startGesture(start);
     room.onGestureDenied = (reason) => this.options?.onMessage?.(reason, 'info');
+    room.onEventVote = (id, eid, choice) => this.options?.onEventVote?.(id, eid, choice);
+    room.onEventResult = (eid, choice, roll) => this.options?.onEventResult?.(eid, choice, roll);
     room.onChat = (id, message) => {
       const player = room.remotes.get(id);
       if (player) this.options?.onChat?.({ name: player.name, message, local: false });
@@ -2272,6 +2279,28 @@ export class BaseViewer {
     }
   }
 
+  /** Quem participa da decisão dos eventos (eu e os outros astronautas da sala). */
+  eventParticipants() {
+    const selfId = this.room?.self.id ?? 'local';
+    const players = [{ id: selfId, name: this.localAstronaut?.name ?? 'Você' }];
+    for (const [id, p] of this.room?.remotes ?? []) players.push({ id, name: p.name });
+    return {
+      selfId,
+      players,
+      isCoordinator: this.room ? this.room.isCoordinator : true,
+      seed: this.opsSeed,
+      sol: this.currentSol,
+    };
+  }
+
+  sendEventVote(eid: string, choice: number) {
+    this.room?.sendEventVote(eid, choice);
+  }
+
+  sendEventResult(eid: string, choice: number, roll: number) {
+    this.room?.sendEventResult(eid, choice, roll);
+  }
+
   /** Efeitos no mundo das escolhas dos eventos (tempestade, poeira, filtro, canteiros). */
   applyEventEffects(outcome: EventOutcome) {
     for (const fx of outcome.effects ?? []) this.applyWorldEffect(fx);
@@ -2811,8 +2840,31 @@ export class BaseViewer {
     }
     if (prop === 'bench') {
       const sol = this.currentSol;
-      if (this.benchUse.sol !== sol) this.benchUse = { sol, n: 0 };
+      if (this.benchUse.sol !== sol) this.benchUse = { sol, n: 0, repairs: 0 };
       const res = useMission.getState().state.resources;
+      // blindagem danificada por eventos: a bancada repara (gasta materiais)
+      if (res.shielding.value < res.shielding.max) {
+        if (this.benchUse.repairs >= SHIELD_REPAIR.perSol) {
+          this.notify('🛡️ A equipe já reparou a blindagem o bastante hoje. Volte amanhã.', 'info');
+          return;
+        }
+        if (res.materials.value < SHIELD_REPAIR.materials) {
+          this.notify(`🔩 Faltam materiais: o reparo da blindagem custa ${SHIELD_REPAIR.materials}.`, 'error');
+          return;
+        }
+        this.benchUse.repairs++;
+        local.startTask('plant', local.position.clone(), () => {
+          useMission.getState().run({
+            type: 'reward',
+            tone: 'good',
+            title: 'Reparo da blindagem',
+            text: 'Placas novas reforçaram a blindagem da base.',
+            deltas: { materials: -SHIELD_REPAIR.materials, shielding: SHIELD_REPAIR.gain },
+          });
+          this.notify(`🛡️ Blindagem reparada: +${SHIELD_REPAIR.gain} (-${SHIELD_REPAIR.materials} 🔩).`, 'ok');
+        });
+        return;
+      }
       if (this.benchUse.n >= 3) {
         this.notify('🛠️ A bancada já fabricou peças demais hoje. Volte amanhã.', 'info');
         return;

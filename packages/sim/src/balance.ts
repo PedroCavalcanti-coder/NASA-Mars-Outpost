@@ -13,6 +13,8 @@ export const INITIAL = {
     energy: { value: 70, max: 120 },
     supplies: { value: 60, max: 100 },
     materials: { value: 60, max: 150 },
+    /** blindagem contra radiação, meteoritos e gelo: eventos a desgastam; reparo na bancada */
+    shielding: { value: 100, max: 100 },
   },
   facilities: { solar: 2, greenhouse: 1, lab: 1 },
   morale: 80,

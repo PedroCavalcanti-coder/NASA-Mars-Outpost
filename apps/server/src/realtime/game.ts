@@ -60,6 +60,8 @@ interface Room {
   baseId: string;
   /** já existe uma linha no banco para este mundo */
   saved: boolean;
+  /** eventos da base já decididos nesta sala (evita aplicar duas vezes) */
+  decidedEvents?: Set<string>;
   /** missão do último jogador que salvou (volta junto no próximo salvamento) */
   mission?: unknown;
   cleanup?: NodeJS.Timeout;
@@ -475,6 +477,28 @@ export function registerGameNamespace(io: { of(name: string): unknown }): void {
       if (!room || !takeToken(socket.data, 2) || typeof raw !== 'string') return;
       const message = raw.trim().slice(0, 240);
       if (message) socket.to(room.code).emit('player:chat', socket.id, message);
+    });
+
+    /** Voto num evento da base: repassa a todos (o servidor só valida o formato). */
+    socket.on('event:vote', (eid, choice) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2)) return;
+      if (typeof eid !== 'string' || eid.length > 40) return;
+      if (!Number.isInteger(choice) || choice < 0 || choice > 5) return;
+      socket.to(room.code).emit('event:vote', socket.id, eid, choice);
+    });
+
+    /** Decisão final do evento: vale só a primeira por evento e sala. */
+    socket.on('event:result', (eid, choice, roll) => {
+      const room = socket.data.room ? rooms.get(socket.data.room) : undefined;
+      if (!room || !takeToken(socket.data, 2)) return;
+      if (typeof eid !== 'string' || eid.length > 40) return;
+      if (!Number.isInteger(choice) || choice < 0 || choice > 5) return;
+      if (typeof roll !== 'number' || !Number.isFinite(roll) || roll < 0 || roll > 1) return;
+      room.decidedEvents ??= new Set();
+      if (room.decidedEvents.has(eid)) return;
+      room.decidedEvents.add(eid);
+      socket.to(room.code).emit('event:result', eid, choice, roll);
     });
 
     socket.on('player:emote', (raw) => {

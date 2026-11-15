@@ -1,5 +1,5 @@
 import { crises, type DeltaKey, type ResourceId, solForecast } from '@mars/sim';
-import { HeartPulse, Package, Wheat, Zap } from 'lucide-react';
+import { HeartPulse, Package, Shield, Wheat, Zap } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useBaseOps } from '../../../game/tasks/store';
 import { useMission } from '../../../store/mission';
@@ -9,6 +9,7 @@ const RESOURCES: { id: ResourceId; name: string; icon: ReactNode }[] = [
   { id: 'energy', name: 'Bateria', icon: <Zap size={16} /> },
   { id: 'supplies', name: 'Mantimentos', icon: <Wheat size={16} /> },
   { id: 'materials', name: 'Materiais', icon: <Package size={16} /> },
+  { id: 'shielding', name: 'Blindagem', icon: <Shield size={16} /> },
 ];
 
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
@@ -31,7 +32,7 @@ export function ResourceHud() {
   return (
     <div className="mission-resources">
       {RESOURCES.map(({ id, name, icon }) => {
-        const { value, max } = s.resources[id];
+        const { value, max } = s.resources[id] ?? { value: 0, max: 1 };
         const pct = (value / max) * 100;
         const level = value <= 0 ? 'empty' : pct < 25 ? 'low' : 'ok';
         const perSol = id === 'energy' ? energyRate : id === 'supplies' ? forecast.supplies : 0;
@@ -51,7 +52,7 @@ export function ResourceHud() {
             <div className="mission-res__track" aria-hidden="true">
               <div className="mission-res__fill" style={{ width: `${pct}%` }} />
             </div>
-            {id !== 'materials' && (
+            {(id === 'energy' || id === 'supplies') && (
               <span className={`mission-res__rate ${perSol < 0 ? 'is-neg' : ''}`}>
                 {signed(perSol)} por sol
               </span>

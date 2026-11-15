@@ -6,6 +6,7 @@ const LABEL: Record<DeltaKey, string> = {
   supplies: 'mantimentos',
   materials: 'materiais',
   oxygen: 'oxigênio',
+  shielding: 'blindagem',
   research: 'dados',
   morale: 'moral',
 };

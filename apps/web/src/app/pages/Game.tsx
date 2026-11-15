@@ -1,4 +1,5 @@
 import { DUO_GESTURES, type DuoGestureId, WORLD_AUTOSAVE_MS } from '@mars/shared';
+import { ensureShielding } from '@mars/sim';
 import { TriangleAlert } from 'lucide-react';
 import {
   lazy,
@@ -21,6 +22,12 @@ import type {
 } from '../../game/BaseViewer';
 import { registerDevAction } from '../../game/dev/devActions';
 import { type EventOutcome, GAME_EVENTS, type GameEventDef } from '../../game/events/events';
+import {
+  onRemoteResult,
+  onRemoteVote,
+  scaleDamage,
+  setEventFlowContext,
+} from '../../game/events/flow';
 import { useGameEvents } from '../../game/events/store';
 import { MISSIONS, type MissionId } from '../../game/missions/rules';
 import {
@@ -53,6 +60,7 @@ import { toast } from '../../ui/toast';
 import { HudRoot } from '../components/hud/HudRoot';
 import { MissionVeil } from '../components/hud/MissionVeil';
 import { RotateGate, TouchJoystick, useIsTouch } from '../components/hud/TouchControls';
+import { EventFx } from '../components/mission/EventFx';
 import { EventTablet } from '../components/mission/EventTablet';
 import { MissionEnd } from '../components/mission/MissionEnd';
 import { SettingsModal } from '../components/SettingsModal';
@@ -270,7 +278,12 @@ function ReadyGame() {
       ? loadMissionSnapshot<ReturnType<typeof useMission.getState>['state']>(roomCode)
       : null;
     if (saved && typeof saved.sol === 'number' && saved.resources) {
-      useMission.setState({ state: saved, feedback: null, lastEntries: [], error: null });
+      useMission.setState({
+        state: ensureShielding(saved),
+        feedback: null,
+        lastEntries: [],
+        error: null,
+      });
     } else {
       startMission();
       useGameEvents.getState().clear();
@@ -388,6 +401,8 @@ function ReadyGame() {
       onGestureInvite: (invite) => {
         if (alive) setDuoInvite(invite);
       },
+      onEventVote: (id, eid, choice) => onRemoteVote(id, eid, choice),
+      onEventResult: (eid, choice, roll) => onRemoteResult(eid, choice, roll),
       onChat: ({ name, message, local }) => {
         if (alive)
           setChat((c) => [...c.slice(-49), { id: ++chatId.current, name, emoji: message, local }]);
@@ -417,7 +432,7 @@ function ReadyGame() {
           Array.isArray(m.log)
         ) {
           useMission.setState({
-            state: info.mission as ReturnType<typeof useMission.getState>['state'],
+            state: ensureShielding(info.mission as ReturnType<typeof useMission.getState>['state']),
           });
           toast('💾 Mundo retomado de onde você parou.', 'ok');
         }
@@ -562,21 +577,37 @@ function ReadyGame() {
     setRestoreError(r.error);
   }
 
-  /** O jogador escolheu no tablet: aplica recursos na missão e os efeitos no mundo. */
-  function resolveEvent(event: GameEventDef, outcome: EventOutcome) {
-    const deltas = outcome.deltas ?? {};
-    const has = Object.values(deltas).some((v) => v);
-    if (has) {
+  /**
+   * A decisão do evento chegou (a minha ou a da sala): aplica recursos na missão e efeitos no
+   * mundo. Com a blindagem zerada, as perdas de energia, mantimentos e oxigênio saem em dobro.
+   */
+  function resolveEvent(event: GameEventDef, outcome: EventOutcome): EventOutcome {
+    const shielding = useMission.getState().state.resources.shielding?.value ?? 100;
+    const deltas = scaleDamage(outcome.deltas, shielding);
+    const final: EventOutcome = deltas ? { ...outcome, deltas } : outcome;
+    if (deltas && Object.values(deltas).some((v) => v)) {
       useMission.getState().run({
         type: 'reward',
-        tone: outcome.tone,
+        tone: final.tone,
         title: event.title,
-        text: outcome.text,
+        text: final.text,
         deltas,
       });
     }
-    viewer.current?.applyEventEffects(outcome);
+    viewer.current?.applyEventEffects(final);
+    return final;
   }
+
+  // o fluxo de decisão dos eventos (pausa, votação, resultado) usa o viewer e o resolveEvent atuais
+  const resolveRef = useRef(resolveEvent);
+  resolveRef.current = resolveEvent;
+  useEffect(() => {
+    setEventFlowContext({
+      viewer: () => viewer.current,
+      apply: (event, outcome) => resolveRef.current(event, outcome),
+    });
+    return () => setEventFlowContext(null);
+  }, []);
 
   function rollBase() {
     if (missionStarted && !window.confirm('Sortear outra base reinicia a missão atual. Continuar?'))
@@ -789,13 +820,12 @@ function ReadyGame() {
         <div className="game__canvas" ref={mount} />
 
         <MissionVeil />
+        <EventFx />
         {touch && !loading && !error && intro === 'gone' && (
           <TouchJoystick viewer={viewer.current} />
         )}
         {/* Tablet de eventos: só com a base à vista (sem minigame, introdução nem fim de missão) */}
-        {intro === 'gone' && !loading && !error && !minigame && eventsPending && (
-          <EventTablet onResolve={resolveEvent} />
-        )}
+        {intro === 'gone' && !loading && !error && !minigame && eventsPending && <EventTablet />}
         {duoInvite && (
           <div className="duo-invite" role="alert">
             <span>
@@ -920,7 +950,8 @@ function ReadyGame() {
                   filtro, cama, rover…) e o astronauta vai até ele e usa
                 </li>
                 <li>
-                  clique no rover para entrar · duplo clique nele para sair · arraste para girar a câmera · role para dar zoom
+                  clique no rover para entrar · duplo clique nele para sair · arraste para girar a
+                  câmera · role para dar zoom
                 </li>
               </ul>
             </div>

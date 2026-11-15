@@ -163,3 +163,18 @@ describe('oxigênio da base', () => {
     expect(r.entries).toHaveLength(0);
   });
 });
+
+describe('blindagem', () => {
+  it('começa em 100 e as recompensas a alteram dentro de 0..100', () => {
+    const s = createMission(1);
+    expect(s.resources.shielding.value).toBe(100);
+    const r = runCommand(s, {
+      type: 'reward',
+      tone: 'bad',
+      title: 'Impacto',
+      text: 'x',
+      deltas: { shielding: -130 },
+    });
+    expect(r.state.resources.shielding.value).toBe(0);
+  });
+});
